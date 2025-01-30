@@ -258,10 +258,7 @@ export type IPasswordResponse =
 // redirecionamento
 
 export interface IValidateAccountSuccess {
-  id: number;
   email: string;
-  activated: boolean;
-  activation_code: string;
 }
 
 export type IValidateAccountToken =
