@@ -8,6 +8,9 @@
 
   const GENERAL_HIDDEN_CLASS = 'oculto'
 
+  const DISABLED_ATTR = 'disabled'
+  const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
+
   /**
    * @param node      {HTMLElement | Document}
    * @param eventName {string}
@@ -88,11 +91,11 @@
       })
 
       if (!response.ok) {
-        const error = await response.text()
+        const error = await response.json()
 
         return {
           error: true,
-          data: JSON.parse(error)
+          data: error
         }
       }
 
@@ -111,25 +114,45 @@
   }
 
   if (isAuthenticated()) {
-    location.href = '/dados-de-usuario'
+    location.href = '/acessos/dados-de-usuario'
 
     return
   }
 
-  const _resetForm = querySelector('[data-wf-user-form-type="resetPassword"]')
+  function captureForm () {
+    return querySelector('#email-form')
+  }
 
-  _resetForm.removeAttribute('data-wf-user-form-type')
+  const _resetForm = captureForm()
 
-  const previousSiblingFormElement = _resetForm.previousElementSibling
+  const removalAttributes = [
+    'name',
+    'method',
+    'data-name',
+    'aria-label',
+    'data-wf-page-id',
+    'data-wf-element-id',
+    'data-turnstile-sitekey'
+  ]
+
+  for (const attr of removalAttributes) {
+    _resetForm.removeAttribute(attr)
+  }
+
+  const parentNode = _resetForm.parentNode
 
   _resetForm.remove()
 
-  previousSiblingFormElement.insertAdjacentHTML('afterend', _resetForm.outerHTML)
+  parentNode.insertAdjacentHTML('afterbegin', _resetForm.outerHTML)
 
-  const resetForm = querySelector('[data-wtf-recover-password-block]')
+  const resetForm = captureForm()
 
-  const mailField = querySelector('[data-wtf-email]')
-  const mailFieldWrapper = querySelector('[data-wtf-email-wrapper]')
+  const formSubmit = querySelector('[type="submit"]', resetForm)
+
+  formSubmit.removeAttribute(DISABLED_ATTR)
+
+  const mailField = querySelector('[data-wtf-user]')
+  const mailFieldWrapper = querySelector('[data-wtf-user-wrapper]')
 
   const successMessage = querySelector('[data-wtf-success-message]')
 
@@ -141,30 +164,41 @@
   function validateMailField () {
     const isMailValid = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(mailField.value)
 
-    mailFieldWrapper.classList.toggle('mensagemdeerro', !isMailValid && mailField.value.length > 0)
+    mailFieldWrapper.classList.toggle(ERROR_MESSAGE_CLASS, !isMailValid && mailField.value.length > 0)
 
     return [isMailValid, 'wtfEmail']
   }
 
   attachEvent(mailField, 'blur', validateMailField, false);
   attachEvent(mailField, 'input', function () {
-    mailFieldWrapper.classList.remove('mensagemdeerro')
+    mailFieldWrapper.classList.remove(ERROR_MESSAGE_CLASS)
   }, false)
 
-  attachEvent(resetForm, 'submit', async function (e) {
+  attachEvent(resetForm, 'submit', function (e) {
+    formSubmit.setAttribute(DISABLED_ATTR, DISABLED_ATTR)
+
     e.preventDefault()
     e.stopPropagation()
 
     if (!validateMailField().at(0)) {
       generalErrorMessage.classList.remove(GENERAL_HIDDEN_CLASS)
 
-      return
+      return formSubmit.removeAttribute(DISABLED_ATTR)
     }
 
-    const response = await sendMagicLink(mailField.value)
+    sendMagicLink(mailField.value)
+      .then(response => {
+        const isError = response.error
 
-    successMessage.classList.toggle(GENERAL_HIDDEN_CLASS, response.error)
-    generalErrorMessage.classList.toggle(GENERAL_HIDDEN_CLASS, !response.error)
+        successMessage.classList.toggle(GENERAL_HIDDEN_CLASS, isError)
+        generalErrorMessage.classList.toggle(GENERAL_HIDDEN_CLASS, !isError)
+
+        if (!isError) return
+
+        querySelector('div', generalErrorMessage).textContent = response.data.message
+
+        formSubmit.removeAttribute(DISABLED_ATTR)
+      })
   }, false)
 
 })()
