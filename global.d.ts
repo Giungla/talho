@@ -60,25 +60,27 @@ export interface IFormMapNames {
   errorMessage: null | HTMLDivElement;
 }
 
+export interface IXanoErrorPattern <T = null> {
+  code: string;
+  message: string;
+  payload: T;
+  traceId: string
+}
+
 export interface ISignInErrorResponse {
   error: true;
-  data: {
-    code: string;
-    message: string;
-    payload: {
-      reason:
-        | 'ACCOUNT_EXISTS'
-        | 'ACCOUNT_NOT_EXISTS'
-        | 'ACCOUNT_NOT_ACTIVE'
-        | 'INVALID_CREDENTIALS'
-        | 'COULD_NOT_CREATE_MAGIC_LINK'
-        | 'MISSING_MAGIC_TOKEN'
-        | 'INVALID_MAGIC_TOKEN'
-        | 'EXPIRED_MAGIC_TOKEN'
-        | 'USED_MAGIC_TOKEN';
-    };
-    traceId: string;
-  };
+  data: IXanoErrorPattern<{
+    reason:
+      | 'ACCOUNT_EXISTS'
+      | 'ACCOUNT_NOT_EXISTS'
+      | 'ACCOUNT_NOT_ACTIVE'
+      | 'INVALID_CREDENTIALS'
+      | 'COULD_NOT_CREATE_MAGIC_LINK'
+      | 'MISSING_MAGIC_TOKEN'
+      | 'INVALID_MAGIC_TOKEN'
+      | 'EXPIRED_MAGIC_TOKEN'
+      | 'USED_MAGIC_TOKEN';
+  }>
 }
 
 export interface ISignInSuccessResponse<T = null> {
