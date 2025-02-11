@@ -2,7 +2,7 @@
   'use strict';
 
   const COOKIE_NAME = '__Host-Talho-AuthToken'
-  const USER_DATA_PATH = '/acessos/dados-de-usuario'
+  const USER_DATA_PATH = 'area-do-usuario/dados'
 
   const COOKIE_SEPARATOR = '; '
 
