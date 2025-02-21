@@ -1,0 +1,11 @@
+{
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "uglify-js": "^3.19.3"
+  },
+  "scripts": {
+    "build": "tsc --declaration && yarn run minify",
+    "minify": "uglifyjs --compress --mangle --output newsletter.v01.min.js -- newsletter.js"
+  }
+}

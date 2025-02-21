@@ -64,23 +64,11 @@ export interface IXanoErrorPattern <T = null> {
   code: string;
   message: string;
   payload: T;
-  traceId: string
 }
 
 export interface ISignInErrorResponse {
   error: true;
-  data: IXanoErrorPattern<{
-    reason:
-      | 'ACCOUNT_EXISTS'
-      | 'ACCOUNT_NOT_EXISTS'
-      | 'ACCOUNT_NOT_ACTIVE'
-      | 'INVALID_CREDENTIALS'
-      | 'COULD_NOT_CREATE_MAGIC_LINK'
-      | 'MISSING_MAGIC_TOKEN'
-      | 'INVALID_MAGIC_TOKEN'
-      | 'EXPIRED_MAGIC_TOKEN'
-      | 'USED_MAGIC_TOKEN';
-  }>
+  data: IXanoErrorPattern;
 }
 
 export interface ISignInSuccessResponse<T = null> {
@@ -812,15 +800,23 @@ export interface IPaginateSchema <T> {
 
 
 
-export type INewsletterParams =
-  | {
-  type: 'email';
+export interface INewsletterParams {
   email: string;
 }
-  | {
-  type: 'whatsapp';
-  number: string;
-};
+
+export interface INewsletterSuccessfulResponse {
+  message: string;
+}
+
+export interface FunctionSucceededPattern <T = null> {
+  data: T;
+  succeeded: true;
+}
+
+export interface FunctionErrorPattern {
+  succeeded: false;
+  message: string;
+}
 
 
 
