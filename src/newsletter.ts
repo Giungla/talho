@@ -6,6 +6,7 @@ import {
 } from "../global";
 
 (function () {
+  debugger
   'use strict';
 
   const GENERAL_HIDDEN_CLASS = 'oculto'
@@ -207,6 +208,7 @@ import {
 
   const newsletterForms = ['#wf-form-Optin-Form-Mobile', '#wf-form-Optin-Form-Desktop']
 
+  debugger
   const removeAttributes = [
     'name',
     'data-name',
@@ -224,8 +226,6 @@ import {
       _form.removeAttribute(attr)
     }
 
-    querySelector('input[type="submit"]', _form)?.removeAttribute('disabled')
-
     const formParentNode = _form.parentNode
 
     _form.remove()
@@ -242,6 +242,8 @@ import {
       attachEvent(form, 'submit', handleNewsletterFormSubmit, false)
 
       addClass(formParentNode, 'w-form')
+
+      querySelector('input[type="submit"]', form)?.removeAttribute('disabled')
     }
   }
 
