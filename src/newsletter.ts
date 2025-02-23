@@ -6,7 +6,6 @@ import {
 } from "../global";
 
 (function () {
-  debugger
   'use strict';
 
   const GENERAL_HIDDEN_CLASS = 'oculto'
@@ -208,7 +207,6 @@ import {
 
   const newsletterForms = ['#wf-form-Optin-Form-Mobile', '#wf-form-Optin-Form-Desktop']
 
-  debugger
   const removeAttributes = [
     'name',
     'data-name',

@@ -146,7 +146,6 @@
         for (const attr of removeAttributes) {
             _form.removeAttribute(attr);
         }
-        querySelector('input[type="submit"]', _form)?.removeAttribute('disabled');
         const formParentNode = _form.parentNode;
         _form.remove();
         if (formParentNode && formParentNode instanceof HTMLElement) {
@@ -157,6 +156,7 @@
                 return;
             attachEvent(form, 'submit', handleNewsletterFormSubmit, false);
             addClass(formParentNode, 'w-form');
+            querySelector('input[type="submit"]', form)?.removeAttribute('disabled');
         }
     }
     document.querySelectorAll('form [data-wtf-email]').forEach(field => {
