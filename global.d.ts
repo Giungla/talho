@@ -802,6 +802,7 @@ export interface IPaginateSchema <T> {
 
 export interface INewsletterParams {
   email: string;
+  accepted_terms: boolean;
 }
 
 export interface INewsletterSuccessfulResponse {

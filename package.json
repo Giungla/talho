@@ -5,7 +5,8 @@
     "uglify-js": "^3.19.3"
   },
   "scripts": {
-    "build": "tsc --declaration && yarn run minify",
-    "minify": "uglifyjs --compress --mangle --output newsletter.v01.min.js -- newsletter.js"
+    "build": "tsc && yarn minify",
+    "minify": "uglifyjs --compress --mangle --output ./dist/newsletter.v01.js -- ./dist/newsletter.js",
+    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/newsletter.v01.min.js -- ./dist/newsletter.js"
   }
 }

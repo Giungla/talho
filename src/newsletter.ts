@@ -3,12 +3,13 @@ import {
   FunctionSucceededPattern,
   INewsletterParams,
   INewsletterSuccessfulResponse
-} from "./global";
+} from "../global";
 
 (function () {
   'use strict';
 
   const GENERAL_HIDDEN_CLASS = 'oculto'
+  const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
 
   function querySelector<
     K extends keyof HTMLElementTagNameMap,
@@ -59,14 +60,36 @@ import {
 
     if (!target) return
 
+    const callbackValidation = [validateMailField, validateConsentField].find(callback => {
+      const isFieldValid = callback(target).at(1)
+
+      return !isFieldValid
+    })
+
+    if (callbackValidation) {
+      const [ name ] = callbackValidation(target)
+
+      const attributeName = `[data-${camelToKebabCase(name as string)}]`
+
+      querySelector(attributeName, target)?.focus({
+        preventScroll: false
+      })
+
+      return
+    }
+
     const response = await postNewsletter({
-      email: target?.email?.value
+      email: target?.email?.value,
+      accepted_terms: target?.consent?.checked ?? false
     })
 
     handleMessages(target, response)
 
     target.reset()
-    addClass(target, GENERAL_HIDDEN_CLASS)
+
+    const checked = querySelector('.w--redirected-checked', target)
+
+    checked && removeClass(checked, 'w--redirected-checked')
   }
 
   function handleMessages (form: HTMLFormElement, response: Awaited<ReturnType<typeof postNewsletter>>) {
@@ -96,6 +119,13 @@ import {
     }, 8000)
   }
 
+  function postErrorResponse (message: string): FunctionErrorPattern {
+    return {
+      message,
+      succeeded: false
+    }
+  }
+
   async function postNewsletter (payload: INewsletterParams): Promise<FunctionSucceededPattern<INewsletterSuccessfulResponse> | FunctionErrorPattern> {
     const defaultErrorMessage = 'Houve uma falha ao enviar o e-mail, tente novamente em breve!'
 
@@ -111,10 +141,7 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return {
-          succeeded: false,
-          message: error?.message ?? defaultErrorMessage
-        }
+        return postErrorResponse(error?.message ?? defaultErrorMessage)
       }
 
       const data: INewsletterSuccessfulResponse = await response.json()
@@ -126,11 +153,56 @@ import {
         }
       }
     } catch (e) {
-      return {
-        succeeded: false,
-        message: defaultErrorMessage
-      }
+      return postErrorResponse(defaultErrorMessage)
     }
+  }
+
+  function validatorResponse (datasetName: string) {
+    return function (valid: boolean) {
+      return [datasetName, valid]
+    }
+  }
+
+  function camelToKebabCase (str: string) {
+    return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
+  }
+
+  function applyWrapperError (element: Exclude<ReturnType<typeof querySelector>, null>, isValid: boolean) {
+    const wrapperElement = element.closest('[data-wtf-wrapper]')
+
+    wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, isValid)
+  }
+
+  function validateMailField (formElement: ReturnType<typeof querySelector<'form'>>) {
+    const response = validatorResponse('wtfEmail')
+
+    if (!formElement) return response(false)
+
+    const mailField = querySelector<'input'>('[data-wtf-email]', formElement)
+
+    if (!mailField) return response(false)
+
+    const isFieldValid = /^(([\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+(\.[\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+)*)|("[\p{L}\p{N}\s!#$%&'*+\/=?^_`{|}~.-]+"))@(([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}|(\[(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\]))$/u.test(mailField.value)
+
+    applyWrapperError(mailField, !isFieldValid)
+
+    return response(isFieldValid)
+  }
+
+  function validateConsentField (formElement: ReturnType<typeof querySelector<'form'>>) {
+    const response = validatorResponse('wtfConsent')
+
+    if (!formElement) return response(false)
+
+    const consentField = querySelector<'input'>('[data-wtf-consent]', formElement)
+
+    if (!consentField) return response(false)
+
+    const isConsentValid = consentField.checked
+
+    applyWrapperError(consentField, !isConsentValid)
+
+    return response(isConsentValid)
   }
 
   const newsletterForms = ['#wf-form-Optin-Form-Mobile', '#wf-form-Optin-Form-Desktop']
@@ -144,7 +216,7 @@ import {
   ]
 
   for (const id of newsletterForms) {
-    const _form = querySelector(id)
+    const _form = querySelector<'form'>(id)
 
     if (!_form) continue
 
@@ -163,13 +235,27 @@ import {
 
       formParentNode.insertAdjacentHTML('afterbegin', _form.outerHTML)
 
-      const form = querySelector('form', formParentNode)
+      const form = querySelector<'form'>(id, formParentNode)
 
       if (!form) return
 
-      attachEvent(form as HTMLFormElement, 'submit', handleNewsletterFormSubmit, false)
+      attachEvent(form, 'submit', handleNewsletterFormSubmit, false)
 
-      addClass(form.parentElement as HTMLElement, 'w-form')
+      addClass(formParentNode, 'w-form')
     }
   }
+
+  document.querySelectorAll('form [data-wtf-email]').forEach(field => {
+    attachEvent(field as HTMLInputElement, 'blur', () => validateMailField(field.closest('form')), false)
+
+    attachEvent(field as HTMLInputElement, 'input', function () {
+      const fieldWrapper = field.closest('[data-wtf-wrapper]')
+
+      fieldWrapper && removeClass(fieldWrapper, ERROR_MESSAGE_CLASS)
+    }, false)
+  })
+
+  document.querySelectorAll('form [data-wtf-consent]').forEach(field => {
+    attachEvent(field as HTMLInputElement, 'input', () => validateConsentField(field.closest('form')), false)
+  })
 })()
