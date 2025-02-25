@@ -162,6 +162,14 @@ export interface IViaCEPPayload {
   complemento: string;
 }
 
+export type VIACEPFromXano = Omit<IViaCEPPayload, 'ddd' | 'gia' | 'ibge' | 'regiao' | 'siafi' | 'unidade'>;
+
+export interface IUserCreatedAddress {
+  id: string;
+  nick: string;
+  address: string;
+}
+
 export interface IAddress {
   /**
    * ID do endereço cadastrado no banco
@@ -199,15 +207,6 @@ export interface IAddress {
    * será sempre composto por 2 caracteres, retornara qualquer uma das 26 siglas dos estados brasileiros eg.: PE, SP, RJ
    */
   state: IStateAcronym;
-
-  /**
-   * Opções de parcelamento para cartão de crédito
-   */
-  _listInstallments?: [];
-  /**
-   * Opção de parcelamento via cartão de crédito selecionada
-   */
-  selectedInstallmentOption?: number;
 }
 
 export interface IResponseError {
