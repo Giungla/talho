@@ -365,7 +365,6 @@ import {
 
       checkInputExistenceAndSetItsValue(cep, cepValue)
       checkInputExistenceAndSetItsValue(address, logradouro)
-      checkInputExistenceAndSetItsValue(complement, complemento)
       checkInputExistenceAndSetItsValue(neighborhood, bairro)
       checkInputExistenceAndSetItsValue(city, localidade)
       checkInputExistenceAndSetItsValue(state, uf)
