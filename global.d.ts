@@ -91,8 +91,9 @@ export type IScrollIntoViewArgs =
 
 export interface ICurrentUserData {
   id: number;
-  cpf: string;
+  cpf?: string;
   name: string;
+  last_name?: string;
   email: string;
   birthday: string;
   telephone: string;
@@ -938,3 +939,13 @@ export type ICartOfferPayload = Nullable<{
   showable?: boolean;
   order_price: number;
 }>;
+
+/*
+ * Personal User Data
+ */
+
+type ICurrentUserDataOptional = Omit<ICurrentUserData, 'id'>
+
+export interface UserStateProxy extends ICurrentUserDataOptional {
+  isFormVisible: boolean;
+}
