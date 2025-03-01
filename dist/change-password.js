@@ -74,6 +74,9 @@
     function camelToKebabCase(str) {
         return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
     }
+    function objectSize(value) {
+        return value.length;
+    }
     function postErrorResponse(message) {
         return {
             message,
@@ -170,10 +173,7 @@
     for (const { field, validator } of validators) {
         if (!field)
             continue;
-        attachEvent(field, 'blur', function () {
-            console.log(field.dataset);
-            validator();
-        });
+        attachEvent(field, 'blur', validator);
         attachEvent(field, 'input', () => applyWrapperError(field, true));
     }
     function validatePasswordParts(password) {
@@ -197,7 +197,7 @@
         if (!hasLowercase)
             return message(1, 'letra minúscula');
         if (!hasUppercase)
-            return message(1, 'maiúscula');
+            return message(1, 'letra maiúscula');
         return false;
     }
     function updateFieldErrorMessage(field, message) {
@@ -207,6 +207,9 @@
         if (!messageArea)
             return;
         messageArea.textContent = message;
+    }
+    function hasEqualsPasswords(password, confirmPassword) {
+        return password && confirmPassword && password?.value === confirmPassword?.value;
     }
     function validatePassword() {
         const response = validatorResponse('wtfPassword');
@@ -223,17 +226,18 @@
         });
         updateFieldErrorMessage(passwordField, message || '');
         applyWrapperError(passwordField, isFieldValid);
+        if (objectSize(confirmPasswordField?.value ?? '') > 0 && hasEqualsPasswords(passwordField, confirmPasswordField)) {
+            validateConfirmPassword();
+        }
         return response(isFieldValid);
     }
     function validateConfirmPassword() {
         const response = validatorResponse('wtfConfirmPassword');
-        if (!passwordField || !confirmPasswordField)
-            return response(false);
-        const isFieldValid = passwordField.value === confirmPasswordField.value;
+        const isFieldValid = hasEqualsPasswords(passwordField, confirmPasswordField);
         updateFieldErrorMessage(confirmPasswordField, isFieldValid
-            ? 'okok'
+            ? ''
             : 'As senhas informadas não conferem');
-        applyWrapperError(confirmPasswordField, isFieldValid);
+        confirmPasswordField && applyWrapperError(confirmPasswordField, isFieldValid);
         return response(isFieldValid);
     }
     const updatePasswordForm = querySelector('#wf-form-update-password');

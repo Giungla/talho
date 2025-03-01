@@ -121,6 +121,10 @@ import {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
   }
 
+  function objectSize (value: string | Array<any>): number {
+    return value.length
+  }
+
   function postErrorResponse (message: string): FunctionErrorPattern {
     return {
       message,
@@ -245,10 +249,7 @@ import {
   for (const { field, validator } of validators) {
     if (!field) continue
 
-    attachEvent(field, 'blur', function () {
-      console.log(field.dataset)
-      validator()
-    })
+    attachEvent(field, 'blur', validator)
 
     attachEvent(field, 'input', () => applyWrapperError(field, true))
   }
@@ -276,7 +277,7 @@ import {
 
     if (!hasLowercase) return message(1, 'letra minúscula')
 
-    if (!hasUppercase) return message(1, 'maiúscula')
+    if (!hasUppercase) return message(1, 'letra maiúscula')
 
     return false
   }
@@ -289,6 +290,10 @@ import {
     if (!messageArea) return
 
     messageArea.textContent = message
+  }
+
+  function hasEqualsPasswords <T extends ReturnType<typeof querySelector<'input'>>> (password: T, confirmPassword: T): boolean {
+    return password && confirmPassword && password?.value === confirmPassword?.value
   }
 
   function validatePassword () {
@@ -318,15 +323,17 @@ import {
 
     applyWrapperError(passwordField, isFieldValid)
 
+    if (objectSize(confirmPasswordField?.value ?? '') > 0 && hasEqualsPasswords(passwordField, confirmPasswordField)) {
+      validateConfirmPassword()
+    }
+
     return response(isFieldValid)
   }
 
   function validateConfirmPassword () {
     const response = validatorResponse('wtfConfirmPassword')
 
-    if (!passwordField || !confirmPasswordField) return response(false)
-
-    const isFieldValid = passwordField.value === confirmPasswordField.value
+    const isFieldValid = hasEqualsPasswords(passwordField, confirmPasswordField)
 
     updateFieldErrorMessage(
       confirmPasswordField,
@@ -335,7 +342,7 @@ import {
         : 'As senhas informadas não conferem'
     )
 
-    applyWrapperError(confirmPasswordField, isFieldValid)
+    confirmPasswordField && applyWrapperError(confirmPasswordField, isFieldValid)
 
     return response(isFieldValid)
   }
