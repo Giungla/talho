@@ -819,6 +819,11 @@ export interface FunctionErrorPattern {
   message: string;
 }
 
+export interface ValidatorScheme {
+  field: HTMLInputElement | null;
+  validator: () => any;
+}
+
 
 
 
@@ -948,4 +953,8 @@ type ICurrentUserDataOptional = Omit<ICurrentUserData, 'id'>
 
 export interface UserStateProxy extends ICurrentUserDataOptional {
   isFormVisible: boolean;
+}
+
+export interface IGoogleAuthURLResponse {
+  authUrl: string;
 }
