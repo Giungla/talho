@@ -7,7 +7,13 @@ export interface ILoginUser {
 }
 
 export interface ILoginUserPayload {
+  /**
+   * Token de autenticação gerado pelo backend da aplicação
+   */
   authToken: string;
+  /**
+   * Retorna o timestamp informando quando o token fornecido irá expirar
+   */
   expiration: number;
 }
 
@@ -36,6 +42,7 @@ export interface ISplitCookieObject {
 
 export interface ISignUpParam {
   name: string;
+  lastName: string;
   email: string;
   /**
    * @description Aceito receber novidades via SMS e e-mail
@@ -46,6 +53,10 @@ export interface ISignUpParam {
    */
   consent: boolean;
   password: string;
+}
+
+export interface SignupResponse {
+  message: string;
 }
 
 export interface IFailedGroup {
@@ -819,6 +830,8 @@ export interface FunctionErrorPattern {
   message: string;
 }
 
+export type ResponsePattern <T> = FunctionSucceededPattern<T> | FunctionErrorPattern;
+
 export interface ValidatorScheme {
   field: HTMLInputElement | null;
   validator: () => any;
@@ -846,7 +859,6 @@ export interface ISingleOrderItem {
   reference_id: string;
   inPaidOrder: boolean;
 }
-
 
 /** Avaliações */
 
@@ -957,4 +969,15 @@ export interface UserStateProxy extends ICurrentUserDataOptional {
 
 export interface IGoogleAuthURLResponse {
   authUrl: string;
+}
+
+
+export interface GoogleContinueOAuthResponse {
+  token: string;
+  maxAge: number;
+}
+
+export interface SignupStateStatus {
+  valid: boolean;
+  failedName: string;
 }
