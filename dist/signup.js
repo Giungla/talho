@@ -287,7 +287,7 @@
     attachEvent(consentField, 'input', validateConsentField, false);
     attachEvent(signupForm, 'reset', () => {
         const checkedClass = 'w--redirected-checked';
-        document.querySelectorAll(`#wf-form-register .${checkedClass}`).forEach(element => {
+        document.querySelectorAll(`#${signupForm?.id} .${checkedClass}`).forEach(element => {
             removeClass(element, checkedClass);
         });
     });
