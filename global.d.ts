@@ -981,3 +981,5 @@ export interface SignupStateStatus {
   valid: boolean;
   failedName: string;
 }
+
+export type ValidatorResponse = (valid: boolean) => [string, boolean]
