@@ -6,7 +6,7 @@
   },
   "scripts": {
     "build": "tsc && yarn minify-separeted",
-    "minify": "uglifyjs --compress --mangle --output ./dist/signup.v02.js -- ./dist/signup.js",
-    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/signup.v02.min.js -- ./dist/signup.js"
+    "minify": "uglifyjs --compress --mangle --output ./dist/recover-access.v01.js -- ./dist/recover-access.js",
+    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/recover-access.v01.min.js -- ./dist/recover-access.js"
   }
 }
