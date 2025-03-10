@@ -316,11 +316,15 @@
         const wrapperElement = element.closest('[data-wtf-wrapper]');
         wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid);
     }
+    function isNameValid(name) {
+        return /^[a-zA-Z\s]+$/.test(name);
+    }
     function validateNameField() {
         const response = validatorResponse('wtfNameUpdate');
         if (!nameField)
             return response(false);
-        const isFieldValid = objectSize(removeDuplicatedSpaces(normalizeText(nameField.value))) > 1;
+        const cleanedName = removeDuplicatedSpaces(normalizeText(nameField.value));
+        const isFieldValid = objectSize(cleanedName) > 1 && isNameValid(cleanedName);
         applyWrapperError(nameField, isFieldValid);
         return response(isFieldValid);
     }
@@ -328,7 +332,8 @@
         const response = validatorResponse('wtfLastNameUpdate');
         if (!lastNameField)
             return response(false);
-        const isFieldValid = objectSize(removeDuplicatedSpaces(normalizeText(lastNameField.value))) > 0;
+        const cleanedName = removeDuplicatedSpaces(normalizeText(lastNameField.value));
+        const isFieldValid = objectSize(cleanedName) > 0 && isNameValid(cleanedName);
         applyWrapperError(lastNameField, isFieldValid);
         return response(isFieldValid);
     }
