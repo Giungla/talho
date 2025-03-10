@@ -301,6 +301,14 @@ import {
     }
   }
 
+  function objectSize (value: string | Array<any>): number {
+    return value.length
+  }
+
+  function isNameValid (name: string): boolean {
+    return /^[a-zA-Z\s]+$/.test(name)
+  }
+
   function validateNameField () {
     const response = validatorResponse('wtfUser')
 
@@ -308,7 +316,7 @@ import {
 
     const cleanName = normalizeText(nameField.value).trim().replace(/\s{2,}/g, ' ')
 
-    const isFieldValid = !/\d+/.test(cleanName) && cleanName.length > 1
+    const isFieldValid = objectSize(cleanName) > 1 && isNameValid(cleanName)
 
     applyWrapperError(nameField, isFieldValid)
 
@@ -322,7 +330,7 @@ import {
 
     const cleanName = normalizeText(lastNameField.value).trim().replace(/\s{2,}/g, ' ')
 
-    const isFieldValid = !/\d+/.test(cleanName) && cleanName.length > 0
+    const isFieldValid = objectSize(cleanName) > 0 && isNameValid(cleanName)
 
     applyWrapperError(lastNameField, isFieldValid)
 

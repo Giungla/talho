@@ -213,12 +213,18 @@
             hasSpecialChar: testRegex(/[!@#$%^&*()_+{}\[\]:;<>,.?\/~\\-]/),
         };
     }
+    function objectSize(value) {
+        return value.length;
+    }
+    function isNameValid(name) {
+        return /^[a-zA-Z\s]+$/.test(name);
+    }
     function validateNameField() {
         const response = validatorResponse('wtfUser');
         if (!nameField)
             return response(false);
         const cleanName = normalizeText(nameField.value).trim().replace(/\s{2,}/g, ' ');
-        const isFieldValid = !/\d+/.test(cleanName) && cleanName.length > 1;
+        const isFieldValid = objectSize(cleanName) > 1 && isNameValid(cleanName);
         applyWrapperError(nameField, isFieldValid);
         return response(isFieldValid);
     }
@@ -227,7 +233,7 @@
         if (!lastNameField)
             return response(false);
         const cleanName = normalizeText(lastNameField.value).trim().replace(/\s{2,}/g, ' ');
-        const isFieldValid = !/\d+/.test(cleanName) && cleanName.length > 0;
+        const isFieldValid = objectSize(cleanName) > 0 && isNameValid(cleanName);
         applyWrapperError(lastNameField, isFieldValid);
         return response(isFieldValid);
     }
