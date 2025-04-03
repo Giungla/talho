@@ -103,7 +103,6 @@
             switch (key) {
                 case 'name':
                 case 'last_name':
-                    debugger;
                     renderSinglePersonalData(printName, receiver?.fullName ?? '');
                     break;
                 case 'birthday':
@@ -117,6 +116,9 @@
                     break;
                 case 'email':
                     renderSinglePersonalData(printEmail, newValue);
+                    break;
+                case 'points':
+                    renderSinglePersonalData(printPoints, newValue);
                     break;
                 case 'isFormVisible':
                     console.log('form estará visivel: ', newValue);
@@ -180,7 +182,7 @@
             birthday,
             name: nameField?.value,
             telephone: phoneField?.value,
-            last_name: lastNameField?.value,
+            last_name: lastNameField?.value
         };
         if (hasCPF) {
             Object.assign(body, { cpf: CPFField?.value });
@@ -191,6 +193,7 @@
             return;
         syncState(response.data);
     });
+    const printPoints = querySelector('[data-wtf-score]');
     const printName = querySelector('[data-wtf-name]');
     const printEmail = querySelector('[data-wtf-email]');
     const printPhone = querySelector('[data-wtf-phone]');

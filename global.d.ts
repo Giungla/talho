@@ -102,12 +102,13 @@ export type IScrollIntoViewArgs =
 
 export interface ICurrentUserData {
   id: number;
-  cpf?: string;
+  cpf: string | null;
   name: string;
   last_name?: string;
   email: string;
   birthday: string;
   telephone: string;
+  points: number;
 }
 
 export interface IQueryPattern<T = null> {

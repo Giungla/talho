@@ -162,7 +162,6 @@ import {
       switch (key) {
         case 'name':
         case 'last_name':
-          debugger
           renderSinglePersonalData(printName, receiver?.fullName ?? '')
 
           break
@@ -180,6 +179,10 @@ import {
           break
         case 'email':
           renderSinglePersonalData(printEmail, newValue as string)
+
+          break
+        case 'points':
+          renderSinglePersonalData(printPoints, newValue as string)
 
           break
         case 'isFormVisible':
@@ -262,11 +265,11 @@ import {
       .reverse()
       .join('-')
 
-    const body: Omit<ICurrentUserData, 'id' | 'email'> = {
+    const body: Omit<ICurrentUserData, 'id' | 'email' | 'cpf' | 'points'> = {
       birthday,
       name: nameField?.value as string,
       telephone: phoneField?.value as string,
-      last_name: lastNameField?.value as string,
+      last_name: lastNameField?.value as string
     }
 
     if (hasCPF) {
@@ -282,6 +285,7 @@ import {
     syncState(response.data)
   })
 
+  const printPoints = querySelector<'div'>('[data-wtf-score]')
   const printName = querySelector<'div'>('[data-wtf-name]')
   const printEmail = querySelector<'div'>('[data-wtf-email]')
   const printPhone = querySelector<'div'>('[data-wtf-phone]')
@@ -544,7 +548,7 @@ import {
     return result
   }
   
-  async function postPersonalData (payload: Omit<ICurrentUserData, 'id' | 'email'>): Promise<FunctionSucceededPattern<Omit<ICurrentUserData, 'id'>> | FunctionErrorPattern> {
+  async function postPersonalData (payload: Omit<ICurrentUserData, 'id' | 'email' | 'cpf' | 'points'>): Promise<FunctionSucceededPattern<Omit<ICurrentUserData, 'id'>> | FunctionErrorPattern> {
     const defaultErrorMessage = 'Houve uma falha ao salvar seus dados. Tente novamente mais tarde.'
 
     try {
