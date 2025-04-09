@@ -75,6 +75,10 @@ import {
     }
   }
 
+  function isPageLoading (status: boolean) {
+    toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
+  }
+
   function isAuthenticated (): boolean {
     return getCookie(COOKIE_NAME) !== false
   }
@@ -381,6 +385,8 @@ import {
       return removeAttribute(submit, DISABLED_ATTR)
     }
 
+    isPageLoading(true)
+
     const response = await updatePassword({
       password: updatePasswordForm?.password.value as string,
       confirm_password: updatePasswordForm?.confirm_password.value as string
@@ -390,9 +396,13 @@ import {
 
     removeAttribute(submit, DISABLED_ATTR)
 
-    if (!response.succeeded) return
+    if (!response.succeeded) return isPageLoading(false)
 
     updatePasswordForm.reset()
+
+    isPageLoading(false)
   })
+
+  isPageLoading(false)
 
 })()

@@ -38,6 +38,9 @@
             value
         };
     }
+    function isPageLoading(status) {
+        toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status);
+    }
     function isAuthenticated() {
         return getCookie(COOKIE_NAME) !== false;
     }
@@ -262,6 +265,7 @@
             }, 0);
             return removeAttribute(submit, DISABLED_ATTR);
         }
+        isPageLoading(true);
         const response = await updatePassword({
             password: updatePasswordForm?.password.value,
             confirm_password: updatePasswordForm?.confirm_password.value
@@ -269,8 +273,10 @@
         handleMessages(updatePasswordForm, response);
         removeAttribute(submit, DISABLED_ATTR);
         if (!response.succeeded)
-            return;
+            return isPageLoading(false);
         updatePasswordForm.reset();
+        isPageLoading(false);
     });
+    isPageLoading(false);
 })();
 export {};

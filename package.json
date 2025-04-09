@@ -6,7 +6,7 @@
   },
   "scripts": {
     "build": "tsc && yarn minify-separeted",
-    "minify": "uglifyjs --compress --mangle --output ./dist/user-addresses.v03.js -- ./dist/user-addresses.js",
-    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/user-addresses.v03.min.js -- ./dist/user-addresses.js"
+    "minify": "uglifyjs --compress --mangle --output ./dist/change-password.v03.js -- ./dist/change-password.js",
+    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/change-password.v03.min.js -- ./dist/change-password.js"
   }
 }
