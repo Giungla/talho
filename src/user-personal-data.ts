@@ -265,8 +265,9 @@ import {
       .reverse()
       .join('-')
 
-    const body: Omit<ICurrentUserData, 'id' | 'email' | 'cpf' | 'points'> = {
+    const body: Omit<ICurrentUserData, 'id' | 'email' | 'points'> = {
       birthday,
+      cpf: CPFField?.value as string,
       name: nameField?.value as string,
       telephone: phoneField?.value as string,
       last_name: lastNameField?.value as string
@@ -548,7 +549,7 @@ import {
     return result
   }
   
-  async function postPersonalData (payload: Omit<ICurrentUserData, 'id' | 'email' | 'cpf' | 'points'>): Promise<FunctionSucceededPattern<Omit<ICurrentUserData, 'id'>> | FunctionErrorPattern> {
+  async function postPersonalData (payload: Omit<ICurrentUserData, 'id' | 'email' | 'points'>): Promise<FunctionSucceededPattern<Omit<ICurrentUserData, 'id'>> | FunctionErrorPattern> {
     const defaultErrorMessage = 'Houve uma falha ao salvar seus dados. Tente novamente mais tarde.'
 
     try {

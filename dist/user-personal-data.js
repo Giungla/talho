@@ -180,6 +180,7 @@
             .join('-');
         const body = {
             birthday,
+            cpf: CPFField?.value,
             name: nameField?.value,
             telephone: phoneField?.value,
             last_name: lastNameField?.value

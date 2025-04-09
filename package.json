@@ -6,7 +6,7 @@
   },
   "scripts": {
     "build": "tsc && yarn minify-separeted",
-    "minify": "uglifyjs --compress --mangle --output ./dist/user-personal-data.v03.js -- ./dist/user-personal-data.js",
-    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/user-personal-data.v03.min.js -- ./dist/user-personal-data.js"
+    "minify": "uglifyjs --compress --mangle --output ./dist/user-personal-data.v04.js -- ./dist/user-personal-data.js",
+    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/user-personal-data.v04.min.js -- ./dist/user-personal-data.js"
   }
 }
