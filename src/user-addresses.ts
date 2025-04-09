@@ -3,7 +3,7 @@ import {
   FunctionSucceededPattern,
   IAddress,
   ISplitCookieObject,
-  type IStateAcronym, IUserCreatedAddress,
+  type IStateAcronym, IUserCreatedAddress, ResponsePattern,
   VIACEPFromXano
 } from "../global";
 
@@ -125,11 +125,24 @@ import {
     element.removeAttribute(attribute)
   }
 
+  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
+    return {
+      data: response,
+      succeeded: true
+    }
+  }
+
   function postErrorResponse (message: string): FunctionErrorPattern {
     return {
       message,
       succeeded: false
     }
+  }
+
+  const HEADERS = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: getCookie(COOKIE_NAME) as string,
   }
 
   const noAddressesMessage = querySelector<'div'>('[data-wtf-error-message-no-address-registered]')
@@ -199,7 +212,7 @@ import {
     addressContainer.appendChild(template)
   }
 
-  async function searchAddress (cep: string): Promise<FunctionSucceededPattern<VIACEPFromXano> | FunctionErrorPattern> {
+  async function searchAddress (cep: string): Promise<ResponsePattern<VIACEPFromXano>> {
     const defaultErrorMessage = 'O CEP informado não foi encontrado'
 
     try {
@@ -213,23 +226,18 @@ import {
 
       const address: VIACEPFromXano = await response.json()
 
-      return {
-        data: address,
-        succeeded: true
-      }
+      return postSuccessResponse(address)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
   }
 
-  async function getUserAddresses (): Promise<FunctionSucceededPattern<IUserCreatedAddress[]> | FunctionErrorPattern> {
+  async function getUserAddresses (): Promise<ResponsePattern<IUserCreatedAddress[]>> {
     const defaultErrorMessage = 'Houve uma falha ao buscar os seus endereços. Tente novamente mais tarde.'
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/all`, {
-        headers: {
-          'Authorization': getCookie(COOKIE_NAME) as string
-        }
+        headers: HEADERS
       })
 
       if (!response.ok) {
@@ -240,24 +248,19 @@ import {
 
       const addresses: IUserCreatedAddress[] = await response.json()
 
-      return {
-        succeeded: true,
-        data: addresses,
-      }
+      return postSuccessResponse(addresses)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
   }
 
-  async function deleteUserAddress (id: IUserCreatedAddress['id']): Promise<FunctionSucceededPattern<null> | FunctionErrorPattern> {
+  async function deleteUserAddress (id: IUserCreatedAddress['id']): Promise<ResponsePattern<null>> {
     const defaultErrorMessage = 'Houve uma falha ao remover o endereço. Tente novamente mais tarde.'
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/${id}/delete`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': getCookie(COOKIE_NAME) as string
-        }
+        headers: HEADERS
       })
 
       if (!response.ok) {
@@ -266,26 +269,19 @@ import {
         return postErrorResponse(error?.message ?? defaultErrorMessage)
       }
 
-      return {
-        data: null,
-        succeeded: true
-      }
+      return postSuccessResponse(null)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
   }
 
-  async function createAddress (address: Omit<IAddress, 'id'>): Promise<FunctionSucceededPattern<IUserCreatedAddress> | FunctionErrorPattern> {
+  async function createAddress (address: Omit<IAddress, 'id'>): Promise<ResponsePattern<IUserCreatedAddress>> {
     const defaultErrorMessage = 'Houve uma falha ao salvar o endereço. Por favor, tente novamente mais tarde.'
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/create`, {
         method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': getCookie(COOKIE_NAME) as string
-        },
+        headers: HEADERS,
         body: JSON.stringify(address)
       })
 
@@ -297,10 +293,7 @@ import {
 
       const createdAddress: IAddress = await response.json()
 
-      return {
-        succeeded: true,
-        data: createdAddress
-      }
+      return postSuccessResponse(createdAddress)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
