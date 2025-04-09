@@ -53,6 +53,10 @@ import {
     'TO',
   ]
 
+  function isPageLoading (status: boolean) {
+    toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
+  }
+
   function querySelector<
     K extends keyof HTMLElementTagNameMap,
     T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
@@ -579,6 +583,8 @@ import {
       return
     }
 
+    isPageLoading(true)
+
     const response = await createAddress({
       nick: addressNick?.value as string,
       cep: cep?.value as string,
@@ -592,16 +598,20 @@ import {
 
     handleMessages(formElement, response)
 
-    if (!response.succeeded) return
+    if (!response.succeeded) return isPageLoading(false)
 
     formElement.reset()
 
     saveCreatedAddress(response.data)
+
+    isPageLoading(false)
   }, false)
 
-  getUserAddresses().then(response => {
-    if (!response.succeeded) return
+  getUserAddresses()
+    .then(response => {
+      if (!response.succeeded) return
 
-    objectSize(response.data) > 0 && saveCreatedAddress(response.data)
-  })
+      objectSize(response.data) > 0 && saveCreatedAddress(response.data)
+    })
+    .finally(() => isPageLoading(false))
 })()

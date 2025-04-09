@@ -39,6 +39,9 @@
         'SP',
         'TO',
     ];
+    function isPageLoading(status) {
+        toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status);
+    }
     function querySelector(selector, node = document) {
         return node.querySelector(selector);
     }
@@ -79,12 +82,23 @@
     function removeAttribute(element, attribute) {
         element.removeAttribute(attribute);
     }
+    function postSuccessResponse(response) {
+        return {
+            data: response,
+            succeeded: true
+        };
+    }
     function postErrorResponse(message) {
         return {
             message,
             succeeded: false
         };
     }
+    const HEADERS = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: getCookie(COOKIE_NAME),
+    };
     const noAddressesMessage = querySelector('[data-wtf-error-message-no-address-registered]');
     const addressTemplate = querySelector('[data-wtf-registered-address]');
     const addressContainer = addressTemplate?.parentElement;
@@ -142,10 +156,7 @@
                 return postErrorResponse(error?.message ?? defaultErrorMessage);
             }
             const address = await response.json();
-            return {
-                data: address,
-                succeeded: true
-            };
+            return postSuccessResponse(address);
         }
         catch (e) {
             return postErrorResponse(defaultErrorMessage);
@@ -155,19 +166,14 @@
         const defaultErrorMessage = 'Houve uma falha ao buscar os seus endereços. Tente novamente mais tarde.';
         try {
             const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/all`, {
-                headers: {
-                    'Authorization': getCookie(COOKIE_NAME)
-                }
+                headers: HEADERS
             });
             if (!response.ok) {
                 const error = await response.json();
                 return postErrorResponse(error?.message ?? defaultErrorMessage);
             }
             const addresses = await response.json();
-            return {
-                succeeded: true,
-                data: addresses,
-            };
+            return postSuccessResponse(addresses);
         }
         catch (e) {
             return postErrorResponse(defaultErrorMessage);
@@ -178,18 +184,13 @@
         try {
             const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/${id}/delete`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': getCookie(COOKIE_NAME)
-                }
+                headers: HEADERS
             });
             if (!response.ok) {
                 const error = await response.json();
                 return postErrorResponse(error?.message ?? defaultErrorMessage);
             }
-            return {
-                data: null,
-                succeeded: true
-            };
+            return postSuccessResponse(null);
         }
         catch (e) {
             return postErrorResponse(defaultErrorMessage);
@@ -200,11 +201,7 @@
         try {
             const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/create`, {
                 method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Authorization': getCookie(COOKIE_NAME)
-                },
+                headers: HEADERS,
                 body: JSON.stringify(address)
             });
             if (!response.ok) {
@@ -212,10 +209,7 @@
                 return postErrorResponse(error?.message ?? defaultErrorMessage);
             }
             const createdAddress = await response.json();
-            return {
-                succeeded: true,
-                data: createdAddress
-            };
+            return postSuccessResponse(createdAddress);
         }
         catch (e) {
             return postErrorResponse(defaultErrorMessage);
@@ -420,6 +414,7 @@
             });
             return;
         }
+        isPageLoading(true);
         const response = await createAddress({
             nick: addressNick?.value,
             cep: cep?.value,
@@ -432,14 +427,17 @@
         });
         handleMessages(formElement, response);
         if (!response.succeeded)
-            return;
+            return isPageLoading(false);
         formElement.reset();
         saveCreatedAddress(response.data);
+        isPageLoading(false);
     }, false);
-    getUserAddresses().then(response => {
+    getUserAddresses()
+        .then(response => {
         if (!response.succeeded)
             return;
         objectSize(response.data) > 0 && saveCreatedAddress(response.data);
-    });
+    })
+        .finally(() => isPageLoading(false));
 })();
 export {};
