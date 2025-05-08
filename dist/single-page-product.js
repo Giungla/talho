@@ -1,0 +1,283 @@
+(function () {
+    const COOKIE_SEPARATOR = '; ';
+    const GENERAL_HIDDEN_CLASS = 'oculto';
+    const COOKIE_NAME = '__Host-Talho-AuthToken';
+    const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_';
+    /** Quantidade mínima de produtos permitidos no carrinho */
+    const MIN_PRODUCT_QUANTITY = 1;
+    /** Quantidade máxima de produtos permitados no carrinho */
+    const MAX_PRODUCT_QUANTITY = 10;
+    const _state = {
+        quantity: 1,
+        product: null,
+        selectedVariation: null,
+    };
+    const state = new Proxy(_state, {
+        get(target, key) {
+            switch (key) {
+                case 'variationsCount':
+                    return target.product?.variations.length ?? 0;
+                case 'hasPriceDifference':
+                    {
+                        const { price, full_price } = state.prices;
+                        return price !== full_price;
+                    }
+                case 'prices':
+                    {
+                        const { product, selectedVariation } = target;
+                        if (!product || !state.hasSelectedVariation)
+                            return buildPriceResponse();
+                        const selectedSKU = product.variations.find(sku => sku.id === selectedVariation);
+                        if (!selectedSKU)
+                            return buildPriceResponse();
+                        return buildPriceResponse(selectedSKU.price, selectedSKU.full_price);
+                    }
+                case 'BRLPrices':
+                    {
+                        const { price, full_price } = state.prices;
+                        return buildPriceResponse(BRLFormatter.format(price), BRLFormatter.format(full_price));
+                    }
+                case 'computedFinalPrices':
+                    {
+                        const { quantity, prices } = state;
+                        const price = prices.price * quantity;
+                        const full_price = prices.full_price * quantity;
+                        return {
+                            price: {
+                                price,
+                                full_price,
+                            },
+                            currency: {
+                                price: BRLFormatter.format(price),
+                                full_price: BRLFormatter.format(full_price),
+                            },
+                        };
+                    }
+                case 'hasSelectedVariation':
+                    return target.selectedVariation !== null;
+                default:
+                    return Reflect.get(target, key);
+            }
+        },
+        set(target, key, value) {
+            const isApplied = Reflect.set(target, key, value);
+            switch (key) {
+                case 'quantity':
+                    changeTextContent(renderQuantityElement, String(value ?? 1));
+                    renderProductPrice();
+                    break;
+                case 'selectedVariation':
+                    renderProductVariations();
+                    Reflect.set(state, 'quantity', 1);
+                    break;
+                case 'product':
+                    {
+                        const product = value;
+                        Reflect.set(state, 'selectedVariation', product?.variations[0].id);
+                    }
+            }
+            return isApplied;
+        }
+    });
+    const minusButton = querySelector('[data-wtf-quantity-minus]');
+    const plusButton = querySelector('[data-wtf-quantity-plus]');
+    const renderQuantityElement = querySelector('[data-wtf-quantity-value]');
+    const priceViewer = querySelector('[data-wtf-price]');
+    const fullPriceViewer = querySelector('[data-wtf-full-price]');
+    const totalPriceViewer = querySelector('[data-wtf-total]');
+    const skuList = querySelector('[data-wtf-sku-list]');
+    const skuItem = querySelector('[data-wtf-sku-item]');
+    const buyButton = querySelector('[data-wtf-comprar]');
+    const BRLFormatter = new Intl.NumberFormat('pt-BR', {
+        currency: 'BRL',
+        style: 'currency',
+    });
+    function querySelector(selector, node = document) {
+        if (!node)
+            return null;
+        return node.querySelector(selector);
+    }
+    function attachEvent(node, eventName, callback, options) {
+        if (!node)
+            return;
+        node.addEventListener(eventName, callback, options);
+        return () => node.removeEventListener(eventName, callback, options);
+    }
+    function isPageLoading(status) {
+        toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status);
+    }
+    function changeTextContent(element, textContent) {
+        if (!element)
+            return;
+        element.textContent = textContent;
+    }
+    function addAttribute(element, qualifiedName, value) {
+        if (!element)
+            return;
+        element.setAttribute(qualifiedName, value);
+    }
+    function removeAttribute(element, qualifiedName) {
+        if (!element)
+            return;
+        element.removeAttribute(qualifiedName);
+    }
+    function addClass(element, ...className) {
+        if (!element)
+            return;
+        element.classList.add(...className);
+    }
+    function removeClass(element, ...className) {
+        if (!element)
+            return;
+        element.classList.remove(...className);
+    }
+    function toggleClass(element, className, force) {
+        if (!element)
+            return false;
+        return element.classList.toggle(className, force);
+    }
+    function postErrorResponse(message) {
+        return {
+            message,
+            succeeded: false
+        };
+    }
+    function postSuccessResponse(response) {
+        return {
+            data: response,
+            succeeded: true
+        };
+    }
+    function buildPriceResponse(price = 0, full_price = 0) {
+        return {
+            price,
+            full_price,
+        };
+    }
+    async function getProduct() {
+        const defaultErrorMessage = 'Houve uma falha ao capturar o produto';
+        try {
+            const splittedPathname = location.pathname.split('/');
+            const response = await fetch(`${CART_BASE_URL}/product/single-product-page`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    quantity: 1,
+                    reference_id: splittedPathname[splittedPathname.length - 1],
+                })
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                return postErrorResponse(error?.message ?? defaultErrorMessage);
+            }
+            const data = await response.json();
+            return postSuccessResponse(data);
+        }
+        catch (e) {
+            return postErrorResponse(defaultErrorMessage);
+        }
+    }
+    function changeProductQuantity(increment) {
+        const newQuantity = increment + state.quantity;
+        const clampedQuantity = Math.max(MIN_PRODUCT_QUANTITY, Math.min(newQuantity, MAX_PRODUCT_QUANTITY));
+        if (clampedQuantity === state.quantity)
+            return;
+        state.quantity = clampedQuantity;
+    }
+    function changeSelectedVariation(variationID) {
+        const variationExists = state.product?.variations.some(({ id }) => id === variationID);
+        if (!variationExists)
+            return;
+        state.selectedVariation = variationID;
+    }
+    async function buyProduct(event) {
+        event.preventDefault();
+        const { quantity, product, selectedVariation } = state;
+        if (!selectedVariation || !product)
+            return;
+        const response = await addProductToCart({
+            quantity,
+            sku_id: selectedVariation,
+            reference_id: product.slug,
+        });
+        // TODO: Implementar lógica corretamente
+        if (!response.succeeded) {
+            return alert('A adição falhou');
+        }
+        state.quantity = 1;
+        const cart = querySelector('#carrinho-flutuante');
+        // TODO: Essa remoção não deve mais ser necessária
+        removeAttribute(cart, 'style');
+        removeClass(cart, GENERAL_HIDDEN_CLASS);
+        console.log(response.data);
+    }
+    async function addProductToCart(item) {
+        const defaultErrorMessage = 'Falha ao adicionar o produto';
+        try {
+            const response = await fetch(`${CART_BASE_URL}/cart/handle`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    item,
+                    operation: 'add',
+                }),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                return postErrorResponse(error?.message ?? defaultErrorMessage);
+            }
+            const data = await response.json();
+            return postSuccessResponse(data);
+        }
+        catch (e) {
+            return postErrorResponse(`[CATCH] ${defaultErrorMessage}`);
+        }
+    }
+    function renderProductVariations() {
+        if (!skuList || !skuItem || !state.product)
+            return;
+        const { selectedVariation, product } = state;
+        const variationsFragment = document.createDocumentFragment();
+        for (const variation of product?.variations) {
+            const variationElement = document.createElement('div');
+            addClass(variationElement, 'text-block');
+            toggleClass(variationElement, 'selecionado', selectedVariation === variation.id);
+            changeTextContent(variationElement, variation.label);
+            attachEvent(variationElement, 'click', () => changeSelectedVariation(variation.id));
+            variationsFragment.appendChild(variationElement);
+        }
+        skuList.replaceChildren(variationsFragment);
+    }
+    function renderProductPrice() {
+        const product = state.product;
+        if (!product || !state.hasSelectedVariation)
+            return;
+        const getPriceViewer = (parent) => querySelector('[data-wtf-price-value]', parent);
+        const { BRLPrices, hasPriceDifference, computedFinalPrices } = state;
+        changeTextContent(getPriceViewer(priceViewer), BRLPrices.price);
+        changeTextContent(getPriceViewer(fullPriceViewer), BRLPrices.full_price);
+        changeTextContent(getPriceViewer(totalPriceViewer), computedFinalPrices.currency.price);
+        toggleClass(priceViewer, GENERAL_HIDDEN_CLASS, !hasPriceDifference);
+        toggleClass(fullPriceViewer, GENERAL_HIDDEN_CLASS, !hasPriceDifference);
+    }
+    getProduct()
+        .then(response => {
+        if (!response.succeeded) {
+            return;
+        }
+        state.product = response.data;
+    })
+        .then(() => {
+        attachEvent(plusButton, 'click', () => changeProductQuantity(1));
+        attachEvent(minusButton, 'click', () => changeProductQuantity(-1));
+        attachEvent(buyButton, 'click', buyProduct);
+    });
+})();
+export {};

@@ -984,3 +984,129 @@ export interface SignupStateStatus {
 }
 
 export type ValidatorResponse = (valid: boolean) => [string, boolean]
+
+
+
+
+
+
+export interface SingleProductPageState {
+  /** Quantidade de produtos selecionados */
+  quantity: number;
+  /** Dados do produto */
+  product: Nullable<SingleProductPageProduct>;
+  /** ID da variação do produto selecionada */
+  selectedVariation: Nullable<number>;
+}
+
+export interface SingleProductPageStateHandler {
+  prices: Prices;
+  BRLPrices: Prices<string>;
+  computedFinalPrices: ComputedFinalPrices;
+  hasPriceDifference: boolean;
+  variationsCount: number;
+  hasSelectedVariation: boolean;
+}
+
+export interface Prices <T = number> {
+  price: T;
+  full_price: T;
+}
+
+export interface ComputedFinalPrices {
+  price: Prices<number>;
+  currency: Prices<string>;
+}
+
+export enum VARIATION_TYPE {
+  KG = 'KG',
+  UN = 'UN',
+  MI = 'MI',
+  LI = 'LI',
+  CX = 'CX',
+}
+
+export type VariationType =
+  | VARIATION_TYPE.KG
+  | VARIATION_TYPE.UN
+  | VARIATION_TYPE.MI
+  | VARIATION_TYPE.LI
+  | VARIATION_TYPE.CX;
+
+export interface ProductVariation {
+  id: number;
+  label: string;
+  price: number;
+  full_price: number;
+  variation_type: VariationType;
+}
+
+export interface SingleProductPageProduct {
+  slug: string;
+  title: string;
+  variations: ProductVariation[];
+}
+
+export interface CreateCartProduct {
+  sku_id: number;
+  quantity: number;
+  reference_id: string;
+}
+
+
+
+export type CartOperation =
+  | 'add'
+  | 'delete'
+  | 'increase'
+  | 'decrease';
+
+export interface CartResponseItem {
+  name: string;
+  price: number;
+  quantity: number;
+  imageUrl: string;
+  slug: string;
+  sku_id: number;
+}
+
+export interface CartResponse {
+  order_price: number;
+  items: CartResponseItem[];
+}
+
+export interface FloatingCartState {
+  /**
+   * Indica se já houve uma busca pelos dados do carrinho
+   */
+  fetched: Nullable<boolean>;
+  /**
+   * Indica se existe uma busca em andamento pelos itens do carrinho
+   */
+  isPending: boolean;
+  /**
+   * Indica o estado de visibilidade do carrinho
+   */
+  isCartOpened: boolean;
+  /**
+   * Dados devolvidos pela API
+   */
+  cart: Nullable<CartResponse>;
+}
+
+export interface FloatingCartStateHandler {
+  /**
+   * Indica se já houve uma busca pelos dados do carrinho
+   */
+  hasFetched: boolean;
+  /**
+   * Indica se existe alguma requisição de busca em andamento
+   */
+  hasRunningRequests: Readonly<boolean>;
+  /**
+   * Valor total do pedido formatado em BRL
+   */
+  getOrderPrice: string;
+}
+
+export type GroupFloatingCartState = FloatingCartState & FloatingCartStateHandler;
