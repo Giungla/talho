@@ -1096,17 +1096,17 @@ export interface FloatingCartState {
 
 export interface FloatingCartStateHandler {
   /**
-   * Indica se já houve uma busca pelos dados do carrinho
-   */
-  hasFetched: boolean;
-  /**
-   * Indica se existe alguma requisição de busca em andamento
-   */
-  hasRunningRequests: Readonly<boolean>;
-  /**
    * Valor total do pedido formatado em BRL
    */
   getOrderPrice: string;
+  /**
+   * Indica se a mensagem de frete grátis será exibida
+   */
+  hasFreeShipping: boolean;
+  /**
+   * Quanto ainda falta para conseguir frete grátis
+   */
+  missingForFreeShipping: number;
 }
 
 export type GroupFloatingCartState = FloatingCartState & FloatingCartStateHandler;

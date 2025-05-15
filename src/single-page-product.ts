@@ -13,6 +13,8 @@ import {
   const COOKIE_SEPARATOR = '; '
   const GENERAL_HIDDEN_CLASS = 'oculto'
   const COOKIE_NAME = '__Host-Talho-AuthToken'
+  const STORAGE_KEY_NAME = 'talho_cart_items'
+  const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
   const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_'
 
@@ -303,13 +305,9 @@ import {
 
     state.quantity = 1
 
-    const cart = querySelector('#carrinho-flutuante')
+    addClass(querySelector('#carrinho-flutuante'), CART_SWITCH_CLASS)
 
-    // TODO: Essa remoção não deve mais ser necessária
-    removeAttribute(cart, 'style')
-    removeClass(cart, GENERAL_HIDDEN_CLASS)
-
-    console.log(response.data)
+    localStorage.setItem(STORAGE_KEY_NAME, JSON.stringify(response.data))
   }
 
   async function addProductToCart (item: CreateCartProduct): Promise<ResponsePattern<CreateCartProduct>> {

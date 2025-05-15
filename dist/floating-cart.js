@@ -1,7 +1,10 @@
 (function () {
     const GENERAL_HIDDEN_CLASS = 'oculto';
+    const STORAGE_KEY_NAME = 'talho_cart_items';
     const ERROR_MESSAGE_CLASS = 'mensagemdeerro';
     const DISABLED_ATTR = 'disabled';
+    const CART_SWITCH_CLASS = 'carrinhoflutuante--visible';
+    const FREE_SHIPPING_MINIMUM_PRICE = 300;
     const REQUEST_CONTROLLERS = [];
     const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_';
     const REQUEST_HEADERS = {
@@ -23,6 +26,11 @@
     const state = new Proxy(_state, {
         get(target, key) {
             switch (key) {
+                case 'hasFreeShipping':
+                    //TODO: Improve
+                    return (target.cart?.order_price ?? 0) > FREE_SHIPPING_MINIMUM_PRICE;
+                case 'missingForFreeShipping':
+                    return Math.max(0, FREE_SHIPPING_MINIMUM_PRICE - (target.cart?.order_price ?? 0));
                 case 'getOrderPrice':
                     return BRLFormatter.format(target.cart?.order_price ?? 0);
                 default:
@@ -42,14 +50,18 @@
                     break;
                 case 'cart':
                     renderCart();
+                    handlePromoMessages();
+                    localStorage.setItem(STORAGE_KEY_NAME, JSON.stringify(value));
                     break;
             }
             return isApplied;
         }
     });
     const cartItemTemplate = querySelector('[data-wtf-floating-cart-item]');
-    const cartItemsWrapper = querySelector('[data-wtf-floating-cart-item-wrapper]');
+    const cartItemsWrapper = querySelector('[data-wtf-floating-cart-not-empty-cart]');
     const cartEmpty = querySelector('[data-wtf-floating-cart-empty-cart]');
+    const promoValidElement = querySelector('[data-wtf-promo-valid]');
+    const promoInValidElement = querySelector('[data-wtf-promo-invalid]');
     const cartTotalElement = querySelector('[data-wtf-floating-cart-total]');
     function querySelector(selector, node = document) {
         if (!node)
@@ -76,6 +88,11 @@
         if (!element)
             return;
         element.textContent = textContent;
+    }
+    function hasClass(element, className) {
+        if (!element)
+            return false;
+        return element.classList.contains(className);
     }
     function addClass(element, ...className) {
         if (!element)
@@ -110,16 +127,21 @@
     async function refreshCartItems() {
         if (!state.isCartOpened)
             return;
+        const cart = localStorage.getItem(STORAGE_KEY_NAME);
+        if (cart) {
+            state.fetched ??= true;
+            state.cart = JSON.parse(cart);
+            return;
+        }
         state.isPending = true;
         const response = await getCartProducts();
         state.fetched ??= true;
-        state.isPending = true;
+        state.isPending = false;
         if (!response.succeeded) {
             // TODO: tratar e exibir o erro
             return;
         }
         state.cart = response.data;
-        console.log('busca retornou sucesso', response.data);
     }
     async function getCartProducts() {
         const defaultErrorMessage = 'Houve uma falha ao buscar o seu carrinho';
@@ -177,8 +199,7 @@
         changeTextContent(cartTotalElement, state.getOrderPrice);
         if (!Array.isArray(state.cart?.items) || !cartItemTemplate || !cartItemsWrapper)
             return;
-        const hasClassApplied = toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, state.cart?.items.length > 0);
-        if (!hasClassApplied) {
+        if (!toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, state.cart?.items.length > 0)) {
             return cartItemsWrapper.replaceChildren();
         }
         const cartFragment = document.createDocumentFragment();
@@ -206,6 +227,15 @@
         }
         cartItemsWrapper.replaceChildren(cartFragment);
     }
+    function handlePromoMessages() {
+        const { hasFreeShipping } = state;
+        toggleClass(promoValidElement, GENERAL_HIDDEN_CLASS, !hasFreeShipping);
+        toggleClass(promoInValidElement, GENERAL_HIDDEN_CLASS, hasFreeShipping);
+        if (!hasFreeShipping) {
+            return changeTextContent(querySelector('[data-wtf-promo-invalidada-txt]', promoInValidElement), `Adiciona mais ${BRLFormatter.format(state.missingForFreeShipping)} para conseguir frete grátis`);
+        }
+        return changeTextContent(querySelector('[data-wtf-promo-validada-txt-sem-imagem]', promoValidElement), `Você ganhou frete grátis`);
+    }
     async function execCartAction(operation, payload) {
         this.preventDefault();
         this.stopPropagation();
@@ -214,24 +244,32 @@
     const cart = querySelector('[data-wtf-floating-cart]');
     const cartObserver = new MutationObserver(mutations => {
         const _cart = mutations[0].target;
-        state.isCartOpened = _cart.checkVisibility({
-            checkOpacity: true,
-            checkVisibilityCSS: true,
-            visibilityProperty: true,
-        });
+        state.isCartOpened = hasClass(_cart, CART_SWITCH_CLASS);
+        // state.isCartOpened = _cart.checkVisibility({
+        //   checkOpacity: true,
+        //   checkVisibilityCSS: true,
+        //   visibilityProperty: true,
+        // })
     });
     if (!cart)
         return;
     cartObserver.observe(cart, {
         attributes: true,
         attributeFilter: [
-            'style',
             'class',
         ]
     });
     if (!cartItemsWrapper)
         return;
-    refreshCartItems().then(() => {
+    window.addEventListener('storage', function (e) {
+        if (e.key !== STORAGE_KEY_NAME)
+            return;
+        state.cart = e.newValue
+            ? JSON.parse(e.newValue)
+            : null;
+    });
+    refreshCartItems()
+        .then(() => {
         state.isCartOpened = false;
     });
 })();

@@ -11,8 +11,12 @@ import {
 
 (function () {
   const GENERAL_HIDDEN_CLASS = 'oculto'
+  const STORAGE_KEY_NAME = 'talho_cart_items'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
   const DISABLED_ATTR = 'disabled'
+  const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
+
+  const FREE_SHIPPING_MINIMUM_PRICE = 300
 
   const REQUEST_CONTROLLERS: AbortController[] = []
 
@@ -43,6 +47,11 @@ import {
       key: K,
     ) {
       switch (key) {
+        case 'hasFreeShipping':
+          //TODO: Improve
+          return (target.cart?.order_price ?? 0) > FREE_SHIPPING_MINIMUM_PRICE
+        case 'missingForFreeShipping':
+          return Math.max(0, FREE_SHIPPING_MINIMUM_PRICE - (target.cart?.order_price ?? 0))
         case 'getOrderPrice':
           return BRLFormatter.format(target.cart?.order_price ?? 0)
         default:
@@ -68,6 +77,11 @@ import {
           break
         case 'cart':
           renderCart()
+
+          handlePromoMessages()
+
+          localStorage.setItem(STORAGE_KEY_NAME, JSON.stringify(value))
+
           break
       }
 
@@ -76,8 +90,11 @@ import {
   }) as GroupFloatingCartState
 
   const cartItemTemplate = querySelector('[data-wtf-floating-cart-item]')
-  const cartItemsWrapper = querySelector('[data-wtf-floating-cart-item-wrapper]')
+  const cartItemsWrapper = querySelector('[data-wtf-floating-cart-not-empty-cart]')
   const cartEmpty = querySelector('[data-wtf-floating-cart-empty-cart]')
+
+  const promoValidElement = querySelector('[data-wtf-promo-valid]')
+  const promoInValidElement = querySelector('[data-wtf-promo-invalid]')
 
   const cartTotalElement = querySelector('[data-wtf-floating-cart-total]')
 
@@ -132,6 +149,12 @@ import {
     element.textContent = textContent
   }
 
+  function hasClass (element: ReturnType<typeof querySelector>, className: string): boolean {
+    if (!element) return false
+
+    return element.classList.contains(className)
+  }
+
   function addClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
     if (!element) return
 
@@ -171,12 +194,21 @@ import {
   async function refreshCartItems () {
     if (!state.isCartOpened) return
 
+    const cart = localStorage.getItem(STORAGE_KEY_NAME)
+
+    if (cart) {
+      state.fetched ??= true
+      state.cart = JSON.parse(cart)
+
+      return
+    }
+
     state.isPending = true
 
     const response = await getCartProducts()
 
     state.fetched ??= true
-    state.isPending = true
+    state.isPending = false
 
     if (!response.succeeded) {
       // TODO: tratar e exibir o erro
@@ -184,7 +216,6 @@ import {
     }
 
     state.cart = response.data
-    console.log('busca retornou sucesso', response.data)
   }
 
   async function getCartProducts (): Promise<ResponsePattern<CartResponse>> {
@@ -297,6 +328,19 @@ import {
     cartItemsWrapper.replaceChildren(cartFragment)
   }
 
+  function handlePromoMessages () {
+    const { hasFreeShipping } = state
+
+    toggleClass(promoValidElement, GENERAL_HIDDEN_CLASS, !hasFreeShipping)
+    toggleClass(promoInValidElement, GENERAL_HIDDEN_CLASS, hasFreeShipping)
+
+    if (!hasFreeShipping) {
+      return changeTextContent(querySelector('[data-wtf-promo-invalidada-txt]', promoInValidElement), `Adiciona mais ${BRLFormatter.format(state.missingForFreeShipping)} para conseguir frete grátis`)
+    }
+
+    return changeTextContent(querySelector('[data-wtf-promo-validada-txt-sem-imagem]', promoValidElement), `Você ganhou frete grátis`)
+  }
+
   async function execCartAction (
     this: MouseEvent,
     operation: Exclude<CartOperation, 'add'>,
@@ -313,11 +357,12 @@ import {
   const cartObserver = new MutationObserver(mutations => {
     const _cart = mutations[0].target as HTMLElement
 
-    state.isCartOpened = _cart.checkVisibility({
-      checkOpacity: true,
-      checkVisibilityCSS: true,
-      visibilityProperty: true,
-    })
+    state.isCartOpened = hasClass(_cart, CART_SWITCH_CLASS)
+    // state.isCartOpened = _cart.checkVisibility({
+    //   checkOpacity: true,
+    //   checkVisibilityCSS: true,
+    //   visibilityProperty: true,
+    // })
   })
 
   if (!cart) return
@@ -325,15 +370,23 @@ import {
   cartObserver.observe(cart, {
     attributes: true,
     attributeFilter: [
-      'style',
       'class',
     ]
   })
 
   if (!cartItemsWrapper) return
 
-  refreshCartItems().then(() => {
-    state.isCartOpened = false
+  window.addEventListener('storage', function (e) {
+    if (e.key !== STORAGE_KEY_NAME) return
+
+    state.cart = e.newValue
+      ? JSON.parse(e.newValue)
+      : null
   })
+
+  refreshCartItems()
+    .then(() => {
+      state.isCartOpened = false
+    })
 
 })()

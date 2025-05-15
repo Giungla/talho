@@ -5,8 +5,9 @@
     "uglify-js": "^3.19.3"
   },
   "scripts": {
-    "build": "tsc && yarn minify-separeted",
-    "minify": "uglifyjs --compress --mangle --output ./dist/floating-cart.v01.js -- ./dist/floating-cart.js",
-    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/floating-cart.v01.min.js -- ./dist/floating-cart.js"
+    "build": "tsc && yarn minify-separeted && yarn minify-separeted2",
+    "minify": "uglifyjs --compress --mangle --output ./dist/single-page-product.v02.js -- ./dist/single-page-product.js",
+    "minify-separeted": "uglifyjs --compress --mangle --output ./dist/single-page-product.v02.min.js -- ./dist/single-page-product.js",
+    "minify-separeted2": "uglifyjs --compress --mangle --output ./dist/floating-cart.v02.min.js -- ./dist/floating-cart.js"
   }
 }
