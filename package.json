@@ -5,9 +5,10 @@
     "uglify-js": "^3.19.3"
   },
   "scripts": {
-    "build": "tsc && yarn minify-separeted && yarn minify-separeted2",
+    "build": "tsc && yarn minify-separeted && yarn minify-separeted2 && yarn minify-consent-module",
     "minify": "uglifyjs --compress --mangle --output ./dist/single-page-product.v02.js -- ./dist/single-page-product.js",
     "minify-separeted": "uglifyjs --compress --mangle --output ./dist/single-page-product.v02.min.js -- ./dist/single-page-product.js",
-    "minify-separeted2": "uglifyjs --compress --mangle --output ./dist/floating-cart.v02.min.js -- ./dist/floating-cart.js"
+    "minify-separeted2": "uglifyjs --compress --mangle --output ./dist/floating-cart.v03.min.js -- ./dist/floating-cart.js",
+    "minify-consent-module": "uglifyjs --compress --mangle --output ./dist/consent-module.v01.min.js -- ./dist/consent-module.js"
   }
 }

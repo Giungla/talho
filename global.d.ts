@@ -1,6 +1,8 @@
 
 type Nullable <T> = null | T;
 
+type Binary = '0' | '1';
+
 export interface ILoginUser {
   email: string;
   password: string;
@@ -34,9 +36,9 @@ export interface ICookieOptions {
   httpOnly?: boolean;
 }
 
-export interface ISplitCookieObject {
+export interface ISplitCookieObject <T extends string = string> {
   name: string;
-  value: string;
+  value: T;
 }
 
 

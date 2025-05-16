@@ -335,7 +335,7 @@ import {
     toggleClass(promoInValidElement, GENERAL_HIDDEN_CLASS, hasFreeShipping)
 
     if (!hasFreeShipping) {
-      return changeTextContent(querySelector('[data-wtf-promo-invalidada-txt]', promoInValidElement), `Adiciona mais ${BRLFormatter.format(state.missingForFreeShipping)} para conseguir frete grátis`)
+      return changeTextContent(querySelector('[data-wtf-promo-invalidada-txt]', promoInValidElement), `Adicione mais ${BRLFormatter.format(state.missingForFreeShipping)} e ganhe frete grátis`)
     }
 
     return changeTextContent(querySelector('[data-wtf-promo-validada-txt-sem-imagem]', promoValidElement), `Você ganhou frete grátis`)
