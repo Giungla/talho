@@ -10,7 +10,7 @@
     "minify": "uglifyjs --compress --mangle --output ./dist/single-page-product.v02.js -- ./dist/single-page-product.js",
     "minify-separeted": "uglifyjs --compress --mangle --output ./dist/single-page-product.v02.min.js -- ./dist/single-page-product.js",
     "minify-separeted2": "uglifyjs --compress --mangle --output ./dist/floating-cart.v03.min.js -- ./dist/floating-cart.js",
-    "minify-consent-module": "uglifyjs --compress --mangle --output ./dist/consent-module.v01.min.js -- ./dist/consent-module.js",
-    "build-checkout": "tsc && uglifyjs --compress --mangle --output ./dist/checkout.v01.min.js -- ./dist/checkout.js"
+    "minify-consent-module": "tsc && uglifyjs --compress --mangle --output ./dist/consent-module.v03.min.js -- ./dist/consent-module.js",
+    "build-checkout": "tsc && uglifyjs --compress --mangle --output ./dist/checkout.v02.min.js -- ./dist/checkout.js"
   }
 }
