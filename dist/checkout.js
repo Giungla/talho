@@ -1,8 +1,9 @@
 (function () {
-    const ref = Vue.ref;
-    const createApp = Vue.createApp;
+    const { ref, createApp, } = Vue;
     const EMPTY_STRING = '';
+    const SLASH_STRING = '/';
     const NULL_VALUE = null;
+    const ERROR_KEY = 'error';
     const CEP_LENGTH = 8;
     const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io';
     const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`;
@@ -66,6 +67,14 @@
         currency: 'BRL',
         style: 'currency',
     });
+    function buildURL(path, query) {
+        const baseURL = new URL(`${location.protocol}//${location.hostname}`);
+        const nextPage = new URL(path, baseURL);
+        for (const [key, value] of Object.entries(query)) {
+            nextPage.searchParams.set(key, value);
+        }
+        return nextPage.toString();
+    }
     function hasOwn(object, key) {
         return Object.hasOwn(object, key);
     }
@@ -93,7 +102,7 @@
         element.scrollIntoView(args);
     }
     function isExpireDateValid(expireDate) {
-        const tokens = expireDate.split('/');
+        const tokens = expireDate.split(SLASH_STRING);
         if (tokens.length !== 2)
             return false;
         const [monthStr, yearStr] = tokens;
@@ -133,7 +142,7 @@
         return value.replace(/^(\d{0,2})(\d{0,2})(\d{0,4})/, (_, d1, d2, d3) => {
             return [d1, d2, d3]
                 .filter(Boolean)
-                .join('/');
+                .join(SLASH_STRING);
         });
     }
     function maskCardNumber(value) {
@@ -151,7 +160,7 @@
             for (const group of [g1, g2]) {
                 pushIf(group, response, group);
             }
-            return response.join('/');
+            return response.join(SLASH_STRING);
         });
     }
     function maskCEP(value) {
@@ -203,7 +212,7 @@
         };
     }
     function isDateValid(date) {
-        const [day, month, fullYear] = date.split('/');
+        const [day, month, fullYear] = date.split(SLASH_STRING);
         const parsedDate = new Date(`${fullYear}-${month}-${day}T00:00:00`);
         return parsedDate.toString() !== 'Invalid Date';
     }
@@ -271,7 +280,7 @@
         cleanup();
         eventMap.delete(el);
     };
-    const TalhoCheckoutApp = createApp(({
+    const TalhoCheckoutApp = createApp({
         name: 'TalhoCheckoutApp',
         setup() {
             const customerCPF = ref(EMPTY_STRING);
@@ -321,6 +330,8 @@
             const shippingNeighborhoodElement = ref(NULL_VALUE);
             const shippingCityElement = ref(NULL_VALUE);
             const shippingStateElement = ref(NULL_VALUE);
+            const deliveryDateMessageElement = ref(NULL_VALUE);
+            const deliveryHourMessageElement = ref(NULL_VALUE);
             const couponCodeElement = ref(NULL_VALUE);
             return {
                 customerCPF,
@@ -370,6 +381,8 @@
                 shippingNeighborhoodElement,
                 shippingCityElement,
                 shippingStateElement,
+                deliveryDateMessageElement,
+                deliveryHourMessageElement,
                 couponCodeElement,
             };
         },
@@ -407,6 +420,8 @@
                 isPagSeguroLoaded: false,
                 deliveryDate: NULL_VALUE,
                 deliveryDates: NULL_VALUE,
+                deliveryHour: NULL_VALUE,
+                deliveryHours: NULL_VALUE,
             };
         },
         created() {
@@ -470,6 +485,8 @@
             async refreshInstallments() {
                 if (!this.isCreditCard)
                     return;
+                this.installment = NULL_VALUE;
+                this.selectedInstallment = NULL_VALUE;
                 const response = await this.getInstallments();
                 if (!response.succeeded)
                     return;
@@ -520,20 +537,22 @@
                     return;
                 }
                 const paymentMap = {
-                    pix: this.handleProcessPIX,
-                    creditcard: this.handleProcessCreditCard,
-                    error: async () => {
-                        return postErrorResponse('Houve uma falha no envio de seu pedido');
-                    }
+                    [PIX_PAYMENT]: this.handleProcessPIX,
+                    [CREDIT_CARD_PAYMENT]: this.handleProcessCreditCard,
+                    [ERROR_KEY]: async () => postErrorResponse('Houve uma falha no envio de seu pedido')
                 };
-                let execPayment = paymentMap?.[this.selectedPayment ?? 'error'];
-                const response = await execPayment();
+                const execPayment = paymentMap?.[this.selectedPayment ?? ERROR_KEY];
+                const response = await execPayment?.();
                 if (!response.succeeded) {
                     alert('Pagamento falhou');
                     return;
                 }
-                console.log('Pagamento foi gerado');
-                console.log(response.data);
+                const redirectURL = this.isCreditCard
+                    ? 'confirmacao-do-pedido'
+                    : 'pix';
+                location.href = buildURL(['/pagamento', redirectURL].join(SLASH_STRING), {
+                    order: response.data.transactionid
+                });
             },
             async handleProcessPIX() {
                 const defaultErrorMessage = 'Falha ao gerar o pedido';
@@ -573,7 +592,8 @@
                                 ...this.getParsedCustomer,
                                 ...this.getParsedAddresses,
                             },
-                            creditCardInfo: {
+                            is_same_address: this.isSameAddress,
+                            credit_card_info: {
                                 holderName: this.customerCreditCardHolder,
                                 creditCardToken: this.getCreditCardToken.encryptedCard ?? EMPTY_STRING,
                                 numberOfPayments: selectedInstallment,
@@ -660,11 +680,10 @@
                 const response = await this.captureCoupon();
                 this.isCouponPending = false;
                 if (!response.succeeded) {
-                    this.coupon = {
+                    this.coupon = ({
                         error: true,
-                        code: this.couponCode,
                         message: response.message,
-                    };
+                    });
                     return;
                 }
                 this.coupon = response.data;
@@ -716,6 +735,38 @@
                 if (!date || this.deliveryDate === date)
                     return;
                 this.deliveryDate = date;
+                this.deliveryHour = NULL_VALUE;
+                this.handleDeliveryHours();
+            },
+            async captureAvailableDeliveryHours() {
+                const defaultErrorMessage = 'Falha ao capturar os horários';
+                try {
+                    const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?date=${this.deliveryDate}`, {
+                        cache: 'force-cache'
+                    });
+                    if (!response.ok) {
+                        const error = await response.json();
+                        return postErrorResponse(error?.message ?? defaultErrorMessage);
+                    }
+                    const data = await response.json();
+                    return postSuccessResponse(data);
+                }
+                catch (e) {
+                    return postErrorResponse(defaultErrorMessage);
+                }
+            },
+            async handleDeliveryHours() {
+                const response = await this.captureAvailableDeliveryHours();
+                if (!response.succeeded)
+                    return;
+                this.deliveryHours = response.data;
+            },
+            setDeliveryHour(hour) {
+                if (this.deliveryHour === hour ||
+                    this.deliveryHours?.periods_count === 0 ||
+                    !includes(this.deliveryHours?.hours ?? [], hour))
+                    return;
+                this.deliveryHour = hour;
             },
         },
         computed: {
@@ -891,6 +942,12 @@
                     this.shippingStateValidation,
                 ].every(validation => validation.valid);
             },
+            deliveryDatesGroupValidation() {
+                return buildFieldValidation(this.deliveryDateMessageElement, this.deliveryDate !== NULL_VALUE, !this.paymentMethodValidation.valid);
+            },
+            deliveryHoursGroupValidation() {
+                return buildFieldValidation(this.deliveryHourMessageElement, this.deliveryHour !== NULL_VALUE, !this.deliveryDatesGroupValidation.valid);
+            },
             notIgnoredFields() {
                 return [
                     this.customerMailValidation,
@@ -916,6 +973,8 @@
                     this.shippingNeighborhoodValidation,
                     this.shippingCityValidation,
                     this.shippingStateValidation,
+                    this.deliveryDatesGroupValidation,
+                    this.deliveryHoursGroupValidation,
                 ].filter(({ ignoreIf }) => includes([false, undefined], ignoreIf));
             },
             firstInvalidField() {
@@ -985,8 +1044,15 @@
             },
             getOrderBaseData() {
                 return {
-                    user_id: null,
-                    coupon_code: null,
+                    user_id: NULL_VALUE,
+                    coupon_code: this.hasInvalidCoupon || this.hasNullCoupon
+                        ? NULL_VALUE
+                        // @ts-ignore
+                        : this.coupon?.code,
+                    delivery: {
+                        delivery_hour: this.deliveryHour,
+                        delivery_date: this.deliveryDate,
+                    },
                 };
             },
             showInstallmentSection() {
@@ -998,7 +1064,7 @@
                     return [];
                 return installment.map(({ installments, installment_value }) => ({
                     installments,
-                    installment_value: BRLFormatter.format(installment_value)
+                    installment_value: BRLFormatter.format(installment_value),
                 }));
             },
             hasNullCoupon() {
@@ -1008,7 +1074,7 @@
                 return hasOwn(this.coupon ?? {}, 'cupom_type');
             },
             hasInvalidCoupon() {
-                return hasOwn(this.coupon ?? {}, 'error');
+                return hasOwn(this.coupon ?? {}, ERROR_KEY);
             },
             isCouponCodeValid() {
                 const { couponCode } = this;
@@ -1022,14 +1088,14 @@
                         encryptedCard: NULL_VALUE,
                     };
                 }
-                const [month, year,] = this.customerCreditCardDate.split('/');
+                const [month, year,] = this.customerCreditCardDate.split(SLASH_STRING);
                 return window.PagSeguro.encryptCard({
                     expMonth: month,
                     expYear: '20'.concat(year),
                     holder: this.customerCreditCardHolder,
                     securityCode: this.customerCreditCardCVV,
                     number: numberOnly(this.customerCreditCardNumber),
-                    publicKey: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr4bK4jsAnaNt2kM4tDquGhO0mDIN4NIA+NRFHmhXs1UEyGy4XGIUf9kHZX2pfSOHBRS56dmLts78hcuXIYE40M3HUrD7TYLvSn2J/niOkSoXCYJZIzTgkDymHDRs83J5MKQjz5kGRnHxrRib8vJCz352rXgN04wKZGMs1HL40FY0WJqAD//9c6qCpk0wf4xAjklWJCHmOsZYUpkEFQQ1jiKiiNQJyXEkMN88YjfI8jqZYaaBqyFKVKPIIANIpXJXc2C5kHym79Dp8R0yX4KSyOORWiWm8z2OQnp8yjyRHzH9fnKjtf2iVg3qCqSt2sseJ5pCYMwIEnNfsaQl20b4lwIDAQAB',
+                    publicKey: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxPIKWT6ettkFKqSyfoUpH/550Q8YQtRf7ZYJJbV3U7/4HBtamJT9If4wiLs2YlEfwTPWlB5Cl0jGmkBSQkjIDF+QTOSJviZYKgiuR7Bnavgt+idkcZsd5hM1I6u1uwOJJE3wSSXg+Nw70GZCeg7A6bmq9tOu1827En/ZFKWBXqv9Upc7q/Y6N0XMzZ3CL1j6ZlhnCalQzzaV9whijxK22lIL78gLEUcnmEO7CUX6DyfcdlA13MM4X538k2eYUosdnKafCEDNVcT+PPUeUdJZ0CpBWA9c/XtO0BIbTXHTsDuDlX0r7BF0vMFJMi0D9lkFCavY/kjZEQYhnXMtrWlUWwIDAQAB',
                 });
             },
             hasDeliveryDates() {
@@ -1053,25 +1119,42 @@
                         }),
                     };
                 });
-            }
+            },
+            hasDeliveryHour() {
+                return this.deliveryHours !== NULL_VALUE && objectSize(this.deliveryHours.hours) > 0;
+            },
+            getParsedDeliveryHours() {
+                if (!this.deliveryDate || !this.hasDeliveryHour)
+                    return [];
+                const options = {
+                    hour12: true,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                };
+                return this.deliveryHours.hours.map(hour => ({
+                    hour,
+                    label: new Date(`${this.deliveryDate}T${hour}:00`).toLocaleTimeString('pt-BR', options)
+                }));
+            },
         },
         watch: {
             billingCEP(cep, oldCep) {
-                this.captureAddress('billing', cep, oldCep);
+                this.captureAddress('billing', cep.toString(), oldCep);
             },
             shippingCEP(cep, oldCep) {
                 this.captureAddress('shipping', cep, oldCep);
             },
             getOrderPrice: {
                 immediate: true,
-                handler() {
-                    if (!this.isCreditCard)
-                        return;
-                    this.installment = NULL_VALUE;
-                    this.selectedInstallment = NULL_VALUE;
+                handler: function () {
                     this.refreshInstallments();
                 }
-            }
+            },
+            getCreditCardToken(payload) {
+                if (payload.hasErrors)
+                    return;
+                this.refreshInstallments();
+            },
         },
         directives: {
             maskDate: buildMaskDirective(numberOnly, maskDate),
@@ -1092,9 +1175,9 @@
                     eventMap.set(el, remover);
                 },
                 unmounted: cleanupDirective,
-            }
+            },
         },
-    }));
+    });
     TalhoCheckoutApp.mount('#fechamentodopedido');
 })();
 export {};

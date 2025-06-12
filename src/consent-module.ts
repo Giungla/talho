@@ -8,7 +8,8 @@ import {
   const COOKIE_SEPARATOR = '; '
   const GENERAL_HIDDEN_CLASS = 'oculto'
   const CLICK_EVENT = 'click'
-  const COOKIE_CONSENT_NAME = 'talho-consent'
+  const COOKIE_CONSENT_NAME = 'editora-contra-corrente-consent'
+  const GTM_CODE = document.currentScript?.getAttribute('data-gtm-code')
 
   // @ts-ignore
   window.dataLayer = window?.dataLayer || []
@@ -204,7 +205,7 @@ import {
     })
   }
 
-  function applyGTM (GTMCode: string = document.currentScript?.getAttribute('data-gtm-code') ?? '') {
+  function applyGTM (GTMCode: string = GTM_CODE ?? '') {
     (function(w,d,s,l,i){ // @ts-ignore
       w[l]=w[l]||[];w[l].push({'gtm.start':
         new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],

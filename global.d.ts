@@ -1,4 +1,15 @@
 
+import Vue, { Ref, WatchOptions, WatchCallback } from 'vue';
+
+import type {
+  PIXOrderResponse,
+  CreditCardOrderResponse,
+} from './types/checkout'
+
+export type ComputedReturnValues <T> = {
+  [K in keyof T]: T[K] extends () => infer R ? R : never;
+};
+
 type Nullable <T> = null | T;
 
 type Binary = '0' | '1';
@@ -360,7 +371,6 @@ export type IAbandonmentCartKeys =
   | 'billing_cep'
   | 'shipping_cep';
 
-
 export interface TalhoCheckoutAppData {
   /**
    * Indica se o form já foi submetido
@@ -418,6 +428,14 @@ export interface TalhoCheckoutAppData {
    * Datas de entrega para o pedido
    */
   deliveryDates: Nullable<DeliveryDate[]>;
+  /**
+   * Horário de entrega selecionado
+   */
+  deliveryHour: Nullable<string>;
+  /**
+   * Horarios de entrega disponíves para a data selecionada
+   */
+  deliveryHours: Nullable<DeliveryHoursResponse>;
 }
 
 export interface TalhoCheckoutAppSetup {
@@ -551,6 +569,15 @@ export interface TalhoCheckoutAppSetup {
   shippingCityElement: Ref<HTMLInputElement | null>;
   shippingStateElement: Ref<HTMLInputElement | null>;
 
+  /**
+   * Referência ao elemento "mensagem de erro" da seção de seleção de datas de entrega
+   */
+  deliveryDateMessageElement: Ref<Nullable<HTMLElement>>;
+  /**
+   * Referência ao elemento "mensagem de erro" da seção de seleção de intervalo de entrega
+   */
+  deliveryHourMessageElement: Ref<Nullable<HTMLElement>>;
+
   couponCodeElement: Ref<HTMLInputElement | null>;
 }
 
@@ -563,9 +590,9 @@ export interface TalhoCheckoutAppMethods {
   setSelectedPaymentMethod: (method: ISinglePaymentKey) => void;
   setVisitedField: (fieldName: string) => number;
   hasVisitRegistry: (fieldName: string) => boolean;
-  handlePayment: (e: Event) => Promise<void>;
-  handleProcessPIX: () => Promise<ResponsePattern<void>>;
-  handleProcessCreditCard: () => Promise<ResponsePattern<void>>;
+  handlePayment: (e: MouseEvent) => Promise<void>;
+  handleProcessPIX: () => Promise<ResponsePattern<PIXOrderResponse>>;
+  handleProcessCreditCard: () => Promise<ResponsePattern<CreditCardOrderResponse>>;
   triggerValidations: () => void;
   feedAddress: (addressType: IOrderAddressType, address: VIACEPFromXano) => void;
   setDeliveryPlace: (deliveryPlace: IAddressType) => void;
@@ -593,245 +620,289 @@ export interface TalhoCheckoutAppMethods {
    * Configura uma data de envio
    */
   setDeliveryDate: (shiftDays: number) => void;
+  /**
+   * Captura os horários de entrega disponíveis
+   */
+  captureAvailableDeliveryHours: () => Promise<ResponsePattern<DeliveryHoursResponse>>;
+  /**
+   * Captura os horários de entrega disponíveis
+   */
+  handleDeliveryHours: () => Promise<void>;
+  /**
+   * Configura um horário de entrega
+   */
+  setDeliveryHour: (hour: string) => void;
 }
 
-export interface TalhoCheckoutAppComputed {
+export interface TalhoCheckoutAppComputedDefinition {
   /**
    * Verifica se existe um método de pagamento selecionado
    */
-  hasSelectedPaymentMethod: boolean;
+  hasSelectedPaymentMethod: () => boolean;
 
   /**
    * `true` se o metodo de pagamento selecionado for `creditcard`
    */
-  isCreditCard: boolean;
+  isCreditCard: () => boolean;
   /**
    * Captura o subtotal do pedido
    */
-  getOrderSubtotal: number;
+  getOrderSubtotal: () => number;
   /**
    * Retorna o valor de `getOrderSubtotal` formatado em BRL
    */
-  getOrderSubtotalFormatted: string;
+  getOrderSubtotalFormatted: () => string;
   /**
    * Captura o valor total que será cobrado no pedido
    */
-  getOrderPrice: number;
+  getOrderPrice: () => number;
   /**
    * Retorna o valor de `getOrderPrice` formatado em BRL
    */
-  getOrderPriceFormatted: string;
+  getOrderPriceFormatted: () => string;
   /**
    * Captura o valor que será cobrado sobre o envio
    */
-  getShippingPrice: number;
+  getShippingPrice: () => number;
   /**
    * Retorna o valor de `getShippingPrice` formatado em BRL
    */
-  getShippingPriceFormatted: string;
+  getShippingPriceFormatted: () => string;
   /**
    * Retorna o desconto fornecido pelo cupom aplicado (retorna 0 ou valor negativo)
    */
-  getCouponDiscountPrice: number;
+  getCouponDiscountPrice: () => number;
   /**
    * Retorna o valor de `getShippingPriceFormatted` formatado em BRL
    */
-  getCouponDiscountPriceFormatted: string;
+  getCouponDiscountPriceFormatted: () => string;
   /**
    * Retorna o preço onde deverá ser aplicado o cupom de desconto
    * Se o cupom for do tipo `subtotal` retorna o valor de `getOrderSubtotal`
    * Se o cupom for do tipo `shipping` retorna o valor de `getShippingPrice`
    * Se o cupom for do tipo `product_id` será retornado o valor do produto em questão
    */
-  getParsedPriceForApplyDiscount: number;
+  getParsedPriceForApplyDiscount: () => number;
   /**
    * Dados do produto
    */
-  getParsedProducts: ParsedProductList[];
+  getParsedProducts: () => ParsedProductList[];
 
   /**
    * Verifica se os dados básicos do usuário são válidos
    */
-  isPersonalDataValid: boolean;
+  isPersonalDataValid: () => boolean;
   /**
    * Verifica se o e-mail informado é válido
    */
-  customerMailValidation: ISingleValidateCheckout;
+  customerMailValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se a data de nascimento recebida é válida
    */
-  customerBirthdateValidation: ISingleValidateCheckout;
+  customerBirthdateValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se o CPF fornecido é válido
    */
-  customerCPFValidation: ISingleValidateCheckout;
+  customerCPFValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se o cliente forneceu um telefone válido
    */
-  customerPhoneValidation: ISingleValidateCheckout;
+  customerPhoneValidation: () => ISingleValidateCheckout;
 
   /**
    * Verifica se o usuário selecionou um método de pagamento
    */
-  paymentMethodValidation: ISingleValidateCheckout;
+  paymentMethodValidation: () => ISingleValidateCheckout;
 
   /**
    * Verifica se o nome impresso no cartão é válido
    */
-  customerCreditCardHolderValidation: ISingleValidateCheckout;
+  customerCreditCardHolderValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se o número do cartão é válido
    */
-  customerCreditCardNumberValidation: ISingleValidateCheckout;
+  customerCreditCardNumberValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se a validade do cartão é válida
    */
-  customerCreditCardDateValidation: ISingleValidateCheckout;
+  customerCreditCardDateValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se o valor do CVV é válido
    */
-  customerCreditCardCVVValidation: ISingleValidateCheckout;
+  customerCreditCardCVVValidation: () => ISingleValidateCheckout;
   /**
    * Indica se os campos de cartão de crédito são válidos
    */
-  isCreditCardGroupValid: boolean;
+  isCreditCardGroupValid: () => boolean;
 
   /**
    * Validação sobre o campo de sempre do endereço de entrega
    */
-  billingCEPValidation: ISingleValidateCheckout;
+  billingCEPValidation: () => ISingleValidateCheckout;
   /**
    * Validação sobre o endereço de cobrança
    */
-  billingAddressValidation: ISingleValidateCheckout;
+  billingAddressValidation: () => ISingleValidateCheckout;
   /**
    * Validação sobre o número do endereço de cobrança
    */
-  billingNumberValidation: ISingleValidateCheckout;
+  billingNumberValidation: () => ISingleValidateCheckout;
   /**
    * Validação sobre o bairro do endereço de cobrança
    */
-  billingNeighborhoodValidation: ISingleValidateCheckout;
+  billingNeighborhoodValidation: () => ISingleValidateCheckout;
   /**
    * Validação sobre a cidade do endereço de entrega
    */
-  billingCityValidation: ISingleValidateCheckout;
+  billingCityValidation: () => ISingleValidateCheckout;
   /**
    * Validação sobre o estado informado pelo usuário
    */
-  billingStateValidation: ISingleValidateCheckout;
+  billingStateValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se o grupo 'endereço de cobrança' é válido
    */
-  isBillingAddressGroupValid: boolean;
+  isBillingAddressGroupValid: () => boolean;
 
   /**
    * Valida o local de entrega
    */
-  deliveryPlaceValidation: ISingleValidateCheckout;
+  deliveryPlaceValidation: () => ISingleValidateCheckout;
 
   /**
    * Valida o destinatário do envio
    */
-  shippingRecipientValidation: ISingleValidateCheckout;
+  shippingRecipientValidation: () => ISingleValidateCheckout;
   /**
    * Valida o CEP do endereço de envio
    */
-  shippingCEPValidation: ISingleValidateCheckout;
+  shippingCEPValidation: () => ISingleValidateCheckout;
   /**
    * Valida o endereço de envio
    */
-  shippingAddressValidation: ISingleValidateCheckout;
+  shippingAddressValidation: () => ISingleValidateCheckout;
   /**
    * Valida o número do endereço de entrega
    */
-  shippingNumberValidation: ISingleValidateCheckout;
-  shippingNeighborhoodValidation: ISingleValidateCheckout;
-  shippingCityValidation: ISingleValidateCheckout;
-  shippingStateValidation: ISingleValidateCheckout;
+  shippingNumberValidation: () => ISingleValidateCheckout;
+  shippingNeighborhoodValidation: () => ISingleValidateCheckout;
+  shippingCityValidation: () => ISingleValidateCheckout;
+  shippingStateValidation: () => ISingleValidateCheckout;
   /**
    * Verifica se o grupo 'endereço de cobrança' é válido
    */
-  isShippingAddressGroupValid: boolean;
+  isShippingAddressGroupValid: () => boolean;
 
-  notIgnoredFields: ISingleValidateCheckout[];
+  /**
+   * Indica se o grupo "Datas de entrega" é válido
+   */
+  deliveryDatesGroupValidation: () => ISingleValidateCheckout;
+  /**
+   * Indica se o grupo "Horários de entrega" é válido
+   */
+  deliveryHoursGroupValidation: () => ISingleValidateCheckout;
 
-  firstInvalidField: Nullable<ISingleValidateCheckout>;
+  notIgnoredFields: () => ISingleValidateCheckout[];
+
+  firstInvalidField: () => Nullable<ISingleValidateCheckout>;
 
   /**
    * Verifica se um endereço já foi selecionado
    */
-  hasSelectedAddress: boolean;
+  hasSelectedAddress: () => boolean;
   /**
    * Verifica se o valor de `deliveryPlace` é `same`
    */
-  isSameAddress: boolean;
+  isSameAddress: () => boolean;
   /**
    * Verifica se o valor de `deliveryPlace` é `diff`
    */
-  isDiffAddress: boolean;
+  isDiffAddress: () => boolean;
 
   /**
    * Indica se a validação do endereço de envio deve ser feita
    */
-  shouldValidateShippingAddress: boolean;
-  showShippingAddressSelector: boolean;
+  shouldValidateShippingAddress: () => boolean;
+  showShippingAddressSelector: () => boolean;
 
   /**
    * Retorna os endereços formatados para o envio ao backend
    */
-  getParsedAddresses: IParsedAddressContent;
+  getParsedAddresses: () => IParsedAddressContent;
 
   /**
    * Retorna os dados do usuário formatados para envio ao backend
    */
-  getParsedCustomer: PostOrderCustomer;
+  getParsedCustomer: () => PostOrderCustomer;
 
   /**
    * Retorna os dados base formatados para envio ao backend
    */
-  getOrderBaseData: Omit<PostOrder, 'customer'>;
+  getOrderBaseData: () => Omit<PostOrder, 'customer'>;
 
   /**
    * Informa se a seção de parcelamento deve ser exibida
    */
-  showInstallmentSection: boolean;
+  showInstallmentSection: () => boolean;
   /**
    * Captura e realiza o parse das informações de parcelamento
    */
-  getParsedInstallments: InstallmentItem<`R$ ${string}`>[];
+  getParsedInstallments: () => InstallmentItem<BRLString>[];
 
   /**
    * Retornará `true` enquanto o campo `coupon` contiver o valor `null`.
    */
-  hasNullCoupon: boolean;
+  hasNullCoupon: () => boolean;
   /**
    * Verifica se existe cupom aplicado
    */
-  hasAppliedCoupon: boolean;
+  hasAppliedCoupon: () => boolean;
   /**
    * Verifica se um código inválido for fornecido
    */
-  hasInvalidCoupon: boolean;
+  hasInvalidCoupon: () => boolean;
   /**
    * Verifica se o cupom que está sendo digitado é válido
    */
-  isCouponCodeValid: boolean;
+  isCouponCodeValid: () => boolean;
   /**
    * Retorna o token gerado com dados do cartão e possíveis erros
    */
-  getCreditCardToken: PagSeguroCardEncrypt;
+  getCreditCardToken: () => PagSeguroCardEncrypt;
   /**
    * Verifica se existem datas de entrega
    */
-  hasDeliveryDates: boolean;
+  hasDeliveryDates: () => boolean;
   /**
    * Retorna as datas de envio parseadas
    */
-  getParsedDeliveryDates: DeliveryDate<string>;
+  getParsedDeliveryDates: () => ComputedDeliveryDate[];
+  /**
+   * Verifica se existem horários de entrega
+   */
+  hasDeliveryHour: () => boolean;
+  /**
+   * Retorna os horários de envio disponíveis para a data selecionada
+   */
+  getParsedDeliveryHours: () => ComputedDeliveryHours[];
+}
+
+export type TalhoCheckoutAppComputed = ComputedReturnValues<TalhoCheckoutAppComputedDefinition>;
+
+export interface TalhoCheckoutAppWatch {
+  billingCEP: WatchCallback<TalhoCheckoutContext['billingCEP'], TalhoCheckoutContext['billingCEP']>;
+  shippingCEP: WatchCallback<TalhoCheckoutContext['shippingCEP'], TalhoCheckoutContext['shippingCEP']>;
+  getOrderPrice: WatchOptions;
+  getCreditCardToken: WatchCallback<TalhoCheckoutContext['getCreditCardToken'], TalhoCheckoutContext['getCreditCardToken']>;
 }
 
 export type TalhoCheckoutContext = TalhoCheckoutAppData & TalhoCheckoutAppSetup & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;
+
+export interface WatchOptionItem <V, OV> {
+  handler: WatchCallback<V, OV>;
+}
+
+export type BRLString = `R$ ${string}`;
 
 export interface InstallmentItem <T = number> {
   installments: number;
@@ -871,7 +942,7 @@ export type PagSeguroEncryptErrors =
   | 'INVALID_SECURITY_CODE'
   | 'INVALID_PUBLIC_KEY'
   | 'INVALID_HOLDER'
-  | 'INVALID_NUMBER'
+  | 'INVALID_NUMBER';
 
 export interface PagSeguroEncryptError {
   message: string;
@@ -886,6 +957,7 @@ export interface PagSeguroCardEncrypt {
 
 declare global {
   interface Window {
+    Vue: Vue;
     PagSeguro: PagSeguro;
   }
 }
@@ -905,6 +977,16 @@ export interface DeliveryDate <T = ISODateString> {
 
 export interface ComputedDeliveryDate extends DeliveryDate<string> {
   selected: boolean;
+}
+
+export interface DeliveryHoursResponse {
+  hours: string[];
+  periods_count: number;
+}
+
+export interface ComputedDeliveryHours {
+  hour: string;
+  label: string;
 }
 
 export interface GetInstallmentsBody {
@@ -927,14 +1009,21 @@ export interface PostOrderCreditCard {
   installmentValue: number;
 }
 
+export interface PostOrderDelivery {
+  delivery_date: ISODateString;
+  delivery_hour: string;
+}
+
 export interface PostOrder {
   user_id: Nullable<number>;
   coupon_code: Nullable<string>;
   customer: PostOrderCustomer & IParsedAddressContent;
+  delivery: PostOrderDelivery;
 }
 
 export interface CreditCardPostOrder extends PostOrder {
-  creditCardInfo: PostOrderCreditCard;
+  is_same_address: boolean;
+  credit_card_info: PostOrderCreditCard;
 }
 
 export interface IParsedProducts {
@@ -1004,10 +1093,6 @@ export interface ISingleOrderCouponError {
    * Indica que um erro foi encontrado na busca pelo cupom
    */
   error: true;
-  /**
-   * O código que foi usado na busca que falhou
-   */
-  code: string;
   /**
    * Mensagem de erro
    */
