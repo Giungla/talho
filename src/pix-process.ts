@@ -3,9 +3,10 @@ import {
   PixOrderData,
   PixOrderDataPoll,
   TalhoPixProcessData,
+  TalhoPixProcessWatch,
   TalhoPixProcessContext,
   TalhoPixProcessMethods,
-  TalhoPixOrderComputedDefinition, TalhoPixProcessWatch,
+  TalhoPixOrderComputedDefinition,
 } from '../types/pix-process'
 
 import type {
@@ -15,14 +16,13 @@ import type {
 
 (function () {
   const {
-    ref,
     createApp,
   } = window.Vue
 
   const EMPTY_STRING = ''
   const NULL_VALUE = null
-  const FALLBACK_STRING = '-'
   const DEFAULT_TIME = '00:00:00'
+  const GENERAL_HIDDEN_CLASS = 'oculto'
 
   const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:5lp3Lw8X'
 
@@ -31,7 +31,27 @@ import type {
     style: 'currency',
   })
 
-  function buildURL (path: string, query: Record<string, string>): string {
+  function setPageLoader (status?: boolean): boolean {
+    return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
+  }
+
+  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
+    if (!element) return false
+
+    return element.classList.toggle(className, force)
+  }
+
+  function safeParseJson <T = unknown> (value: string | null | undefined): T | null {
+    if (typeof value !== 'string') return null
+
+    try {
+      return JSON.parse(value) as T
+    } catch {
+      return NULL_VALUE
+    }
+  }
+
+  function buildURL (path: string, query: Record<string, string> = {}): string {
     const baseURL = new URL(`${location.protocol}//${location.hostname}`)
 
     const nextPage = new URL(path, baseURL)
@@ -96,7 +116,9 @@ import type {
 
       const response = await this.getOrder(transactionId)
 
-      if (!response.succeeded) {
+      if (!response.succeeded || response.data.payment_method !== 'pix') {
+        location.href = buildURL('/')
+
         return
       }
 
@@ -110,13 +132,17 @@ import type {
             order: transactionId
           })
         }, 5000)
+
+        return
       }
 
-      if (response.data.expired || response.data.pago) return
+      if (response.data.expired) return
 
       this.nowInterval = setInterval(() => this.now = Date.now(), 1000)
 
-      this.pollOrder(transactionId)
+      if ('EventSource' in window) {
+        return this.pollOrder(transactionId)
+      }
     },
 
     methods: {
@@ -124,7 +150,9 @@ import type {
         const source = new EventSource(`${XANO_BASE_URL}/confirm-pix/${orderId}`)
 
         source.addEventListener('message', async (event: MessageEvent<string>) => {
-          const orderData = JSON.parse(event.data) as PixOrderDataPoll
+          const orderData = safeParseJson<PixOrderDataPoll>(event.data)
+
+          if (orderData === NULL_VALUE) return
 
           this.patchOrder({
             ...orderData,
@@ -215,6 +243,10 @@ import type {
         const QRImage = querySelector('[data-wtf-qr-code-image]')
 
         if (!QRImage) return
+
+        QRImage.onload = () => {
+          setPageLoader(false)
+        }
 
         QRImage.setAttribute('src', this.order?.qrcode ?? QRImage.getAttribute('src') as string)
       },

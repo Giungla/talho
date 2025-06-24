@@ -6,7 +6,7 @@ import {
   FunctionErrorPattern,
   FunctionSucceededPattern,
   GroupFloatingCartState,
-  ResponsePattern
+  ResponsePattern, TypeMap, TypeofResult
 } from '../global';
 
 (function () {
@@ -16,9 +16,11 @@ import {
   const DISABLED_ATTR = 'disabled'
   const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
-  const FREE_SHIPPING_MINIMUM_PRICE = 300
+  const FREE_SHIPPING_MINIMUM_PRICE = 400
 
   const REQUEST_CONTROLLERS: AbortController[] = []
+
+  const NULL_VALUE = null
 
   const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_'
 
@@ -35,8 +37,8 @@ import {
   })
 
   const _state: FloatingCartState = {
-    cart: null,
-    fetched: null,
+    cart: NULL_VALUE,
+    fetched: NULL_VALUE,
     isPending: false,
     isCartOpened: true,
   }
@@ -70,7 +72,6 @@ import {
 
       switch (key) {
         case 'isPending':
-          console.log('Alteração no estado de carregamento', value)
           break
         case 'isCartOpened':
           refreshCartItems()
@@ -98,6 +99,28 @@ import {
 
   const cartTotalElement = querySelector('[data-wtf-floating-cart-total]')
 
+  function hasOwn <
+    T extends object,
+    K extends PropertyKey,
+    Type extends TypeofResult = never,
+  > (o: T, v: K, type?: Type): o is T & Record<K, Type extends keyof TypeMap ? TypeMap[Type] : unknown> {
+    return Object.prototype.hasOwnProperty.call(o, v) && (!type || typeof (o as any)[v] === type)
+  }
+
+  function isArray <T extends any> (value: any): value is T[] {
+    return Array.isArray(value)
+  }
+
+  function safeParseJson <T = unknown> (value: string | null | undefined): T | null {
+    if (typeof value !== 'string') return NULL_VALUE
+
+    try {
+      return JSON.parse(value) as T
+    } catch {
+      return NULL_VALUE
+    }
+  }
+
   function querySelector<
     K extends keyof HTMLElementTagNameMap,
     T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
@@ -105,7 +128,7 @@ import {
     selector: K | string,
     node: HTMLElement | Document | null = document
   ): T {
-    if (!node) return null as T
+    if (!node) return NULL_VALUE as T
 
     return node.querySelector(selector as string) as T;
   }
@@ -191,17 +214,34 @@ import {
     }
   }
 
-  async function refreshCartItems () {
+  function hasValidCart (cart: object): cart is CartResponse {
+    if (!hasOwn(cart, 'order_price', 'number') || !hasOwn(cart, 'items')) return false
+
+    if (!isArray(cart.items)) return false
+
+    if (objectSize(cart.items as []) === 0) return true
+
+    return (cart.items as Record<string, unknown>[]).every(value => (
+      hasOwn(value, 'name', 'string') &&
+      hasOwn(value, 'quantity', 'number') &&
+      hasOwn(value, 'price', 'number') &&
+      hasOwn(value, 'imageUrl', 'string') &&
+      hasOwn(value, 'sku_id', 'number') &&
+      hasOwn(value, 'slug', 'string')
+    ))
+  }
+
+  async function refreshCartItems (): Promise<void> {
     if (!state.isCartOpened) return
 
-    const cart = localStorage.getItem(STORAGE_KEY_NAME)
+    const parsedCart = safeParseJson(localStorage.getItem(STORAGE_KEY_NAME))
 
-    if (cart) {
+    if (parsedCart && hasValidCart(parsedCart)) {
       state.fetched ??= true
-      state.cart = JSON.parse(cart)
+      state.cart = parsedCart
 
       return
-    }
+    } else localStorage.removeItem(STORAGE_KEY_NAME)
 
     state.isPending = true
 
@@ -270,6 +310,8 @@ import {
   }
 
   async function handleProductChangeQuantity (operation: Exclude<CartOperation, 'add'>, payload: Omit<CreateCartProduct, 'quantity'>) {
+    if (state.isPending) return
+
     state.isPending = true
 
     const response = await updateCartProducts({
@@ -287,29 +329,35 @@ import {
   function renderCart () {
     changeTextContent(cartTotalElement, state.getOrderPrice)
 
-    if (!Array.isArray(state.cart?.items) || !cartItemTemplate || !cartItemsWrapper) return
+    if (!isArray<CartResponseItem>(state.cart?.items) || !cartItemTemplate || !cartItemsWrapper) return
 
-    if (!toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, state.cart?.items.length > 0)) {
+    if (!toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, objectSize(state.cart?.items) > 0)) {
+      changeTextContent(querySelector('[data-wtf-floating-cart-items-indicator]'), '0')
+
       return cartItemsWrapper.replaceChildren()
     }
 
+    let unitCount = 0
+
     const cartFragment = document.createDocumentFragment()
 
-    for (const item of state.cart.items) {
+    for (const { slug, imageUrl, quantity, price, sku_id, name } of state.cart.items) {
+      unitCount += quantity
+
       const template = cartItemTemplate.cloneNode(true) as HTMLElement
 
-      changeTextContent(querySelector('[data-wtf-floating-cart-item-product-name]', template), item.name)
-      changeTextContent(querySelector('[data-wtf-floating-cart-item-quantity]', template), item.quantity.toString())
-      changeTextContent(querySelector('[data-wtf-floating-cart-item-product-price]', template), BRLFormatter.format(item.price))
+      changeTextContent(querySelector('[data-wtf-floating-cart-item-product-name]', template), name)
+      changeTextContent(querySelector('[data-wtf-floating-cart-item-quantity]', template), quantity.toString())
+      changeTextContent(querySelector('[data-wtf-floating-cart-item-product-price]', template), BRLFormatter.format(price))
 
       const productImage = document.createElement('img')
-      productImage.setAttribute('src', item.imageUrl)
+      productImage.setAttribute('src', imageUrl)
 
       querySelector('[data-wtf-floating-cart-item-image]', template)?.replaceChildren(productImage)
 
       const changeCartPayload = {
-        sku_id: item.sku_id,
-        reference_id: item.slug
+        sku_id,
+        reference_id: slug
       }
 
       const productEventMap: [Exclude<CartOperation, 'add'>, string][] = [
@@ -324,6 +372,8 @@ import {
 
       cartFragment.appendChild(template)
     }
+
+    changeTextContent(querySelector('[data-wtf-floating-cart-items-indicator]'), unitCount.toString())
 
     cartItemsWrapper.replaceChildren(cartFragment)
   }
@@ -380,8 +430,8 @@ import {
     if (e.key !== STORAGE_KEY_NAME) return
 
     state.cart = e.newValue
-      ? JSON.parse(e.newValue)
-      : null
+      ? safeParseJson(e.newValue)
+      : NULL_VALUE
   })
 
   refreshCartItems()

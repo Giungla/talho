@@ -43,9 +43,12 @@ import {
     return () => node.removeEventListener(eventName, callback as EventListener, options)
   }
 
+  function splitText (value: string, separator: string | RegExp, limit?: number): string[] {
+    return value.split(separator, limit)
+  }
+
   function getCookie (name: string): string | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
+    const selectedCookie = splitText(document.cookie, COOKIE_SEPARATOR)
       .find(cookie => {
         const { name: cookieName } = splitCookie(cookie)
 
@@ -58,7 +61,7 @@ import {
   }
 
   function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = cookie.split('=')
+    const [name, value] = splitText(cookie, '=')
 
     return {
       name,
@@ -66,11 +69,13 @@ import {
     }
   }
 
-  function camelToKebabCase (str: string) {
+  function camelToKebabCase (str: string): string {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
   }
 
-  function removeAttribute (element: Element, attribute: string) {
+  function removeAttribute (element: ReturnType<typeof querySelector>, attribute: string) {
+    if (!element) return
+
     element.removeAttribute(attribute)
   }
 
@@ -78,16 +83,29 @@ import {
     return target.hasOwnProperty(property)
   }
 
-  function addClass (element: Element, ...className: string[]) {
+  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
+    if (!element) return
+
     element.classList.add(...className)
   }
 
-  function removeClass (element: Element, ...className: string[]) {
+  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
+    if (!element) return
+
     element.classList.remove(...className)
   }
 
-  function toggleClass (element: Element, className: string, force?: boolean): boolean {
+  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
+    if (!element) return false
+
     return element.classList.toggle(className, force)
+  }
+
+  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
+    return {
+      data: response,
+      succeeded: true
+    }
   }
 
   function postErrorResponse (message: string): FunctionErrorPattern {
@@ -103,11 +121,11 @@ import {
     const errorMessage = querySelector('[data-wtf-user-update-error-message]', form)
     const successMessage = querySelector('[data-wtf-user-update-success-message]', form)
 
-    errorMessage && toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
-    successMessage && toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
+    toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
+    toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
 
     if (!isError) {
-      setTimeout(() => successMessage && addClass(successMessage, GENERAL_HIDDEN_CLASS), 8000)
+      setTimeout(() => addClass(successMessage, GENERAL_HIDDEN_CLASS), 8000)
 
       return
     }
@@ -185,18 +203,18 @@ import {
           renderSinglePersonalData(printPoints, newValue as string)
 
           break
-        case 'isFormVisible':
-          console.log('form estará visivel: ', newValue)
       }
 
       return response
     }
   })
 
+  const authCookie = getCookie(COOKIE_NAME)
+
   const HEADERS = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    Authorization: getCookie(COOKIE_NAME) as string
+    ...(authCookie && { Authorization: authCookie })
   }
 
   const removeAttributes = [
@@ -220,7 +238,7 @@ import {
 
     const submit = querySelector('[type="submit"]', _form)
 
-    submit && removeAttribute(submit, 'disabled')
+    removeAttribute(submit, 'disabled')
 
     removeClass(parentElement, 'w-form')
 
@@ -260,8 +278,7 @@ import {
       return
     }
 
-    const birthday = (dateField?.value ?? '')
-      .split('/')
+    const birthday = splitText(dateField?.value ?? '', '/')
       .reverse()
       .join('-')
 
@@ -282,6 +299,9 @@ import {
     handleMessages(form, response)
 
     if (!response.succeeded) return
+
+    // @ts-ignore
+    window?.refreshOrders?.()
 
     syncState(response.data)
   })
@@ -340,7 +360,7 @@ import {
     if (!editButton) return
 
     attachEvent(editButton, 'click', () => {
-      formGroup && removeClass(formGroup, GENERAL_HIDDEN_CLASS)
+      removeClass(formGroup, GENERAL_HIDDEN_CLASS)
 
       addClass(editButton, GENERAL_HIDDEN_CLASS)
     }, { once: true })
@@ -358,11 +378,11 @@ import {
     }
 
     removeClass(editButton, GENERAL_HIDDEN_CLASS)
-    formGroup && addClass(formGroup, GENERAL_HIDDEN_CLASS)
+    addClass(formGroup, GENERAL_HIDDEN_CLASS)
   }
 
   function setStateToField (field: ReturnType<typeof querySelector<'input'>>, value?: string) {
-    if (!field) return
+    if (!field || field.tagName !== 'INPUT') return
 
     field.value = value ?? ''
   }
@@ -439,7 +459,7 @@ import {
   function applyWrapperError (element: Exclude<ReturnType<typeof querySelector>, null>, isValid: boolean) {
     const wrapperElement = element.closest('[data-wtf-wrapper]')
 
-    wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid)
+    toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid)
   }
 
   function isNameValid (name: string): boolean {
@@ -507,7 +527,7 @@ import {
 
     const hasPatternMatch = /^(\d{2})\/(\d{2})\/(19|20)(\d{2})$/g.test(date)
 
-    const [day, month, year] = date.split('/')
+    const [day, month, year] = splitText(date, '/')
 
     const getTimeFromDate = new Date(`${year}-${month}-${day}T00:00:00.000Z`).getTime()
 
@@ -530,8 +550,7 @@ import {
     validationIndexes.forEach(function(j){
       let soma = 0, r: number
 
-      cpf
-        .split('')
+      splitText(cpf, '')
         .splice(0, j)
         .forEach(function(e, i){
           soma += parseInt(e) * ((j + 2) - (i + 1))
@@ -571,10 +590,7 @@ import {
 
       const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
 
-      return {
-        succeeded: true,
-        data: personalData
-      }
+      return postSuccessResponse(personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -600,10 +616,7 @@ import {
 
       const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
 
-      return {
-        succeeded: true,
-        data: personalData
-      }
+      return postSuccessResponse(personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }

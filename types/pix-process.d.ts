@@ -25,11 +25,29 @@ export interface TalhoPixProcessData {
 }
 
 export interface TalhoPixProcessMethods {
+  /**
+   * Inicializa o `EventSource` responsável por receber as atualizações do pedido visualizado
+   */
   pollOrder: (orderId: string) => void;
+  /**
+   * Atualiza parcialmente os dados do pedido com as informações recebidas via `EventSource`
+   */
   patchOrder: (payload: PixOrderDataPoll) => void;
+  /**
+   * Captura os dados do pedido
+   */
   getOrder: (orderId: string) => Promise<ResponsePattern<PixOrderData>>;
+  /**
+   * Permite ao usuário copiar o QRCode
+   */
   handleCopyQRCode: () => Promise<void>;
+  /**
+   * Interrompe countdown responsável pela atualização do timer na tela
+   */
   clearInterval: () => void;
+  /**
+   * Renderiza o QRImage na tela para que o usuário possa realizar a leitura
+   */
   setQRImage: () => void;
 }
 
@@ -59,21 +77,54 @@ export interface TalhoPixOrderComputedDefinition {
 export type TalhoPixOrderComputed = ComputedReturnValues<TalhoPixOrderComputedDefinition>;
 
 export interface TalhoPixProcessWatch {
+  /**
+   * Assiste as modificações no timmer aguardando pelo momento que seja `00:00:00`
+   */
   timmer: (time: string) => void;
 }
 
 export type TalhoPixProcessContext = TalhoPixProcessData & TalhoPixProcessMethods & TalhoPixOrderComputed;
 
 export interface PixOrderData {
+  /**
+   * Timestamp: indica em que momento esse QR code deixará de ser válido
+   */
   due_time: number;
+  /**
+   * Timestamp: indica em que momento este pedido foi gerado
+   */
   created_at: number;
-  order_status: 1 | 2;
+  /**
+   * Status atual do pedido
+   */
+  order_status: 1 | 2 | 3;
+  /**
+   * Método de pagamento usado no pedido
+   */
   payment_method: ISinglePaymentKey;
+  /**
+   * Valor total deste pedido
+   */
   total: number;
+  /**
+   * Indica se o pedido está ou não pago
+   */
   pago: boolean;
+  /**
+   * URL do QRImage escaneável
+   */
   qrcode: string;
+  /**
+   * Linha copiável do QRCode de pagamento
+   */
   qrcode_text: string;
+  /**
+   * Indica se o período de pagamento deste pedido passou
+   */
   expired: boolean;
 }
 
+/**
+ * Dados retornados pelo EventSource aberto com o backend
+ */
 export type PixOrderDataPoll = Pick<PixOrderData, 'pago' | 'expired' | 'total'>;

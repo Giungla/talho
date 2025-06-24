@@ -1,5 +1,5 @@
 
-import {
+import type {
   BRLString,
   CartResponse,
   ComputedDeliveryDate,
@@ -35,7 +35,7 @@ import {
 } from '../global'
 
 // @ts-expect-error
-import type { DirectiveBinding, Ref, ObjectDirective, WatchOptions, OnCleanup } from 'vue'
+import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
 import type {
   PIXOrderResponse,
   CreditCardOrderResponse,
@@ -51,6 +51,7 @@ import type {
   const SLASH_STRING = '/'
   const NULL_VALUE = null
   const ERROR_KEY = 'error'
+  const GENERAL_HIDDEN_CLASS = 'oculto'
 
   const CEP_LENGTH = 8
 
@@ -132,6 +133,16 @@ import type {
     currency: 'BRL',
     style: 'currency',
   })
+
+  function setPageLoader (status?: boolean): boolean {
+    return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
+  }
+
+  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
+    if (!element) return false
+
+    return element.classList.toggle(className, force)
+  }
 
   function buildURL (path: string, query: Record<string, string>): string {
     const baseURL = new URL(`${location.protocol}//${location.hostname}`)
@@ -528,7 +539,7 @@ import type {
       const billingCityElement = ref<HTMLInputElement | null>(NULL_VALUE)
       const billingStateElement = ref<HTMLInputElement | null>(NULL_VALUE)
 
-      const deliveryPlaceElement = ref<HTMLElement | null>(NULL_VALUE)
+      const deliveryPlaceMessageElement = ref<HTMLElement | null>(NULL_VALUE)
 
       const shippingRecipientElement = ref<HTMLInputElement | null>(NULL_VALUE)
       const shippingCEPElement = ref<HTMLInputElement | null>(NULL_VALUE)
@@ -541,6 +552,8 @@ import type {
       const deliveryDateMessageElement = ref<HTMLElement | null>(NULL_VALUE)
 
       const deliveryHourMessageElement = ref<HTMLElement | null>(NULL_VALUE)
+
+      const installmentsMessageElement = ref<HTMLElement | null>(NULL_VALUE)
 
       const couponCodeElement = ref<HTMLInputElement | null>(NULL_VALUE)
 
@@ -593,7 +606,7 @@ import type {
         billingCityElement,
         billingStateElement,
 
-        deliveryPlaceElement,
+        deliveryPlaceMessageElement,
 
         shippingRecipientElement,
         shippingCEPElement,
@@ -607,12 +620,15 @@ import type {
 
         deliveryHourMessageElement,
 
+        installmentsMessageElement,
+
         couponCodeElement,
       }
     },
 
     data () {
       return {
+        hasPendingPayment: false,
         isSubmitted: false,
         productlist: NULL_VALUE,
         visitedFields: [],
@@ -651,7 +667,7 @@ import type {
     },
 
     created (): void {
-      this.refreshCart()
+      this.refreshCart().then(() => setPageLoader(false))
 
       window.addEventListener('storage', (e) => {
         if (e.key !== STORAGE_KEY_NAME) return
@@ -684,8 +700,8 @@ import type {
         }
       },
 
-      refreshCart (): void {
-        this.getCart().then(cartData => {
+      async refreshCart (): Promise<void> {
+        return this.getCart().then(cartData => {
           if (!cartData.succeeded) return
 
           this.productlist = cartData.data
@@ -769,6 +785,8 @@ import type {
       async handlePayment (e: MouseEvent): Promise<void> {
         e.preventDefault()
 
+        if (this.hasPendingPayment) return
+
         this.triggerValidations()
 
         if (!this.isSubmitted) {
@@ -794,6 +812,8 @@ import type {
           return
         }
 
+        this.hasPendingPayment = setPageLoader(true)
+
         const paymentMap = {
           [PIX_PAYMENT]: this.handleProcessPIX,
           [CREDIT_CARD_PAYMENT]: this.handleProcessCreditCard,
@@ -805,6 +825,8 @@ import type {
         const response = await execPayment?.()
 
         if (!response.succeeded) {
+          this.hasPendingPayment = setPageLoader(false)
+
           alert('Pagamento falhou')
 
           return
@@ -1334,7 +1356,7 @@ import type {
 
       deliveryPlaceValidation (): ISingleValidateCheckout {
         return buildFieldValidation(
-          this.deliveryPlaceElement,
+          this.deliveryPlaceMessageElement,
           this.hasSelectedAddress,
           !this.isCreditCard
         )
@@ -1423,6 +1445,14 @@ import type {
         )
       },
 
+      installmentGroupValidation (): ISingleValidateCheckout {
+        return buildFieldValidation(
+          this.installmentsMessageElement,
+          this.selectedInstallment !== NULL_VALUE,
+          !this.isCreditCard || !this.paymentMethodValidation.valid
+        )
+      },
+
       notIgnoredFields (): ISingleValidateCheckout[] {
         return [
           this.customerMailValidation,
@@ -1450,6 +1480,7 @@ import type {
           this.shippingStateValidation,
           this.deliveryDatesGroupValidation,
           this.deliveryHoursGroupValidation,
+          this.installmentGroupValidation,
         ].filter(({ ignoreIf }) => includes([false, undefined], ignoreIf))
       },
 

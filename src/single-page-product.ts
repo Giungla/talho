@@ -1,32 +1,52 @@
+
 import {
-  ComputedFinalPrices, CreateCartProduct,
+  ComputedFinalPrices,
+  CreateCartProduct,
   FunctionErrorPattern,
-  FunctionSucceededPattern, Nullable, Prices,
+  FunctionSucceededPattern,
+  Nullable,
+  Prices,
   ResponsePattern,
-  SignupStateStatus,
   SingleProductPageProduct,
   SingleProductPageState,
-  SingleProductPageStateHandler,
-} from "../global";
+  SingleProductPageStateHandler, SingleProductPageStateKeys,
+} from '../global'
+
+import type {
+  AddToCartParams,
+  GetProductParams
+} from '../types/single-page-product'
 
 (function () {
+  const NULL_VALUE = null
   const COOKIE_SEPARATOR = '; '
   const GENERAL_HIDDEN_CLASS = 'oculto'
+  const SELECTED_CLASS = 'selecionado'
   const COOKIE_NAME = '__Host-Talho-AuthToken'
   const STORAGE_KEY_NAME = 'talho_cart_items'
   const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
   const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_'
 
+  const CLICK_EVENT = 'click'
+
   /** Quantidade mínima de produtos permitidos no carrinho */
   const MIN_PRODUCT_QUANTITY = 1
   /** Quantidade máxima de produtos permitados no carrinho */
   const MAX_PRODUCT_QUANTITY = 10
 
+  const COUNTER_REPLACEMENT = '{count}'
+
+  const STOCK_MESSAGE = [
+    `Temos apenas ${COUNTER_REPLACEMENT} unidade disponível.`,
+    `Temos apenas ${COUNTER_REPLACEMENT} unidades disponíveis.`,
+  ]
+
   const _state: SingleProductPageState = {
     quantity: 1,
-    product: null,
-    selectedVariation: null,
+    stockCount: 0,
+    product: NULL_VALUE,
+    selectedVariation: NULL_VALUE,
   }
 
   const state = new Proxy<SingleProductPageState>(_state, {
@@ -36,7 +56,7 @@ import {
     ): any {
       switch (key) {
         case 'variationsCount':
-          return target.product?.variations.length ?? 0
+          return objectSize(target.product?.variations ?? [])
         case 'hasPriceDifference':
           {
             const { price, full_price } = state.prices
@@ -86,13 +106,13 @@ import {
             } satisfies ComputedFinalPrices
           }
         case 'hasSelectedVariation':
-          return target.selectedVariation !== null
+          return target.selectedVariation !== NULL_VALUE
         default:
           return Reflect.get(target, key)
       }
     },
 
-    set <K extends keyof SingleProductPageState> (
+    set <K extends SingleProductPageStateKeys> (
       target: SingleProductPageState,
       key: K,
       value: SingleProductPageState[K]
@@ -106,19 +126,27 @@ import {
           break
         case 'selectedVariation':
           renderProductVariations()
-          Reflect.set(state, 'quantity', 1)
+          Reflect.set(state, 'quantity' satisfies SingleProductPageStateKeys, 1)
+          break
+        case 'stockCount':
+          renderStockElements()
+          changeProductQuantity(0)
           break
         case 'product':
           {
             const product = value as Nullable<SingleProductPageProduct>
 
-            Reflect.set(state, 'selectedVariation', product?.variations[0].id)
+            Reflect.set(state, 'stockCount' satisfies SingleProductPageStateKeys, product?.stock_quantity ?? 0) // TODO: product.stock_quantity
+            Reflect.set(state, 'selectedVariation' satisfies SingleProductPageStateKeys, product?.variations[0].id ?? NULL_VALUE)
           }
       }
 
       return isApplied
     }
   }) as (SingleProductPageState & SingleProductPageStateHandler)
+
+  const maxAvailableProductsElement = querySelector<'div'>('[data-wtf-error-message-sku-maximum]')
+  const outtaStockElement = querySelector<'div'>('[data-wtf-error-message-invetory]')
 
   const minusButton = querySelector<'a'>('[data-wtf-quantity-minus]')
   const plusButton = querySelector<'a'>('[data-wtf-quantity-plus]')
@@ -138,6 +166,22 @@ import {
     style: 'currency',
   })
 
+  function replaceText (value: string, search: string | RegExp, replacer: string): string {
+    return value.replace(search, replacer)
+  }
+
+  function stringify <T extends object> (value: T): string {
+    return JSON.stringify(value)
+  }
+
+  function clamp (min: number, max: number, value: number): number {
+    return Math.max(min, Math.min(max, value))
+  }
+
+  function objectSize <T extends string | any[]> (value: T): number {
+    return value.length
+  }
+
   function querySelector<
     K extends keyof HTMLElementTagNameMap,
     T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
@@ -145,7 +189,7 @@ import {
     selector: K | string,
     node: HTMLElement | Document | null = document
   ): T {
-    if (!node) return null as T
+    if (!node) return NULL_VALUE as T
 
     return node.querySelector(selector as string) as T;
   }
@@ -181,25 +225,25 @@ import {
     element.textContent = textContent
   }
 
-  function addAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string, value: string) {
+  function addAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string, value: string): void {
     if (!element) return
 
     element.setAttribute(qualifiedName, value)
   }
 
-  function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string) {
+  function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string): void {
     if (!element) return
 
     element.removeAttribute(qualifiedName)
   }
 
-  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
+  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
     if (!element) return
 
     element.classList.add(...className)
   }
 
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
+  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
     if (!element) return
 
     element.classList.remove(...className)
@@ -235,21 +279,19 @@ import {
     }
   }
 
-  async function getProduct (): Promise<ResponsePattern<SingleProductPageProduct>> {
+  async function getProduct (pathname: GetProductParams['reference_id']): Promise<ResponsePattern<SingleProductPageProduct>> {
     const defaultErrorMessage = 'Houve uma falha ao capturar o produto'
 
     try {
-      const splittedPathname = location.pathname.split('/')
-
       const response = await fetch(`${CART_BASE_URL}/product/single-product-page`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+        body: stringify<GetProductParams>({
           quantity: 1,
-          reference_id: splittedPathname[splittedPathname.length - 1],
+          reference_id: pathname,
         })
       })
 
@@ -267,10 +309,12 @@ import {
     }
   }
 
-  function changeProductQuantity (increment: number) {
+  function changeProductQuantity (increment: number): void {
     const newQuantity = increment + state.quantity
 
-    const clampedQuantity = Math.max(MIN_PRODUCT_QUANTITY, Math.min(newQuantity, MAX_PRODUCT_QUANTITY))
+    const maxProductQuantityFromStock = Math.min(state.stockCount, MAX_PRODUCT_QUANTITY)
+
+    const clampedQuantity = clamp(MIN_PRODUCT_QUANTITY, maxProductQuantityFromStock, newQuantity)
 
     if (clampedQuantity === state.quantity) return
 
@@ -285,12 +329,16 @@ import {
     state.selectedVariation = variationID
   }
 
-  async function buyProduct (event: MouseEvent) {
+  async function buyProduct (event: MouseEvent): Promise<void> {
     event.preventDefault()
 
-    const { quantity, product, selectedVariation } = state
+    const {
+      quantity,
+      product,
+      selectedVariation
+    } = state
 
-    if (!selectedVariation || !product) return
+    if (!selectedVariation || !product || state.stockCount === 0) return
 
     const response = await addProductToCart({
       quantity,
@@ -307,7 +355,7 @@ import {
 
     addClass(querySelector('#carrinho-flutuante'), CART_SWITCH_CLASS)
 
-    localStorage.setItem(STORAGE_KEY_NAME, JSON.stringify(response.data))
+    localStorage.setItem(STORAGE_KEY_NAME, stringify<CreateCartProduct>(response.data))
   }
 
   async function addProductToCart (item: CreateCartProduct): Promise<ResponsePattern<CreateCartProduct>> {
@@ -321,7 +369,7 @@ import {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+        body: stringify<AddToCartParams>({
           item,
           operation: 'add',
         }),
@@ -341,22 +389,37 @@ import {
     }
   }
 
-  function renderProductVariations () {
+  function renderProductVariations (): void {
     if (!skuList || !skuItem || !state.product) return
 
     const { selectedVariation, product } = state
 
     const variationsFragment = document.createDocumentFragment()
 
+    const weightSelector = querySelector('[data-wtf-weight-selector]')
+
+    const UNSUFFICIENT_VARIATIONS = state.variationsCount < 2
+
+    if (UNSUFFICIENT_VARIATIONS) {
+      return weightSelector?.remove()
+    }
+
+    toggleClass(weightSelector, GENERAL_HIDDEN_CLASS, UNSUFFICIENT_VARIATIONS)
+
     for (const variation of product?.variations) {
       const variationElement = document.createElement('div')
 
+      const isSelected = selectedVariation === variation.id
+
       addClass(variationElement, 'text-block')
-      toggleClass(variationElement, 'selecionado', selectedVariation === variation.id)
 
-      changeTextContent(variationElement, variation.label)
+      toggleClass(variationElement, SELECTED_CLASS, isSelected)
 
-      attachEvent(variationElement, 'click', () => changeSelectedVariation(variation.id))
+      changeTextContent(variationElement, replaceText(variation.label, /\./g, ','))
+
+      if (!isSelected) {
+        attachEvent(variationElement, CLICK_EVENT, () => changeSelectedVariation(variation.id))
+      }
 
       variationsFragment.appendChild(variationElement)
     }
@@ -371,7 +434,11 @@ import {
 
     const getPriceViewer = (parent: ReturnType<typeof querySelector>) => querySelector('[data-wtf-price-value]', parent as HTMLElement)
 
-    const { BRLPrices, hasPriceDifference, computedFinalPrices } = state
+    const {
+      BRLPrices,
+      hasPriceDifference,
+      computedFinalPrices
+    } = state
 
     changeTextContent(getPriceViewer(priceViewer), BRLPrices.price)
     changeTextContent(getPriceViewer(fullPriceViewer), BRLPrices.full_price)
@@ -381,18 +448,40 @@ import {
     toggleClass(fullPriceViewer, GENERAL_HIDDEN_CLASS, !hasPriceDifference)
   }
 
-  getProduct()
+  function renderStockElements () {
+    const {
+      stockCount,
+    } = state
+
+    toggleClass(outtaStockElement, GENERAL_HIDDEN_CLASS, stockCount > 0)
+    const hideAvailableMessage = toggleClass(maxAvailableProductsElement, GENERAL_HIDDEN_CLASS, stockCount > 10 || stockCount < 1)
+
+    if (hideAvailableMessage) return
+
+    const maxIndexMessages = objectSize(STOCK_MESSAGE) - 1
+
+    changeTextContent(
+      querySelector('div', maxAvailableProductsElement),
+      replaceText(
+        STOCK_MESSAGE[ clamp(0, maxIndexMessages, stockCount - 1) ],
+        COUNTER_REPLACEMENT,
+        stockCount.toString(),
+      ),
+    )
+  }
+
+  const slug = location.pathname.split('/')
+
+  getProduct(slug[objectSize(slug) - 1])
     .then(response => {
-      if (!response.succeeded) {
-        return
-      }
+      if (!response.succeeded) return
 
       state.product = response.data
     })
     .then(() => {
-      attachEvent(plusButton, 'click', () => changeProductQuantity(1))
-      attachEvent(minusButton, 'click', () => changeProductQuantity(-1))
+      attachEvent(plusButton, CLICK_EVENT, () => changeProductQuantity(1))
+      attachEvent(minusButton, CLICK_EVENT, () => changeProductQuantity(-1))
 
-      attachEvent(buyButton, 'click', buyProduct)
+      attachEvent(buyButton, CLICK_EVENT, buyProduct)
     })
 })()

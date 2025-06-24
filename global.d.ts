@@ -6,6 +6,27 @@ import type {
   CreditCardOrderResponse,
 } from './types/checkout'
 
+type TypeofResult =
+  | "string"
+  | "number"
+  | "boolean"
+  | "undefined"
+  | "object"
+  | "function"
+  | "symbol"
+  | "bigint";
+
+type TypeMap = {
+  string: string;
+  number: number;
+  boolean: boolean;
+  undefined: undefined;
+  function: Function;
+  object: object;
+  symbol: symbol;
+  bigint: bigint;
+};
+
 export type ComputedReturnValues <T> = {
   [K in keyof T]: T[K] extends () => infer R ? R : never;
 };
@@ -373,6 +394,10 @@ export type IAbandonmentCartKeys =
 
 export interface TalhoCheckoutAppData {
   /**
+   * Indica se existe alguma execução de pagamento em andamento
+   */
+  hasPendingPayment: boolean;
+  /**
    * Indica se o form já foi submetido
    */
   isSubmitted: boolean;
@@ -559,7 +584,7 @@ export interface TalhoCheckoutAppSetup {
   billingCityElement: Ref<HTMLInputElement | null>;
   billingStateElement: Ref<HTMLInputElement | null>;
 
-  deliveryPlaceElement: Ref<HTMLElement | null>;
+  deliveryPlaceMessageElement: Ref<HTMLElement | null>;
 
   shippingRecipientElement: Ref<HTMLInputElement | null>;
   shippingCEPElement: Ref<HTMLInputElement | null>;
@@ -578,12 +603,17 @@ export interface TalhoCheckoutAppSetup {
    */
   deliveryHourMessageElement: Ref<Nullable<HTMLElement>>;
 
+  /**
+   * Referência ao elemento "mensagem de erro" da seção "Defina a Quantidade de Parcelas do Pagamento"
+   */
+  installmentsMessageElement: Ref<Nullable<HTMLElement>>;
+
   couponCodeElement: Ref<HTMLInputElement | null>;
 }
 
 export interface TalhoCheckoutAppMethods {
   getCart: () => Promise<ResponsePattern<CartResponse>>;
-  refreshCart: () => void;
+  refreshCart: () => Promise<void>;
   getInstallments: () => Promise<ResponsePattern<InstallmentItem[]>>;
   refreshInstallments: () => Promise<void>;
   setSelectedInstallmentsCount: (installmentsCount: number) => void;
@@ -801,6 +831,11 @@ export interface TalhoCheckoutAppComputedDefinition {
    * Indica se o grupo "Horários de entrega" é válido
    */
   deliveryHoursGroupValidation: () => ISingleValidateCheckout;
+
+  /**
+   * Verifica se o grupo "Defina a Quantidade de Parcelas do Pagamento" é válido
+   */
+  installmentGroupValidation: () => ISingleValidateCheckout;
 
   notIgnoredFields: () => ISingleValidateCheckout[];
 
@@ -1363,13 +1398,25 @@ export type ValidatorResponse = (valid: boolean) => [string, boolean]
 
 
 export interface SingleProductPageState {
-  /** Quantidade de produtos selecionados */
+  /**
+   * Quantidade de produtos selecionados
+   */
   quantity: number;
-  /** Dados do produto */
+  /**
+   * Dados do produto
+   */
   product: Nullable<SingleProductPageProduct>;
-  /** ID da variação do produto selecionada */
+  /**
+   * ID da variação do produto selecionada
+   */
   selectedVariation: Nullable<number>;
+  /**
+   * Quantidade de itens em estoque
+   */
+  stockCount: number;
 }
+
+export type SingleProductPageStateKeys = keyof SingleProductPageState;
 
 export interface SingleProductPageStateHandler {
   prices: Prices;
@@ -1386,7 +1433,7 @@ export interface Prices <T = number> {
 }
 
 export interface ComputedFinalPrices {
-  price: Prices<number>;
+  price: Prices;
   currency: Prices<string>;
 }
 
@@ -1414,14 +1461,36 @@ export interface ProductVariation {
 }
 
 export interface SingleProductPageProduct {
+  /**
+   * Indentificador do produto
+   */
   slug: string;
+  /**
+   * Nome do produto
+   */
   title: string;
+  /**
+   * Quantas unidades existem em estoque
+   */
+  stock_quantity: number;
+  /**
+   * As variações que este produto possui
+   */
   variations: ProductVariation[];
 }
 
 export interface CreateCartProduct {
+  /**
+   * SKU do produto indicado
+   */
   sku_id: number;
+  /**
+   * Quantidade de vezes que esse item foi adicionado ao carrinho
+   */
   quantity: number;
+  /**
+   * Referência única deste produto
+   */
   reference_id: string;
 }
 

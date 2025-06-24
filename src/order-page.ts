@@ -23,6 +23,7 @@ import type {
   const EMPTY_STRING = ''
   const NULL_VALUE = null
   const FALLBACK_STRING = '-'
+  const GENERAL_HIDDEN_CLASS = 'oculto'
 
   const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:5lp3Lw8X'
 
@@ -30,6 +31,16 @@ import type {
     currency: 'BRL',
     style: 'currency',
   })
+
+  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
+    if (!element) return false
+
+    return element.classList.toggle(className, force)
+  }
+
+  function setPageLoader (status?: boolean): boolean {
+    return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
+  }
 
   function querySelector<
     K extends keyof HTMLElementTagNameMap,
@@ -88,6 +99,11 @@ import type {
       }
 
       this.order = response.data
+
+      setPageLoader(false)
+    },
+
+    mounted (): void {
     },
 
     methods: {
@@ -200,7 +216,7 @@ import type {
       },
 
       getOrderDiscountPriceFormatted (): string {
-        return BRLFormatter.format(this.order?.discount ?? 0)
+        return BRLFormatter.format((this.order?.discount ?? 0) * -1)
       },
 
       getParsedProducts (): ParsedProduct[] {
@@ -221,6 +237,7 @@ import type {
     name: string,
     setup: () => void,
     created: () => Promise<void>;
+    mounted: () => void;
     data: () => TalhoOrderPageData,
     methods: TalhoOrderPageMethods,
     computed: TalhoOrderPageComputedDefinition,
