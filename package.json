@@ -15,6 +15,8 @@
     "build-ad-tracking": "tsc && uglifyjs --compress --mangle --output ./dist/ad-tracking.v01.min.js -- ./dist/ad-tracking.js",
     "build-order-page": "tsc && uglifyjs --compress --mangle --output ./dist/order-page.v01.min.js -- ./dist/order-page.js",
     "build-pix-page": "tsc && uglifyjs --compress --mangle --output ./dist/pix-process.v01.min.js -- ./dist/pix-process.js",
-    "build-user-orders": "tsc && uglifyjs --compress --mangle --output ./dist/user-orders.v01.min.js -- ./dist/user-orders.js"
+    "build-user-orders": "tsc && uglifyjs --compress --mangle --output ./dist/user-orders.v01.min.js -- ./dist/user-orders.js",
+    "build-read-reviews": "tsc && uglifyjs --compress --mangle --output ./dist/product-reviews.v01.min.js -- ./dist/product-reviews.js",
+    "build-review-approve": "tsc && uglifyjs --compress --mangle --output ./dist/review-approve.v01.min.js -- ./dist/review-approve.js"
   }
 }

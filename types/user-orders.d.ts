@@ -30,6 +30,10 @@ export interface Order {
    */
   created_at: string;
   /**
+   * Indica se o pagamento deste pedido já foi realizado
+   */
+  pago: boolean;
+  /**
    * Status de pagamento do pedido
    */
   status: OrderStatus;
@@ -72,4 +76,29 @@ export interface OrderItem {
    * URL da imagem do produto
    */
   image: string;
+  /**
+   * Slug do produto
+   */
+  slug: string;
+  /**
+   * Representação da quantidade em estoque
+   */
+  stock_quantity: number;
+  /**
+   * Dados de review que o usuário poderá fornecer ao produto
+   */
+  review?: ProductReview;
 }
+
+export interface ProductReview {
+  /**
+   * Comentário fornecido pelo usuário autenticado para o produto
+   */
+  comment: string;
+  /**
+   * Nota que o usuário deu ao produto
+   */
+  rating: number;
+}
+
+export type CreateProductReview = Pick<OrderItem, 'product_id'> & ProductReview;

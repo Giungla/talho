@@ -2,27 +2,42 @@
 import {
   FunctionErrorPattern,
   FunctionSucceededPattern,
-  ISplitCookieObject,
+  ISplitCookieObject, Nullable,
   ResponsePattern,
 } from '../global'
 
 import {
+  CreateProductReview,
   Order,
   OrderGetters,
   OrderProxy,
   Orders,
-  OrdersProperties
+  OrdersProperties, ProductReview
 } from '../types/user-orders'
 
 (function () {
   const NULL_VALUE = null
   const COOKIE_SEPARATOR = '; '
+  const DISABLED_ATTR = 'disabled'
   const GENERAL_HIDDEN_CLASS = 'oculto'
   const COOKIE_NAME = '__Host-Talho-AuthToken'
   const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
 
+  const BRLFormatter = new Intl.NumberFormat('pt-BR', {
+    currency: 'BRL',
+    style: 'currency',
+  })
+
+  function stringify <T extends object> (value: T): string {
+    return JSON.stringify(value)
+  }
+
   function splitText (value: string, separator: string | RegExp, limit?: number): string[] {
     return value.split(separator, limit)
+  }
+
+  function max (...n: number[]): number {
+    return Math.max(...n)
   }
 
   function getCookie (name: string): string | false {
@@ -47,6 +62,12 @@ import {
   }
 
   const authCookie = getCookie(COOKIE_NAME)
+
+  const HEADERS = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Authorization': authCookie as string,
+  }
 
   if (!authCookie) {
     location.href = '/acessos/entrar'
@@ -111,6 +132,18 @@ import {
     return element.classList.toggle(className, force)
   }
 
+  function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string) {
+    if (!element) return
+
+    element.removeAttribute(qualifiedName)
+  }
+
+  function setAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string, value: string) {
+    if (!element) return
+
+    element.setAttribute(qualifiedName, value)
+  }
+
   function isArray <T = any> (arg: any): arg is T[] {
     return Array.isArray(arg)
   }
@@ -130,17 +163,19 @@ import {
   function attachEvent <
     T extends HTMLElement | Document,
     K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
+        ? keyof HTMLElementEventMap
+        : keyof DocumentEventMap
   > (
-    node: T,
+    node: T | null,
     eventName: K,
     callback: (event: T extends HTMLElement
       ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
       : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
     ) => void,
     options?: boolean | AddEventListenerOptions
-  ): VoidFunction {
+  ): VoidFunction | void {
+    if (!node) return
+
     node.addEventListener(eventName, callback as EventListener, options)
 
     return () => node.removeEventListener(eventName, callback as EventListener, options)
@@ -165,14 +200,38 @@ import {
   }
 
   async function getOrders (): Promise<ResponsePattern<Order[]>> {
-    const defaultMessage = ''
+    const defaultMessage = 'Falha ao buscar os pedidos'
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/orders`, {
-        headers: {
-          Accept: 'application/json',
-          Authorization: authCookie as string,
-        },
+        headers: HEADERS,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+
+        return postErrorResponse(error?.message ?? defaultMessage)
+      }
+
+      const data = await response.json()
+
+      return postSuccessResponse(data)
+    } catch (e) {
+      return postErrorResponse(defaultMessage)
+    }
+  }
+
+  async function postReview ({ comment, rating, product_id }: CreateProductReview): Promise<ResponsePattern<CreateProductReview>> {
+    const defaultMessage = 'Falha ao gerar a avaliação, tente novamente mais tarde.'
+
+    try {
+      const response = await fetch(`${XANO_BASE_URL}/api:9ixgU7Er/ratings/${product_id}/create`, {
+        method: 'POST',
+        headers: HEADERS,
+        body: stringify<ProductReview>({
+          rating,
+          comment,
+        }),
       })
 
       if (!response.ok) {
@@ -195,7 +254,7 @@ import {
   ) {
     if (!node) return
 
-    document.replaceChildren(...nodes.filter(Boolean) as Element[])
+    node.replaceChildren(...nodes.filter(Boolean) as Element[])
   }
 
   function removeElementFromDOM (node: ReturnType<typeof querySelector>): void {
@@ -250,8 +309,59 @@ import {
 
       const orderItemsContainer = querySelector<'div'>('[data-wtf-product-list]', template) as HTMLElement
 
-      for (const { name, sku_id, product_id, quantity, unit_price, image } of order.order_items) {
+      for (const { name, slug, product_id, quantity, unit_price, image, review, stock_quantity } of order.order_items) {
         const itemTemplate = orderItem.cloneNode(true) as HTMLElement
+        const reviewSection = querySelector('[data-wtf-review-area]', itemTemplate) as HTMLElement
+
+        setAttribute(
+          querySelector<'a'>('[data-wtf-product-anchor]', itemTemplate), 'href', `/produtos/${slug}`
+        )
+
+        changeTextContent(querySelector('[data-wtf-product-name]', itemTemplate), name)
+        changeTextContent(querySelector('[data-wtf-product-price]', itemTemplate), BRLFormatter.format(unit_price / 100))
+        changeTextContent(querySelector('[data-wtf-product-subtotal]', itemTemplate), BRLFormatter.format(unit_price * quantity / 100))
+
+        if (review === undefined) {
+          const notRatedClone = (notRatedTemplate?.cloneNode(true) ?? NULL_VALUE) as Nullable<HTMLElement>
+          const evaluationFormClone = (evaluationForm?.cloneNode(true) ?? NULL_VALUE) as Nullable<HTMLElement>
+
+          removeClass(notRatedClone, GENERAL_HIDDEN_CLASS)
+
+          if (order.pago) {
+            attachEvent(querySelector<'img'>('[data-wtf-not-rated-cta]', notRatedClone), 'click', () => {
+              showEvaluationForm(product_id, notRatedClone, evaluationFormClone)
+            }, { once: true })
+
+            removeElementFromDOM(querySelector('[data-wtf-not-rated-unpaid]', notRatedClone))
+          } else {
+            removeElementFromDOM(querySelector('[data-wtf-not-rated-paid]', notRatedClone))
+            removeElementFromDOM(querySelector<'img'>('[data-wtf-not-rated-cta]', notRatedClone))
+          }
+
+          // toggleClass(querySelector('[data-wtf-not-rated-paid]', notRatedClone), GENERAL_HIDDEN_CLASS, !order.pago)
+          // toggleClass(querySelector('[data-wtf-not-rated-unpaid]', notRatedClone), GENERAL_HIDDEN_CLASS, order.pago)
+          // toggleClass(querySelector<'img'>('[data-wtf-not-rated-cta]', notRatedClone), GENERAL_HIDDEN_CLASS, order.pago)
+
+          replaceChildren(reviewSection, notRatedClone, evaluationFormClone)
+        } else {
+          const templateClone = evaluatedTemplate?.cloneNode(true) as HTMLElement
+
+          changeTextContent(querySelector('[data-wtf-evaluated-comment]', templateClone), review.comment)
+
+          const starsSection = querySelector('[data-wtf-evaluated-star-section]', templateClone)
+
+          if (starsSection) {
+            const children = max(starsSection.childElementCount - max(1, review.rating), 0)
+
+            for (let index = 0; index++ < children;) {
+              removeElementFromDOM(starsSection.lastElementChild)
+            }
+          }
+
+          removeClass(templateClone, GENERAL_HIDDEN_CLASS)
+
+          replaceChildren(reviewSection, templateClone)
+        }
 
         orderItemsContainer.insertAdjacentElement('afterbegin', itemTemplate)
       }
@@ -260,6 +370,71 @@ import {
     }
 
     replaceChildren(ordersContainer, fragment)
+  }
+
+  function showEvaluationForm (
+    product_id: number,
+    notRatedView: ReturnType<typeof querySelector>,
+    evaluationFormView: ReturnType<typeof querySelector>
+  ) {
+    if (!notRatedView || !evaluationFormView) return
+
+    addClass(notRatedView, GENERAL_HIDDEN_CLASS)
+    removeClass(evaluationFormView, GENERAL_HIDDEN_CLASS)
+
+    const reviewForm = querySelector('form', evaluationFormView as HTMLElement)
+
+    const reviewFormParent = reviewForm?.parentElement
+
+    if (!reviewForm || !reviewFormParent) return
+
+    const unusedFormAttributes: string[] = [
+      'id',
+      'name',
+      'method',
+      'data-name',
+      'aria-label',
+      'data-wf-page-id',
+      'data-wf-element-id',
+      'data-turnstile-sitekey'
+    ]
+
+    for (const attr of unusedFormAttributes) {
+      removeAttribute(reviewForm, attr)
+    }
+
+    removeElementFromDOM(reviewForm)
+
+    replaceChildren(reviewFormParent)
+    reviewFormParent.insertAdjacentHTML('afterbegin', reviewForm.outerHTML)
+
+    const _reviewForm = querySelector('form', evaluationFormView as HTMLElement) as HTMLFormElement
+
+    removeAttribute(querySelector('[type="submit"]', _reviewForm), DISABLED_ATTR)
+
+    attachEvent(_reviewForm, 'submit', async (event: SubmitEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+
+      if (!event.isTrusted || !event.submitter) return
+
+      setAttribute(event.submitter, DISABLED_ATTR, DISABLED_ATTR)
+
+      const response = await postReview({
+        product_id,
+        comment: _reviewForm.comment.value,
+        rating: parseInt(_reviewForm.rating.value),
+      })
+
+      if (!response.succeeded) {
+        // TODO: Necessário tratar o erro
+        return
+      }
+
+      alert('comentário adicionado com sucesso')
+
+      removeAttribute(event.submitter, DISABLED_ATTR)
+    })
   }
 
   getOrders().then(response => {
