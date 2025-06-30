@@ -4,8 +4,9 @@
     const ERROR_MESSAGE_CLASS = 'mensagemdeerro';
     const DISABLED_ATTR = 'disabled';
     const CART_SWITCH_CLASS = 'carrinhoflutuante--visible';
-    const FREE_SHIPPING_MINIMUM_PRICE = 300;
+    const FREE_SHIPPING_MINIMUM_PRICE = 400;
     const REQUEST_CONTROLLERS = [];
+    const NULL_VALUE = null;
     const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_';
     const REQUEST_HEADERS = {
         headers: {
@@ -18,8 +19,8 @@
         style: 'currency',
     });
     const _state = {
-        cart: null,
-        fetched: null,
+        cart: NULL_VALUE,
+        fetched: NULL_VALUE,
         isPending: false,
         isCartOpened: true,
     };
@@ -43,7 +44,6 @@
                 return isApplied;
             switch (key) {
                 case 'isPending':
-                    console.log('Alteração no estado de carregamento', value);
                     break;
                 case 'isCartOpened':
                     refreshCartItems();
@@ -63,9 +63,25 @@
     const promoValidElement = querySelector('[data-wtf-promo-valid]');
     const promoInValidElement = querySelector('[data-wtf-promo-invalid]');
     const cartTotalElement = querySelector('[data-wtf-floating-cart-total]');
+    function hasOwn(o, v, type) {
+        return Object.prototype.hasOwnProperty.call(o, v) && (!type || typeof o[v] === type);
+    }
+    function isArray(value) {
+        return Array.isArray(value);
+    }
+    function safeParseJson(value) {
+        if (typeof value !== 'string')
+            return NULL_VALUE;
+        try {
+            return JSON.parse(value);
+        }
+        catch {
+            return NULL_VALUE;
+        }
+    }
     function querySelector(selector, node = document) {
         if (!node)
-            return null;
+            return NULL_VALUE;
         return node.querySelector(selector);
     }
     function attachEvent(node, eventName, callback, options) {
@@ -124,15 +140,31 @@
             succeeded: true
         };
     }
+    function hasValidCart(cart) {
+        if (!hasOwn(cart, 'order_price', 'number') || !hasOwn(cart, 'items'))
+            return false;
+        if (!isArray(cart.items))
+            return false;
+        if (objectSize(cart.items) === 0)
+            return true;
+        return cart.items.every(value => (hasOwn(value, 'name', 'string') &&
+            hasOwn(value, 'quantity', 'number') &&
+            hasOwn(value, 'price', 'number') &&
+            hasOwn(value, 'imageUrl', 'string') &&
+            hasOwn(value, 'sku_id', 'number') &&
+            hasOwn(value, 'slug', 'string')));
+    }
     async function refreshCartItems() {
         if (!state.isCartOpened)
             return;
-        const cart = localStorage.getItem(STORAGE_KEY_NAME);
-        if (cart) {
+        const parsedCart = safeParseJson(localStorage.getItem(STORAGE_KEY_NAME));
+        if (parsedCart && hasValidCart(parsedCart)) {
             state.fetched ??= true;
-            state.cart = JSON.parse(cart);
+            state.cart = parsedCart;
             return;
         }
+        else
+            localStorage.removeItem(STORAGE_KEY_NAME);
         state.isPending = true;
         const response = await getCartProducts();
         state.fetched ??= true;
@@ -185,6 +217,8 @@
         }
     }
     async function handleProductChangeQuantity(operation, payload) {
+        if (state.isPending)
+            return;
         state.isPending = true;
         const response = await updateCartProducts({
             ...payload,
@@ -197,23 +231,26 @@
     }
     function renderCart() {
         changeTextContent(cartTotalElement, state.getOrderPrice);
-        if (!Array.isArray(state.cart?.items) || !cartItemTemplate || !cartItemsWrapper)
+        if (!isArray(state.cart?.items) || !cartItemTemplate || !cartItemsWrapper)
             return;
-        if (!toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, state.cart?.items.length > 0)) {
+        if (!toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, objectSize(state.cart?.items) > 0)) {
+            changeTextContent(querySelector('[data-wtf-floating-cart-items-indicator]'), '0');
             return cartItemsWrapper.replaceChildren();
         }
+        let unitCount = 0;
         const cartFragment = document.createDocumentFragment();
-        for (const item of state.cart.items) {
+        for (const { slug, imageUrl, quantity, price, sku_id, name } of state.cart.items) {
+            unitCount += quantity;
             const template = cartItemTemplate.cloneNode(true);
-            changeTextContent(querySelector('[data-wtf-floating-cart-item-product-name]', template), item.name);
-            changeTextContent(querySelector('[data-wtf-floating-cart-item-quantity]', template), item.quantity.toString());
-            changeTextContent(querySelector('[data-wtf-floating-cart-item-product-price]', template), BRLFormatter.format(item.price));
+            changeTextContent(querySelector('[data-wtf-floating-cart-item-product-name]', template), name);
+            changeTextContent(querySelector('[data-wtf-floating-cart-item-quantity]', template), quantity.toString());
+            changeTextContent(querySelector('[data-wtf-floating-cart-item-product-price]', template), BRLFormatter.format(price));
             const productImage = document.createElement('img');
-            productImage.setAttribute('src', item.imageUrl);
+            productImage.setAttribute('src', imageUrl);
             querySelector('[data-wtf-floating-cart-item-image]', template)?.replaceChildren(productImage);
             const changeCartPayload = {
-                sku_id: item.sku_id,
-                reference_id: item.slug
+                sku_id,
+                reference_id: slug
             };
             const productEventMap = [
                 ['delete', 'data-wtf-floating-cart-item-remove'],
@@ -225,6 +262,7 @@
             }
             cartFragment.appendChild(template);
         }
+        changeTextContent(querySelector('[data-wtf-floating-cart-items-indicator]'), unitCount.toString());
         cartItemsWrapper.replaceChildren(cartFragment);
     }
     function handlePromoMessages() {
@@ -265,8 +303,8 @@
         if (e.key !== STORAGE_KEY_NAME)
             return;
         state.cart = e.newValue
-            ? JSON.parse(e.newValue)
-            : null;
+            ? safeParseJson(e.newValue)
+            : NULL_VALUE;
     });
     refreshCartItems()
         .then(() => {

@@ -4,6 +4,7 @@
     const SLASH_STRING = '/';
     const NULL_VALUE = null;
     const ERROR_KEY = 'error';
+    const GENERAL_HIDDEN_CLASS = 'oculto';
     const CEP_LENGTH = 8;
     const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io';
     const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`;
@@ -67,6 +68,14 @@
         currency: 'BRL',
         style: 'currency',
     });
+    function setPageLoader(status) {
+        return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status);
+    }
+    function toggleClass(element, className, force) {
+        if (!element)
+            return false;
+        return element.classList.toggle(className, force);
+    }
     function buildURL(path, query) {
         const baseURL = new URL(`${location.protocol}//${location.hostname}`);
         const nextPage = new URL(path, baseURL);
@@ -322,7 +331,7 @@
             const billingNeighborhoodElement = ref(NULL_VALUE);
             const billingCityElement = ref(NULL_VALUE);
             const billingStateElement = ref(NULL_VALUE);
-            const deliveryPlaceElement = ref(NULL_VALUE);
+            const deliveryPlaceMessageElement = ref(NULL_VALUE);
             const shippingRecipientElement = ref(NULL_VALUE);
             const shippingCEPElement = ref(NULL_VALUE);
             const shippingAddressElement = ref(NULL_VALUE);
@@ -332,6 +341,7 @@
             const shippingStateElement = ref(NULL_VALUE);
             const deliveryDateMessageElement = ref(NULL_VALUE);
             const deliveryHourMessageElement = ref(NULL_VALUE);
+            const installmentsMessageElement = ref(NULL_VALUE);
             const couponCodeElement = ref(NULL_VALUE);
             return {
                 customerCPF,
@@ -373,7 +383,7 @@
                 billingNeighborhoodElement,
                 billingCityElement,
                 billingStateElement,
-                deliveryPlaceElement,
+                deliveryPlaceMessageElement,
                 shippingRecipientElement,
                 shippingCEPElement,
                 shippingAddressElement,
@@ -383,11 +393,13 @@
                 shippingStateElement,
                 deliveryDateMessageElement,
                 deliveryHourMessageElement,
+                installmentsMessageElement,
                 couponCodeElement,
             };
         },
         data() {
             return {
+                hasPendingPayment: false,
                 isSubmitted: false,
                 productlist: NULL_VALUE,
                 visitedFields: [],
@@ -425,7 +437,7 @@
             };
         },
         created() {
-            this.refreshCart();
+            this.refreshCart().then(() => setPageLoader(false));
             window.addEventListener('storage', (e) => {
                 if (e.key !== STORAGE_KEY_NAME)
                     return;
@@ -451,8 +463,8 @@
                     return postErrorResponse(defaultErrorMessage);
                 }
             },
-            refreshCart() {
-                this.getCart().then(cartData => {
+            async refreshCart() {
+                return this.getCart().then(cartData => {
                     if (!cartData.succeeded)
                         return;
                     this.productlist = cartData.data;
@@ -519,6 +531,8 @@
             },
             async handlePayment(e) {
                 e.preventDefault();
+                if (this.hasPendingPayment)
+                    return;
                 this.triggerValidations();
                 if (!this.isSubmitted) {
                     this.isSubmitted = true;
@@ -536,6 +550,7 @@
                     }
                     return;
                 }
+                this.hasPendingPayment = setPageLoader(true);
                 const paymentMap = {
                     [PIX_PAYMENT]: this.handleProcessPIX,
                     [CREDIT_CARD_PAYMENT]: this.handleProcessCreditCard,
@@ -544,6 +559,7 @@
                 const execPayment = paymentMap?.[this.selectedPayment ?? ERROR_KEY];
                 const response = await execPayment?.();
                 if (!response.succeeded) {
+                    this.hasPendingPayment = setPageLoader(false);
                     alert('Pagamento falhou');
                     return;
                 }
@@ -909,7 +925,7 @@
                 ].every(validation => validation.valid);
             },
             deliveryPlaceValidation() {
-                return buildFieldValidation(this.deliveryPlaceElement, this.hasSelectedAddress, !this.isCreditCard);
+                return buildFieldValidation(this.deliveryPlaceMessageElement, this.hasSelectedAddress, !this.isCreditCard);
             },
             shippingRecipientValidation() {
                 return buildFieldValidation(this.shippingRecipientElement, !this.hasVisitRegistry('shippingRecipient') || regexTest(/^(\w{2,})(\s+(\w+))+$/, normalizeText(trimText(this.shippingRecipient)).replace(/\s{2,}/g, ' ')), !this.shouldValidateShippingAddress);
@@ -948,6 +964,9 @@
             deliveryHoursGroupValidation() {
                 return buildFieldValidation(this.deliveryHourMessageElement, this.deliveryHour !== NULL_VALUE, !this.deliveryDatesGroupValidation.valid);
             },
+            installmentGroupValidation() {
+                return buildFieldValidation(this.installmentsMessageElement, this.selectedInstallment !== NULL_VALUE, !this.isCreditCard || !this.paymentMethodValidation.valid);
+            },
             notIgnoredFields() {
                 return [
                     this.customerMailValidation,
@@ -975,6 +994,7 @@
                     this.shippingStateValidation,
                     this.deliveryDatesGroupValidation,
                     this.deliveryHoursGroupValidation,
+                    this.installmentGroupValidation,
                 ].filter(({ ignoreIf }) => includes([false, undefined], ignoreIf));
             },
             firstInvalidField() {

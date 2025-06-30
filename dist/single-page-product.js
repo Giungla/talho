@@ -1,24 +1,33 @@
 (function () {
+    const NULL_VALUE = null;
     const COOKIE_SEPARATOR = '; ';
     const GENERAL_HIDDEN_CLASS = 'oculto';
+    const SELECTED_CLASS = 'selecionado';
     const COOKIE_NAME = '__Host-Talho-AuthToken';
     const STORAGE_KEY_NAME = 'talho_cart_items';
     const CART_SWITCH_CLASS = 'carrinhoflutuante--visible';
     const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_';
+    const CLICK_EVENT = 'click';
     /** Quantidade mínima de produtos permitidos no carrinho */
     const MIN_PRODUCT_QUANTITY = 1;
     /** Quantidade máxima de produtos permitados no carrinho */
     const MAX_PRODUCT_QUANTITY = 10;
+    const COUNTER_REPLACEMENT = '{count}';
+    const STOCK_MESSAGE = [
+        `Temos apenas ${COUNTER_REPLACEMENT} unidade disponível.`,
+        `Temos apenas ${COUNTER_REPLACEMENT} unidades disponíveis.`,
+    ];
     const _state = {
         quantity: 1,
-        product: null,
-        selectedVariation: null,
+        stockCount: 0,
+        product: NULL_VALUE,
+        selectedVariation: NULL_VALUE,
     };
     const state = new Proxy(_state, {
         get(target, key) {
             switch (key) {
                 case 'variationsCount':
-                    return target.product?.variations.length ?? 0;
+                    return objectSize(target.product?.variations ?? []);
                 case 'hasPriceDifference':
                     {
                         const { price, full_price } = state.prices;
@@ -56,7 +65,7 @@
                         };
                     }
                 case 'hasSelectedVariation':
-                    return target.selectedVariation !== null;
+                    return target.selectedVariation !== NULL_VALUE;
                 default:
                     return Reflect.get(target, key);
             }
@@ -72,15 +81,22 @@
                     renderProductVariations();
                     Reflect.set(state, 'quantity', 1);
                     break;
+                case 'stockCount':
+                    renderStockElements();
+                    changeProductQuantity(0);
+                    break;
                 case 'product':
                     {
                         const product = value;
-                        Reflect.set(state, 'selectedVariation', product?.variations[0].id);
+                        Reflect.set(state, 'stockCount', product?.stock_quantity ?? 0); // TODO: product.stock_quantity
+                        Reflect.set(state, 'selectedVariation', product?.variations[0].id ?? NULL_VALUE);
                     }
             }
             return isApplied;
         }
     });
+    const maxAvailableProductsElement = querySelector('[data-wtf-error-message-sku-maximum]');
+    const outtaStockElement = querySelector('[data-wtf-error-message-invetory]');
     const minusButton = querySelector('[data-wtf-quantity-minus]');
     const plusButton = querySelector('[data-wtf-quantity-plus]');
     const renderQuantityElement = querySelector('[data-wtf-quantity-value]');
@@ -94,9 +110,21 @@
         currency: 'BRL',
         style: 'currency',
     });
+    function replaceText(value, search, replacer) {
+        return value.replace(search, replacer);
+    }
+    function stringify(value) {
+        return JSON.stringify(value);
+    }
+    function clamp(min, max, value) {
+        return Math.max(min, Math.min(max, value));
+    }
+    function objectSize(value) {
+        return value.length;
+    }
     function querySelector(selector, node = document) {
         if (!node)
-            return null;
+            return NULL_VALUE;
         return node.querySelector(selector);
     }
     function attachEvent(node, eventName, callback, options) {
@@ -156,19 +184,18 @@
             full_price,
         };
     }
-    async function getProduct() {
+    async function getProduct(pathname) {
         const defaultErrorMessage = 'Houve uma falha ao capturar o produto';
         try {
-            const splittedPathname = location.pathname.split('/');
             const response = await fetch(`${CART_BASE_URL}/product/single-product-page`, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
+                body: stringify({
                     quantity: 1,
-                    reference_id: splittedPathname[splittedPathname.length - 1],
+                    reference_id: pathname,
                 })
             });
             if (!response.ok) {
@@ -184,7 +211,8 @@
     }
     function changeProductQuantity(increment) {
         const newQuantity = increment + state.quantity;
-        const clampedQuantity = Math.max(MIN_PRODUCT_QUANTITY, Math.min(newQuantity, MAX_PRODUCT_QUANTITY));
+        const maxProductQuantityFromStock = Math.min(state.stockCount, MAX_PRODUCT_QUANTITY);
+        const clampedQuantity = clamp(MIN_PRODUCT_QUANTITY, maxProductQuantityFromStock, newQuantity);
         if (clampedQuantity === state.quantity)
             return;
         state.quantity = clampedQuantity;
@@ -198,7 +226,7 @@
     async function buyProduct(event) {
         event.preventDefault();
         const { quantity, product, selectedVariation } = state;
-        if (!selectedVariation || !product)
+        if (!selectedVariation || !product || state.stockCount === 0)
             return;
         const response = await addProductToCart({
             quantity,
@@ -211,7 +239,7 @@
         }
         state.quantity = 1;
         addClass(querySelector('#carrinho-flutuante'), CART_SWITCH_CLASS);
-        localStorage.setItem(STORAGE_KEY_NAME, JSON.stringify(response.data));
+        localStorage.setItem(STORAGE_KEY_NAME, stringify(response.data));
     }
     async function addProductToCart(item) {
         const defaultErrorMessage = 'Falha ao adicionar o produto';
@@ -223,7 +251,7 @@
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
+                body: stringify({
                     item,
                     operation: 'add',
                 }),
@@ -244,12 +272,21 @@
             return;
         const { selectedVariation, product } = state;
         const variationsFragment = document.createDocumentFragment();
+        const weightSelector = querySelector('[data-wtf-weight-selector]');
+        const UNSUFFICIENT_VARIATIONS = state.variationsCount < 2;
+        if (UNSUFFICIENT_VARIATIONS) {
+            return weightSelector?.remove();
+        }
+        toggleClass(weightSelector, GENERAL_HIDDEN_CLASS, UNSUFFICIENT_VARIATIONS);
         for (const variation of product?.variations) {
             const variationElement = document.createElement('div');
+            const isSelected = selectedVariation === variation.id;
             addClass(variationElement, 'text-block');
-            toggleClass(variationElement, 'selecionado', selectedVariation === variation.id);
-            changeTextContent(variationElement, variation.label);
-            attachEvent(variationElement, 'click', () => changeSelectedVariation(variation.id));
+            toggleClass(variationElement, SELECTED_CLASS, isSelected);
+            changeTextContent(variationElement, replaceText(variation.label, /\./g, ','));
+            if (!isSelected) {
+                attachEvent(variationElement, CLICK_EVENT, () => changeSelectedVariation(variation.id));
+            }
             variationsFragment.appendChild(variationElement);
         }
         skuList.replaceChildren(variationsFragment);
@@ -266,17 +303,26 @@
         toggleClass(priceViewer, GENERAL_HIDDEN_CLASS, !hasPriceDifference);
         toggleClass(fullPriceViewer, GENERAL_HIDDEN_CLASS, !hasPriceDifference);
     }
-    getProduct()
-        .then(response => {
-        if (!response.succeeded) {
+    function renderStockElements() {
+        const { stockCount, } = state;
+        toggleClass(outtaStockElement, GENERAL_HIDDEN_CLASS, stockCount > 0);
+        const hideAvailableMessage = toggleClass(maxAvailableProductsElement, GENERAL_HIDDEN_CLASS, stockCount > 10 || stockCount < 1);
+        if (hideAvailableMessage)
             return;
-        }
+        const maxIndexMessages = objectSize(STOCK_MESSAGE) - 1;
+        changeTextContent(querySelector('div', maxAvailableProductsElement), replaceText(STOCK_MESSAGE[clamp(0, maxIndexMessages, stockCount - 1)], COUNTER_REPLACEMENT, stockCount.toString()));
+    }
+    const slug = location.pathname.split('/');
+    getProduct(slug[objectSize(slug) - 1])
+        .then(response => {
+        if (!response.succeeded)
+            return;
         state.product = response.data;
     })
         .then(() => {
-        attachEvent(plusButton, 'click', () => changeProductQuantity(1));
-        attachEvent(minusButton, 'click', () => changeProductQuantity(-1));
-        attachEvent(buyButton, 'click', buyProduct);
+        attachEvent(plusButton, CLICK_EVENT, () => changeProductQuantity(1));
+        attachEvent(minusButton, CLICK_EVENT, () => changeProductQuantity(-1));
+        attachEvent(buyButton, CLICK_EVENT, buyProduct);
     });
 })();
 export {};

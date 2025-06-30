@@ -1,3 +1,4 @@
+import {Nullable} from "../global";
 
 export interface Orders {
   list: Order[];
@@ -19,6 +20,8 @@ export type OrderProxy = Orders & Readonly<OrderGetters>;
 export type OrdersProperties = keyof OrderProxy;
 
 export type OrderStatus = 'Confirmado' | 'Pendente';
+
+export type SKUVariation = 'KG' | 'UN';
 
 export interface Order {
   /**
@@ -83,11 +86,27 @@ export interface OrderItem {
   /**
    * Representação da quantidade em estoque
    */
-  stock_quantity: number;
+  // stock_quantity: number;
   /**
    * Dados de review que o usuário poderá fornecer ao produto
    */
   review?: ProductReview;
+  /**
+   * Indica o tipo de variação do produto
+   */
+  // variation_type: SKUVariation;
+  /**
+   * Indica a quantidade fracionada que é comercializada pelo SKU indicado
+   */
+  // sale_fraction: Nullable<number>;
+  /**
+   * Indica se a variação possui estoque disponível
+   */
+  has_stock: boolean;
+  /**
+   * Quantidade disponível em estoque para a variação atual
+   */
+  stock_count: number;
 }
 
 export interface ProductReview {

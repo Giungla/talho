@@ -1,32 +1,47 @@
 
-import {
+import type {
+  Nullable,
+  CartResponse,
+  CartOperation,
+  ResponsePattern,
+  CreateCartProduct,
+  ISplitCookieObject,
   FunctionErrorPattern,
   FunctionSucceededPattern,
-  ISplitCookieObject, Nullable,
-  ResponsePattern,
 } from '../global'
 
-import {
-  CreateProductReview,
+import type {
   Order,
-  OrderGetters,
-  OrderProxy,
   Orders,
-  OrdersProperties, ProductReview
+  OrderProxy,
+  OrderGetters,
+  ProductReview,
+  OrdersProperties,
+  CreateProductReview, OrderItem,
 } from '../types/user-orders'
+
+import type {
+  AddToCartParams
+} from '../types/single-page-product'
 
 (function () {
   const NULL_VALUE = null
   const COOKIE_SEPARATOR = '; '
   const DISABLED_ATTR = 'disabled'
   const GENERAL_HIDDEN_CLASS = 'oculto'
+  const STORAGE_KEY_NAME = 'talho_cart_items'
+  const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
   const COOKIE_NAME = '__Host-Talho-AuthToken'
   const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
+
+  const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 
   const BRLFormatter = new Intl.NumberFormat('pt-BR', {
     currency: 'BRL',
     style: 'currency',
   })
+
+  const acquiring = new Set<string>()
 
   function stringify <T extends object> (value: T): string {
     return JSON.stringify(value)
@@ -66,6 +81,10 @@ import {
   const HEADERS = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
+  }
+
+  const AUTH_HEADERS = {
+    ...HEADERS,
     'Authorization': authCookie as string,
   }
 
@@ -204,7 +223,7 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/orders`, {
-        headers: HEADERS,
+        headers: AUTH_HEADERS,
       })
 
       if (!response.ok) {
@@ -227,7 +246,7 @@ import {
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:9ixgU7Er/ratings/${product_id}/create`, {
         method: 'POST',
-        headers: HEADERS,
+        headers: AUTH_HEADERS,
         body: stringify<ProductReview>({
           rating,
           comment,
@@ -245,6 +264,34 @@ import {
       return postSuccessResponse(data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
+    }
+  }
+
+  async function addProductToCart (item: CreateCartProduct): Promise<ResponsePattern<CreateCartProduct>> {
+    const defaultErrorMessage = 'Falha ao adicionar o produto'
+
+    try {
+      const response = await fetch(`${CART_BASE_URL}/cart/handle`, {
+        method: 'POST',
+        headers: HEADERS,
+        credentials: 'include',
+        body: stringify<AddToCartParams>({
+          item,
+          operation: 'add',
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+
+        return postErrorResponse(error?.message ?? defaultErrorMessage)
+      }
+
+      const data: CreateCartProduct = await response.json()
+
+      return postSuccessResponse(data)
+    } catch (e) {
+      return postErrorResponse(`[CATCH] ${defaultErrorMessage}`)
     }
   }
 
@@ -282,6 +329,30 @@ import {
     return document.createDocumentFragment()
   }
 
+  async function buyAgain ({ sku_id, slug }: Pick<OrderItem, 'sku_id' | 'slug'>): Promise<void> {
+    if (acquiring.has(slug)) return
+
+    acquiring.add(slug)
+
+    const response = await addProductToCart({
+      sku_id,
+      quantity: 1,
+      reference_id: slug,
+    })
+
+    if (!response.succeeded) {
+      acquiring.delete(slug)
+
+      return
+    }
+
+    addClass(querySelector('#carrinho-flutuante'), CART_SWITCH_CLASS)
+
+    localStorage.setItem(STORAGE_KEY_NAME, stringify<CreateCartProduct>(response.data))
+
+    acquiring.delete(slug)
+  }
+
   function renderOrders (): void {
     const {
       list,
@@ -303,19 +374,24 @@ import {
       changeTextContent(querySelector('[data-wtf-created-at]', template), order.created_at)
       changeTextContent(querySelector('[data-wtf-payment-method]', template), order.payment_method)
       changeTextContent(querySelector('[data-wtf-transaction-id]', template), order.transaction_id)
-      //data-wtf-evaluated Avaliado
-      //data-wtf-not-rated Não avaliado
-      //data-wtf-evaluation-form Formulário de avaliação
 
       const orderItemsContainer = querySelector<'div'>('[data-wtf-product-list]', template) as HTMLElement
 
-      for (const { name, slug, product_id, quantity, unit_price, image, review, stock_quantity } of order.order_items) {
+      for (const { name, slug, product_id, sku_id, quantity, unit_price, image, review, has_stock } of order.order_items) {
         const itemTemplate = orderItem.cloneNode(true) as HTMLElement
         const reviewSection = querySelector('[data-wtf-review-area]', itemTemplate) as HTMLElement
 
         setAttribute(
           querySelector<'a'>('[data-wtf-product-anchor]', itemTemplate), 'href', `/produtos/${slug}`
         )
+
+        const addToCartCTA = querySelector<'img'>('[data-wtf-buy-again-cta]', itemTemplate)
+
+        if (has_stock) {
+          attachEvent(addToCartCTA, 'click', () => buyAgain({ sku_id, slug }))
+        } else {
+          removeElementFromDOM(addToCartCTA)
+        }
 
         changeTextContent(querySelector('[data-wtf-product-name]', itemTemplate), name)
         changeTextContent(querySelector('[data-wtf-product-price]', itemTemplate), BRLFormatter.format(unit_price / 100))
@@ -338,25 +414,13 @@ import {
             removeElementFromDOM(querySelector<'img'>('[data-wtf-not-rated-cta]', notRatedClone))
           }
 
-          // toggleClass(querySelector('[data-wtf-not-rated-paid]', notRatedClone), GENERAL_HIDDEN_CLASS, !order.pago)
-          // toggleClass(querySelector('[data-wtf-not-rated-unpaid]', notRatedClone), GENERAL_HIDDEN_CLASS, order.pago)
-          // toggleClass(querySelector<'img'>('[data-wtf-not-rated-cta]', notRatedClone), GENERAL_HIDDEN_CLASS, order.pago)
-
           replaceChildren(reviewSection, notRatedClone, evaluationFormClone)
         } else {
           const templateClone = evaluatedTemplate?.cloneNode(true) as HTMLElement
 
           changeTextContent(querySelector('[data-wtf-evaluated-comment]', templateClone), review.comment)
 
-          const starsSection = querySelector('[data-wtf-evaluated-star-section]', templateClone)
-
-          if (starsSection) {
-            const children = max(starsSection.childElementCount - max(1, review.rating), 0)
-
-            for (let index = 0; index++ < children;) {
-              removeElementFromDOM(starsSection.lastElementChild)
-            }
-          }
+          drawReviewStars(templateClone, review.rating)
 
           removeClass(templateClone, GENERAL_HIDDEN_CLASS)
 
@@ -370,6 +434,20 @@ import {
     }
 
     replaceChildren(ordersContainer, fragment)
+  }
+
+  function drawReviewStars (reviewNode: ReturnType<typeof querySelector>, rating: number): void {
+    if (!reviewNode) return
+
+    const starsSection = querySelector('[data-wtf-evaluated-star-section]', reviewNode as HTMLElement)
+
+    if (!starsSection) return
+
+    const children = max(starsSection.childElementCount - max(1, rating), 0)
+
+    for (let index = 0; index++ < children;) {
+      removeElementFromDOM(starsSection.lastElementChild)
+    }
   }
 
   function showEvaluationForm (
@@ -428,13 +506,34 @@ import {
 
       if (!response.succeeded) {
         // TODO: Necessário tratar o erro
+
+        removeAttribute(event.submitter, DISABLED_ATTR)
+
         return
       }
 
-      alert('comentário adicionado com sucesso')
-
-      removeAttribute(event.submitter, DISABLED_ATTR)
+      drawReviewedArea(response.data, _reviewForm)
     })
+  }
+
+  function drawReviewedArea (payload: CreateProductReview, reviewForm: ReturnType<typeof querySelector<'form'>>): void {
+    if (!reviewForm) return
+
+    const reviewArea = reviewForm.closest('[data-wtf-review-area]')
+
+    if (!reviewArea) return
+
+    const reviewedTemplate = evaluatedTemplate?.cloneNode(true)
+
+    if (!reviewedTemplate) return
+
+    drawReviewStars(reviewedTemplate as HTMLElement, payload.rating)
+
+    changeTextContent(querySelector('[data-wtf-evaluated-comment]', reviewedTemplate as HTMLElement), payload.comment)
+
+    removeClass(reviewedTemplate as HTMLElement, GENERAL_HIDDEN_CLASS)
+
+    replaceChildren(reviewArea, reviewedTemplate as HTMLElement)
   }
 
   getOrders().then(response => {

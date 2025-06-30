@@ -11,9 +11,11 @@
         node.addEventListener(eventName, callback, options);
         return () => node.removeEventListener(eventName, callback, options);
     }
+    function splitText(value, separator, limit) {
+        return value.split(separator, limit);
+    }
     function getCookie(name) {
-        const selectedCookie = document.cookie
-            .split(COOKIE_SEPARATOR)
+        const selectedCookie = splitText(document.cookie, COOKIE_SEPARATOR)
             .find(cookie => {
             const { name: cookieName } = splitCookie(cookie);
             return cookieName === name;
@@ -23,7 +25,7 @@
             : false;
     }
     function splitCookie(cookie) {
-        const [name, value] = cookie.split('=');
+        const [name, value] = splitText(cookie, '=');
         return {
             name,
             value
@@ -33,19 +35,33 @@
         return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
     }
     function removeAttribute(element, attribute) {
+        if (!element)
+            return;
         element.removeAttribute(attribute);
     }
     function hasOwnProperty(target, property) {
         return target.hasOwnProperty(property);
     }
     function addClass(element, ...className) {
+        if (!element)
+            return;
         element.classList.add(...className);
     }
     function removeClass(element, ...className) {
+        if (!element)
+            return;
         element.classList.remove(...className);
     }
     function toggleClass(element, className, force) {
+        if (!element)
+            return false;
         return element.classList.toggle(className, force);
+    }
+    function postSuccessResponse(response) {
+        return {
+            data: response,
+            succeeded: true
+        };
     }
     function postErrorResponse(message) {
         return {
@@ -57,10 +73,10 @@
         const isError = !response.succeeded;
         const errorMessage = querySelector('[data-wtf-user-update-error-message]', form);
         const successMessage = querySelector('[data-wtf-user-update-success-message]', form);
-        errorMessage && toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError);
-        successMessage && toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError);
+        toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError);
+        toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError);
         if (!isError) {
-            setTimeout(() => successMessage && addClass(successMessage, GENERAL_HIDDEN_CLASS), 8000);
+            setTimeout(() => addClass(successMessage, GENERAL_HIDDEN_CLASS), 8000);
             return;
         }
         const textElement = errorMessage && querySelector('div', errorMessage);
@@ -120,16 +136,15 @@
                 case 'points':
                     renderSinglePersonalData(printPoints, newValue);
                     break;
-                case 'isFormVisible':
-                    console.log('form estará visivel: ', newValue);
             }
             return response;
         }
     });
+    const authCookie = getCookie(COOKIE_NAME);
     const HEADERS = {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        Authorization: getCookie(COOKIE_NAME)
+        ...(authCookie && { Authorization: authCookie })
     };
     const removeAttributes = [
         'name',
@@ -147,7 +162,7 @@
         }
         const parentElement = _form.parentElement;
         const submit = querySelector('[type="submit"]', _form);
-        submit && removeAttribute(submit, 'disabled');
+        removeAttribute(submit, 'disabled');
         removeClass(parentElement, 'w-form');
         _form.remove();
         parentElement.insertAdjacentHTML('beforeend', _form.outerHTML);
@@ -174,8 +189,7 @@
             });
             return;
         }
-        const birthday = (dateField?.value ?? '')
-            .split('/')
+        const birthday = splitText(dateField?.value ?? '', '/')
             .reverse()
             .join('-');
         const body = {
@@ -192,6 +206,8 @@
         handleMessages(form, response);
         if (!response.succeeded)
             return;
+        // @ts-ignore
+        window?.refreshOrders?.();
         syncState(response.data);
     });
     const printPoints = querySelector('[data-wtf-score]');
@@ -239,7 +255,7 @@
         if (!editButton)
             return;
         attachEvent(editButton, 'click', () => {
-            formGroup && removeClass(formGroup, GENERAL_HIDDEN_CLASS);
+            removeClass(formGroup, GENERAL_HIDDEN_CLASS);
             addClass(editButton, GENERAL_HIDDEN_CLASS);
         }, { once: true });
         const _mapper = [
@@ -253,10 +269,10 @@
             setStateToField(field, value);
         }
         removeClass(editButton, GENERAL_HIDDEN_CLASS);
-        formGroup && addClass(formGroup, GENERAL_HIDDEN_CLASS);
+        addClass(formGroup, GENERAL_HIDDEN_CLASS);
     }
     function setStateToField(field, value) {
-        if (!field)
+        if (!field || field.tagName !== 'INPUT')
             return;
         field.value = value ?? '';
     }
@@ -318,7 +334,7 @@
     }
     function applyWrapperError(element, isValid) {
         const wrapperElement = element.closest('[data-wtf-wrapper]');
-        wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid);
+        toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid);
     }
     function isNameValid(name) {
         return /^[a-zA-Z\s]+$/.test(name);
@@ -363,7 +379,7 @@
             return response(false);
         const date = dateField.value;
         const hasPatternMatch = /^(\d{2})\/(\d{2})\/(19|20)(\d{2})$/g.test(date);
-        const [day, month, year] = date.split('/');
+        const [day, month, year] = splitText(date, '/');
         const getTimeFromDate = new Date(`${year}-${month}-${day}T00:00:00.000Z`).getTime();
         const isValidDate = hasPatternMatch && !isNaN(getTimeFromDate) && Date.now() > getTimeFromDate;
         applyWrapperError(dateField, isValidDate);
@@ -377,8 +393,7 @@
         const validationIndexes = [9, 10];
         validationIndexes.forEach(function (j) {
             let soma = 0, r;
-            cpf
-                .split('')
+            splitText(cpf, '')
                 .splice(0, j)
                 .forEach(function (e, i) {
                 soma += parseInt(e) * ((j + 2) - (i + 1));
@@ -408,10 +423,7 @@
                 return postErrorResponse(error?.message ?? defaultErrorMessage);
             }
             const personalData = await response.json();
-            return {
-                succeeded: true,
-                data: personalData
-            };
+            return postSuccessResponse(personalData);
         }
         catch (error) {
             return postErrorResponse(defaultErrorMessage);
@@ -431,10 +443,7 @@
                 return postErrorResponse(error?.message ?? defaultErrorMessage);
             }
             const personalData = await response.json();
-            return {
-                succeeded: true,
-                data: personalData
-            };
+            return postSuccessResponse(personalData);
         }
         catch (error) {
             return postErrorResponse(defaultErrorMessage);

@@ -3,11 +3,20 @@
     const EMPTY_STRING = '';
     const NULL_VALUE = null;
     const FALLBACK_STRING = '-';
+    const GENERAL_HIDDEN_CLASS = 'oculto';
     const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:5lp3Lw8X';
     const BRLFormatter = new Intl.NumberFormat('pt-BR', {
         currency: 'BRL',
         style: 'currency',
     });
+    function toggleClass(element, className, force) {
+        if (!element)
+            return false;
+        return element.classList.toggle(className, force);
+    }
+    function setPageLoader(status) {
+        return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status);
+    }
     function querySelector(selector, node = document) {
         if (!node)
             return NULL_VALUE;
@@ -46,6 +55,9 @@
                 return;
             }
             this.order = response.data;
+            setPageLoader(false);
+        },
+        mounted() {
         },
         methods: {
             async getOrder(orderId) {
@@ -122,7 +134,7 @@
                 return BRLFormatter.format(this.order?.shipping_total ?? 0);
             },
             getOrderDiscountPriceFormatted() {
-                return BRLFormatter.format(this.order?.discount ?? 0);
+                return BRLFormatter.format((this.order?.discount ?? 0) * -1);
             },
             getParsedProducts() {
                 const { order_items = [] } = this.order ?? {};

@@ -1,15 +1,33 @@
 (function () {
-    const { ref, createApp, } = window.Vue;
+    const { createApp, } = window.Vue;
     const EMPTY_STRING = '';
     const NULL_VALUE = null;
-    const FALLBACK_STRING = '-';
     const DEFAULT_TIME = '00:00:00';
+    const GENERAL_HIDDEN_CLASS = 'oculto';
     const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:5lp3Lw8X';
     const BRLFormatter = new Intl.NumberFormat('pt-BR', {
         currency: 'BRL',
         style: 'currency',
     });
-    function buildURL(path, query) {
+    function setPageLoader(status) {
+        return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status);
+    }
+    function toggleClass(element, className, force) {
+        if (!element)
+            return false;
+        return element.classList.toggle(className, force);
+    }
+    function safeParseJson(value) {
+        if (typeof value !== 'string')
+            return null;
+        try {
+            return JSON.parse(value);
+        }
+        catch {
+            return NULL_VALUE;
+        }
+    }
+    function buildURL(path, query = {}) {
         const baseURL = new URL(`${location.protocol}//${location.hostname}`);
         const nextPage = new URL(path, baseURL);
         for (const [key, value] of Object.entries(query)) {
@@ -53,7 +71,8 @@
                 return;
             }
             const response = await this.getOrder(transactionId);
-            if (!response.succeeded) {
+            if (!response.succeeded || response.data.payment_method !== 'pix') {
+                location.href = buildURL('/');
                 return;
             }
             this.order = response.data;
@@ -64,17 +83,22 @@
                         order: transactionId
                     });
                 }, 5000);
+                return;
             }
-            if (response.data.expired || response.data.pago)
+            if (response.data.expired)
                 return;
             this.nowInterval = setInterval(() => this.now = Date.now(), 1000);
-            this.pollOrder(transactionId);
+            if ('EventSource' in window) {
+                return this.pollOrder(transactionId);
+            }
         },
         methods: {
             pollOrder(orderId) {
                 const source = new EventSource(`${XANO_BASE_URL}/confirm-pix/${orderId}`);
                 source.addEventListener('message', async (event) => {
-                    const orderData = JSON.parse(event.data);
+                    const orderData = safeParseJson(event.data);
+                    if (orderData === NULL_VALUE)
+                        return;
                     this.patchOrder({
                         ...orderData,
                         expired: DEFAULT_TIME === this.timmer || orderData.expired,
@@ -145,6 +169,9 @@
                 const QRImage = querySelector('[data-wtf-qr-code-image]');
                 if (!QRImage)
                     return;
+                QRImage.onload = () => {
+                    setPageLoader(false);
+                };
                 QRImage.setAttribute('src', this.order?.qrcode ?? QRImage.getAttribute('src'));
             },
             clearInterval() {
