@@ -40,6 +40,8 @@ export interface ILoginUser {
   password: string;
 }
 
+export type HttpMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
 export interface ILoginUserPayload {
   /**
    * Token de autenticação gerado pelo backend da aplicação
@@ -609,6 +611,12 @@ export interface TalhoCheckoutAppSetup {
   installmentsMessageElement: Ref<Nullable<HTMLElement>>;
 
   couponCodeElement: Ref<HTMLInputElement | null>;
+
+  deliveryPlaceAddressErrorMessage: Nullable<string>;
+
+  deliveryBillingAddressErrorMessage: Nullable<string>;
+
+  deliveryShippingAddressErrorMessage: Nullable<string>;
 }
 
 export interface TalhoCheckoutAppMethods {
@@ -626,7 +634,7 @@ export interface TalhoCheckoutAppMethods {
   triggerValidations: () => void;
   feedAddress: (addressType: IOrderAddressType, address: VIACEPFromXano) => void;
   setDeliveryPlace: (deliveryPlace: IAddressType) => void;
-  captureAddress: (addressType: IOrderAddressType, cep: string, oldCep?: string) => Promise<void>;
+  captureAddress: (addressType: IOrderAddressType, cep: string, oldCep?: string) => Promise<boolean>;
   captureCoupon: () => Promise<ResponsePattern<ISingleOrderCoupon>>;
   handleSearchCoupon: () => Promise<void>;
   handleRemoveCoupon: () => void;

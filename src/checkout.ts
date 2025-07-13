@@ -36,9 +36,9 @@ import type {
 
 // @ts-expect-error
 import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
-import type {
+import {
   PIXOrderResponse,
-  CreditCardOrderResponse,
+  CreditCardOrderResponse, SearchAddressCheckout,
 } from '../types/checkout'
 
 (function () {
@@ -52,6 +52,9 @@ import type {
   const NULL_VALUE = null
   const ERROR_KEY = 'error'
   const GENERAL_HIDDEN_CLASS = 'oculto'
+
+  const SHIPPING_NAME_TOKEN = 'shipping'
+  const BILLING_NAME_TOKEN = 'billing'
 
   const CEP_LENGTH = 8
 
@@ -453,7 +456,7 @@ import type {
     return () => node.removeEventListener(eventName, callback as EventListener, options)
   }
 
-  async function searchAddress (cep: string): Promise<ResponsePattern<VIACEPFromXano>> {
+  async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Promise<ResponsePattern<VIACEPFromXano>> {
     const defaultErrorMessage = 'Não foi possível encontrar o endereço'
 
     cep = numberOnly(cep)
@@ -461,10 +464,16 @@ import type {
     if (cep.length !== CEP_LENGTH) return postErrorResponse(defaultErrorMessage)
 
     try {
-      const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}`)
+      const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}/checkout`, {
+        ...POST_REQUEST,
+        credentials: 'include',
+        body: stringify<Pick<SearchAddressCheckout, 'deliveryMode'>>({
+          deliveryMode,
+        })
+      })
 
       if (!response.ok) {
-        const error =  await response.json()
+        const error = await response.json()
 
         return postErrorResponse(error?.message ?? defaultErrorMessage)
       }
@@ -557,6 +566,12 @@ import type {
 
       const couponCodeElement = ref<HTMLInputElement | null>(NULL_VALUE)
 
+      const deliveryPlaceAddressErrorMessage = ref<Nullable<string>>(NULL_VALUE)
+
+      const deliveryBillingAddressErrorMessage = ref<Nullable<string>>(NULL_VALUE)
+
+      const deliveryShippingAddressErrorMessage = ref<Nullable<string>>(NULL_VALUE)
+
       return {
         customerCPF,
         customerMail,
@@ -623,6 +638,12 @@ import type {
         installmentsMessageElement,
 
         couponCodeElement,
+
+        deliveryPlaceAddressErrorMessage,
+
+        deliveryBillingAddressErrorMessage,
+
+        deliveryShippingAddressErrorMessage,
       }
     },
 
@@ -715,6 +736,7 @@ import type {
           const response = await fetch(`${PAYMENT_BASE_URL}/calculatefees`, {
             ...POST_REQUEST,
             cache: 'force-cache',
+            credentials: 'include',
             body: stringify<GetInstallmentsBody>({
               amount: this.getOrderPrice,
               cardBin: this.customerCreditCardNumber
@@ -929,7 +951,7 @@ import type {
           localidade,
         }: VIACEPFromXano
       ): void {
-        if (addressType === 'billing') {
+        if (addressType === BILLING_NAME_TOKEN) {
           this.billingAddress = logradouro
           this.billingNeighborhood = bairro
           this.billingCity = localidade
@@ -947,25 +969,59 @@ import type {
       setDeliveryPlace (deliveryPlace: IAddressType): void {
         if (this.deliveryPlace === deliveryPlace) return
 
+        if (deliveryPlace === DELIVERY_TYPE_SAME && /^\d{5}\-\d{3}$/.test(this.billingCEP) && this.isBillingAddressGroupValid) {
+          searchAddress({
+            cep: this.billingCEP,
+            deliveryMode: true
+          }).then(address => {
+            if (address.succeeded) return
+
+            this.deliveryPlaceAddressErrorMessage = address.message
+          })
+        } else {
+          this.deliveryPlaceAddressErrorMessage = NULL_VALUE
+        }
+
         this.deliveryPlace = deliveryPlace
       },
 
-      async captureAddress (addressType: IOrderAddressType, cep: string, oldCep?: string): Promise<void> {
-        if (!regexTest(/^\d{5}-\d{3}$/, cep) || cep === oldCep) return
+      async captureAddress (addressType: IOrderAddressType, cep: string, oldCep?: string): Promise<boolean> {
+        if (!regexTest(/^\d{5}-\d{3}$/, cep) || cep === oldCep) return false
 
         const fieldKey: `${IOrderAddressType}CEP` = `${addressType}CEP`
 
-        const address = await searchAddress(cep)
+        const address = await searchAddress({
+          cep,
+          deliveryMode: addressType === SHIPPING_NAME_TOKEN
+        })
 
         if (!address.succeeded) {
           this[fieldKey] = EMPTY_STRING
 
           this.setVisitedField(fieldKey)
 
-          return
+          if (addressType === SHIPPING_NAME_TOKEN) {
+            this.deliveryShippingAddressErrorMessage = address.message
+          }
+
+          if (addressType === BILLING_NAME_TOKEN) {
+            this.deliveryBillingAddressErrorMessage = address.message
+          }
+
+          return false
+        }
+
+        switch (addressType) {
+          case SHIPPING_NAME_TOKEN:
+            this.deliveryShippingAddressErrorMessage = NULL_VALUE
+            break
+          case BILLING_NAME_TOKEN:
+            this.deliveryBillingAddressErrorMessage = NULL_VALUE
         }
 
         this.feedAddress(addressType, address.data)
+
+        return true
       },
 
       async captureCoupon (): Promise<ResponsePattern<ISingleOrderCoupon>> {
@@ -1047,6 +1103,7 @@ import type {
         try {
           const response = await fetch(`${DELIVERY_BASE_URL}/delivery_dates`, {
             cache: 'force-cache',
+            credentials: 'include',
           })
 
           if (!response.ok) {
@@ -1087,7 +1144,8 @@ import type {
 
         try {
           const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?date=${this.deliveryDate}`, {
-            cache: 'force-cache'
+            cache: 'force-cache',
+            credentials: 'include',
           })
 
           if (!response.ok) {
@@ -1155,7 +1213,7 @@ import type {
       },
 
       getShippingPrice (): number {
-        return 34.90 // TODO: Retornar o valor correto do frete
+        return 0 // TODO: Retornar o valor correto do frete
       },
 
       getShippingPriceFormatted (): string {
@@ -1344,7 +1402,7 @@ import type {
       },
 
       isBillingAddressGroupValid (): boolean {
-        return [
+        return this.deliveryBillingAddressErrorMessage === NULL_VALUE && [
           this.billingCEPValidation,
           this.billingAddressValidation,
           this.billingNumberValidation,
@@ -1357,7 +1415,7 @@ import type {
       deliveryPlaceValidation (): ISingleValidateCheckout {
         return buildFieldValidation(
           this.deliveryPlaceMessageElement,
-          this.hasSelectedAddress,
+          this.hasSelectedAddress && this.deliveryPlaceAddressErrorMessage === NULL_VALUE,
           !this.isCreditCard
         )
       },
@@ -1419,7 +1477,7 @@ import type {
       },
 
       isShippingAddressGroupValid (): boolean {
-        return [
+        return this.deliveryShippingAddressErrorMessage === NULL_VALUE && [
           this.shippingCEPValidation,
           this.shippingAddressValidation,
           this.shippingNumberValidation,
@@ -1682,11 +1740,19 @@ import type {
 
     watch: {
       billingCEP (cep: string, oldCep: string): void {
-        this.captureAddress('billing', cep.toString(), oldCep)
+        this.captureAddress(BILLING_NAME_TOKEN, cep, oldCep).then(succeeded => {
+          if (!succeeded) return
+
+          this.deliveryPlaceAddressErrorMessage = NULL_VALUE
+
+          if (this.deliveryPlace === DELIVERY_TYPE_SAME) {
+            this.deliveryPlace = NULL_VALUE
+          }
+        })
       },
 
       shippingCEP (cep: string, oldCep?: string): void {
-        this.captureAddress('shipping', cep, oldCep)
+        this.captureAddress(SHIPPING_NAME_TOKEN, cep, oldCep)
       },
 
       getOrderPrice: {

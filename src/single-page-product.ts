@@ -3,7 +3,7 @@ import {
   ComputedFinalPrices,
   CreateCartProduct,
   FunctionErrorPattern,
-  FunctionSucceededPattern,
+  FunctionSucceededPattern, HttpMethod,
   Nullable,
   Prices,
   ResponsePattern,
@@ -12,9 +12,15 @@ import {
   SingleProductPageStateHandler, SingleProductPageStateKeys,
 } from '../global'
 
-import type {
+import {
   AddToCartParams,
-  GetProductParams
+  DeliveryQuotationBody,
+  GetProductParams,
+  GetProductResponse,
+  LocationList,
+  LocationResponse,
+  QuotationPayload,
+  QuotationPrice,
 } from '../types/single-page-product'
 
 (function () {
@@ -26,7 +32,8 @@ import type {
   const STORAGE_KEY_NAME = 'talho_cart_items'
   const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
-  const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_'
+  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
+  const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 
   const CLICK_EVENT = 'click'
 
@@ -47,6 +54,21 @@ import type {
     stockCount: 0,
     product: NULL_VALUE,
     selectedVariation: NULL_VALUE,
+  }
+
+  const slug = location.pathname.split('/')
+
+  function generateFetchHeaders (method: HttpMethod, includeCredentials?: boolean): Pick<RequestInit, 'method' | 'headers' | 'credentials'> {
+    return {
+      method: method,
+      ...(includeCredentials && {
+        credentials: 'include',
+      }),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    }
   }
 
   const state = new Proxy<SingleProductPageState>(_state, {
@@ -158,6 +180,12 @@ import type {
 
   const skuList = querySelector('[data-wtf-sku-list]')
   const skuItem = querySelector('[data-wtf-sku-item]')
+
+  const shippingCalcCTA = querySelector<'a'>('[data-wtf-shipping-button]')
+
+  const shippingBlock = querySelector<'div'>('[data-wtf-shipping-form]')
+
+  const shippingValue = querySelector<'div'>('[data-wtf-shipping-value]')
 
   const buyButton = querySelector<'a'>('[data-wtf-comprar]')
 
@@ -279,16 +307,12 @@ import type {
     }
   }
 
-  async function getProduct (pathname: GetProductParams['reference_id']): Promise<ResponsePattern<SingleProductPageProduct>> {
+  async function getProduct (pathname: GetProductParams['reference_id']): Promise<ResponsePattern<GetProductResponse>> {
     const defaultErrorMessage = 'Houve uma falha ao capturar o produto'
 
     try {
       const response = await fetch(`${CART_BASE_URL}/product/single-product-page`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+        ...generateFetchHeaders('POST', true),
         body: stringify<GetProductParams>({
           quantity: 1,
           reference_id: pathname,
@@ -301,7 +325,7 @@ import type {
         return postErrorResponse(error?.message ?? defaultErrorMessage)
       }
 
-      const data: SingleProductPageProduct = await response.json()
+      const data: GetProductResponse = await response.json()
 
       return postSuccessResponse(data)
     } catch (e) {
@@ -363,12 +387,7 @@ import type {
 
     try {
       const response = await fetch(`${CART_BASE_URL}/cart/handle`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+        ...generateFetchHeaders('POST', true),
         body: stringify<AddToCartParams>({
           item,
           operation: 'add',
@@ -470,18 +489,156 @@ import type {
     )
   }
 
-  const slug = location.pathname.split('/')
+  function maskCEP (value: string): string {
+    return value.replace(/^(\d{0,5})(\d{0,3})/, (
+      _: string,
+      g1: Nullable<string>,
+      g2: Nullable<string>,
+    ) => {
+      const response: string[] = []
+
+      for (const group of [g1, g2]) {
+        group && response.push(group)
+      }
+
+      return response.join('-')
+    })
+  }
+
+  function startShippingForm () {
+    const form = querySelector('form', shippingBlock)
+
+    if (!form) return
+
+    const removalAttributes = [
+      'name',
+      'method',
+      'data-name',
+      'aria-label',
+      'data-wf-page-id',
+      'data-wf-element-id',
+      'data-turnstile-sitekey'
+    ]
+
+    for (const attribute of removalAttributes) {
+      removeAttribute(form, attribute)
+    }
+
+    removeClass(shippingBlock, 'w-form')
+
+    const parentElement = form.parentElement as HTMLElement
+
+    parentElement.innerHTML = form.outerHTML
+
+    const updatedForm = querySelector<'form'>('#shipping-cep-form')
+
+    if (!updatedForm) return
+
+    attachEvent(updatedForm, 'input', (e) => {
+      e.stopPropagation()
+
+      const target = e.target as HTMLInputElement
+
+      const cleanValue = target.value.replace(/\D+/g, '')
+
+      if (target.name !== 'cep' || target.value === maskCEP(cleanValue) || !e.isTrusted) return
+
+      target.value = maskCEP(cleanValue)
+
+      target.dispatchEvent(new Event('input'))
+    })
+
+    attachEvent(updatedForm, 'submit', async (e) => {
+      e.preventDefault()
+
+      const cep = updatedForm.cep.value
+
+      const response = await deliveryQuotation({
+        cep,
+        reference_id: slug[objectSize(slug) - 1]
+      })
+
+      if (!response.succeeded) {
+        return // TODO: necessário exibir o erro recebido
+      }
+
+      switch (response.data.type) {
+        case 'quotation':
+          return drawQuotation(response.data.data)
+        case 'locationlist':
+          return drawLocations(response.data.data)
+      }
+    })
+  }
+
+  function drawQuotation (quotation: QuotationPayload): void {
+    addClass(shippingCalcCTA, GENERAL_HIDDEN_CLASS)
+    addClass(shippingBlock, GENERAL_HIDDEN_CLASS)
+
+    removeClass(shippingValue, GENERAL_HIDDEN_CLASS)
+
+    // TODO: necessário exibir a data de validade da cotação
+    changeTextContent(querySelector('[data-wtf-quotation-price]', shippingValue), BRLFormatter.format(quotation.total / 100))
+
+    attachEvent(querySelector('[data-wtf-quotation-reload]', shippingValue), 'click', e => {
+      removeClass(shippingBlock, GENERAL_HIDDEN_CLASS)
+      addClass(shippingValue, GENERAL_HIDDEN_CLASS)
+    }, { once: true })
+  }
+
+  function drawLocations (locations: LocationList[]): void {
+    console.log(locations.length, ' localizações recebidas')
+  }
+
+  async function deliveryQuotation (payload: DeliveryQuotationBody): Promise<ResponsePattern<LocationResponse | QuotationPrice>> {
+    const defaultErrorMessage = 'Houve uma falha ao gerar a cotação'
+
+    try {
+      const response = await fetch(`${XANO_BASE_URL}/api:i6etHc7G/site/product-delivery`, {
+        ...generateFetchHeaders('POST', true),
+        body: stringify<DeliveryQuotationBody>(payload),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+
+        return postErrorResponse(error?.message ?? defaultErrorMessage)
+      }
+
+      const data: LocationResponse | QuotationPrice = await response.json()
+
+      return postSuccessResponse(data)
+    } catch (error) {
+      return postErrorResponse(defaultErrorMessage)
+    }
+  }
 
   getProduct(slug[objectSize(slug) - 1])
     .then(response => {
       if (!response.succeeded) return
 
-      state.product = response.data
+      state.product = response.data.product
+
+      if (response.data.delivery !== NULL_VALUE) {
+        startShippingForm()
+
+        drawQuotation(response.data.delivery)
+      }
     })
     .then(() => {
       attachEvent(plusButton, CLICK_EVENT, () => changeProductQuantity(1))
       attachEvent(minusButton, CLICK_EVENT, () => changeProductQuantity(-1))
 
       attachEvent(buyButton, CLICK_EVENT, buyProduct)
+
+      attachEvent(shippingCalcCTA, CLICK_EVENT, (e) => {
+        e.preventDefault()
+
+        addClass(shippingCalcCTA, GENERAL_HIDDEN_CLASS)
+
+        removeClass(shippingBlock, GENERAL_HIDDEN_CLASS)
+
+        startShippingForm()
+      }, { once: true })
     })
 })()

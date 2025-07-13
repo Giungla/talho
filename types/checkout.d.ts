@@ -19,3 +19,8 @@ export interface PIXOrderResponse extends OrderResponse {
   qrcode: string;
   qrcode_text: string;
 }
+
+export interface SearchAddressCheckout {
+  cep: string;
+  deliveryMode?: boolean;
+}
