@@ -115,37 +115,37 @@ return response
 
 /** --------------------------------------------------------------------- */
 
-// if not peso_variavel:
-//   atualiza sku
-// atualiza produto
-// return
-// else:
-// if has_many_fractions and xano_has_many_fractions:
-//   if weights_match:
-// atualiza skus
-// atualiza produto
-// return
-// else:
-// desativa skus não encontrados
-// cria os novos skus necessarios
-// atualiza o produto
-// return
-// else if has_many_fractions and not xano_has_many_fractions:
-//   if sku_existeste está no websac:
-//   mantem
-// else:
-// desativa
-// cria os novos skus necessários
-// atualiza o produto
-// return
-// else if not has_many_fractions and xano_has_many_fractions:
-//   desativa skus não encontrados
-// if variação_ativa esta no xano
-// atualiza variação
-// else
-// cria variação
-// atualiza produto
-// return
+if not peso_variavel:
+  atualiza sku
+  atualiza produto
+  return
+else:
+  if has_many_fractions and xano_has_many_fractions:
+    if weights_match:
+      atualiza skus
+      atualiza produto
+      return
+    else:
+      desativa skus não encontrados
+      cria os novos skus necessarios
+      atualiza o produto
+      return
+  else if has_many_fractions and not xano_has_many_fractions:
+    if sku_existeste está no websac:
+      mantem
+    else:
+      desativa
+    cria os novos skus necessários
+    atualiza o produto
+    return
+  else if not has_many_fractions and xano_has_many_fractions:
+    desativa skus não encontrados
+    if variação_ativa esta no xano
+      atualiza variação
+    else
+      cria variação
+    atualiza produto
+    return
 
 /**
  * @param value        {number}
@@ -189,7 +189,7 @@ const websacProduct = $input.product
  * @description Indica a quantidade de SKUs presente no Xano
  * @type {boolean}
  */
-const hasMySKUsAtXano = $var.sku_list.length > 0
+const hasMySKUsAtXano = $var.sku_list.length > 1
 
 /** @type {XanoSKU[]} */
 const xano_sku_list = $var.sku_list
@@ -200,14 +200,23 @@ const xano_sku_list = $var.sku_list
  */
 const sameFractionCount = xano_sku_list.length === websacProduct.fracoes_venda.length
 
+/** @type {number} */
+const CURRENT_PRODUCT_ID = $var.xano_product_id
+
 /** @type {ProductResponse[]} */
 const product_response = []
 /** @type {SKUResponse[]} */
 const skus_response = []
+/** @type {number[]} */
+const skus_response_delete = []
+/** @type {Omit<SKUResponse, 'id'>[]} */
+const skus_response_create = []
 
 function responseObj () {
   return {
     skus: skus_response,
+    create: skus_response_create,
+    delete: skus_response_delete,
     product: product_response,
   }
 }
@@ -219,28 +228,28 @@ if (!websacProduct.peso_variavel) {
     id: xano_sku_list[0].id,
     variation_type: websacProduct.embalagem_venda.unidade,
     label: `${websacProduct.embalagem_venda.quantidade} UN`,
-    product_id: $var.xano_product_id,
+    product_id: CURRENT_PRODUCT_ID,
     price: prices.price,
     full_price: prices.full_price,
     sale_fraction: null,
   })
 
   product_response.push({
-    id: $var.xano_product_id,
+    id: CURRENT_PRODUCT_ID,
     updated_at: Date.now(),
     websac_id: websacProduct.id,
     title: websacProduct.descricao_resumida,
     sync_required: true,
-    stock_quantity: websacProduct.estoque_atual,
+    stock_quantity: Math.max(Number(websacProduct.estoque_atual), 0),
   })
 
   return responseObj()
 } else {
-  if (hasMySKUsAtXano && hasManySKUsAtWebsac) {
+  if (hasManySKUsAtWebsac && hasMySKUsAtXano) {
     const websacWeightList = websacProduct.fracoes_venda.map(fraction => decimalRound(Number(fraction.fracao_venda), 2))
 
-    if (sameFractionCount && $var.sku_list.every(({ sale_fraction }) => websacWeightList.includes(decimalRound(sale_fraction, 2)))) {
-      for (let index = 0, len = $var.sku_list.length; index++ < len;) {
+    if (sameFractionCount && xano_sku_list.every(({ sale_fraction }) => websacWeightList.includes(decimalRound(sale_fraction, 2)))) {
+      for (let index = 0, len = xano_sku_list.length; index++ < len;) {
         const selectedSKU = xano_sku_list.at(index)
 
         if (!selectedSKU) continue
@@ -257,14 +266,158 @@ if (!websacProduct.peso_variavel) {
           id: selectedSKU.id,
           variation_type: websacProduct.embalagem_venda.unidade,
           label: `${fraction} ${websacProduct.embalagem_venda.unidade}`,
-          price,
-          full_price,
-          product_id: 
+          price: decimalRound(price * fraction, 2),
+          full_price: decimalRound(full_price * fraction, 2),
+          product_id: CURRENT_PRODUCT_ID,
+          sale_fraction: fraction,
         })
       }
 
-      skus_response.push({})
+      product_response.push({
+        id: CURRENT_PRODUCT_ID,
+        updated_at: Date.now(),
+        websac_id: websacProduct.id,
+        title: websacProduct.descricao_resumida,
+        sync_required: true,
+        stock_quantity: Math.max(Number(websacProduct.estoque_atual), 0),
+      })
+
+      return responseObj()
+    } else {
+      const notFoundSKUs = xano_sku_list.filter(sku => !websacWeightList.includes(decimalRound(sku.sale_fraction, 2)))
+
+      for (const product of notFoundSKUs) {
+        if (skus_response_delete.includes(product.id)) continue
+
+        skus_response_delete.push(product.id)
+      }
+
+      const newFractions = websacProduct.fracoes_venda.filter(fraction => {
+        return xano_sku_list.find(p => p.sale_fraction === Number(fraction.fracao_venda))
+      })
+
+      const { price, full_price } = getWebsacProductPrices(websacProduct)
+
+      for (const fraction of newFractions) {
+        const fraction = decimalRound(Number(fraction.fracao_venda), 2)
+
+        skus_response_create.push({
+          variation_type: websacProduct.embalagem_venda.unidade,
+          label: `${decimalRound(Number(fraction.fracao_venda), 2)} ${websacProduct.embalagem_venda.unidade}`,
+          price: decimalRound(price * fraction, 2),
+          full_price: decimalRound(full_price * fraction, 2),
+          product_id: CURRENT_PRODUCT_ID,
+          sale_fraction: fraction,
+        })
+      }
+
+      product_response.push({
+        id: CURRENT_PRODUCT_ID,
+        updated_at: Date.now(),
+        websac_id: websacProduct.id,
+        title: websacProduct.descricao_resumida,
+        sync_required: true,
+        stock_quantity: Math.max(Number(websacProduct.estoque_atual), 0),
+      })
+
+      return responseObj()
     }
+  } else if (hasManySKUsAtWebsac && !hasMySKUsAtXano) {
+    const foundedVariation = websacProduct.fracoes_venda.find(fraction => decimalRound(Number(fraction.fracao_venda), 2) === xano_sku_list.at(0).sale_fraction)
+
+    const { price, full_price } = getWebsacProductPrices(websacProduct)
+
+    if (!foundedVariation) {
+      skus_response_delete.push(xano_sku_list[0].id)
+    } else {
+      const fracao_venda = decimalRound(Number(foundedVariation.fracao_venda), 2)
+
+      skus_response.push({
+        id: xano_sku_list.at(0).id,
+        variation_type: websacProduct.embalagem_venda.unidade,
+        label: `${fracao_venda} ${websacProduct.embalagem_venda.unidade}`,
+        price: decimalRound(price * fracao_venda, 2),
+        full_price: decimalRound(full_price * fracao_venda, 2),
+        sale_fraction: fracao_venda,
+        product_id: CURRENT_PRODUCT_ID,
+      })
+    }
+
+    const websacVariationsRemain = websacProduct.fracoes_venda.filter(fraction => fraction.fracao_venda !== foundedVariation.fracao_venda)
+
+    for (const variation of websacVariationsRemain) {
+      const fracao_venda = decimalRound(Number(variation.fracao_venda), 2)
+
+      skus_response_create.push({
+        price: decimalRound(price * fracao_venda, 2),
+        full_price: decimalRound(full_price * fracao_venda, 2),
+        label: `${fracao_venda} ${websacProduct.embalagem_venda.unidade}`,
+        variation_type: websacProduct.embalagem_venda.unidade,
+        sale_fraction: fracao_venda,
+        product_id: CURRENT_PRODUCT_ID,
+      })
+    }
+
+    product_response.push({
+      id: CURRENT_PRODUCT_ID,
+      updated_at: Date.now(),
+      websac_id: websacProduct.id,
+      title: websacProduct.descricao_resumida,
+      sync_required: true,
+      stock_quantity: Math.max(Number(websacProduct.estoque_atual), 0),
+    })
+
+    return responseObj()
+  } else if (!hasManySKUsAtWebsac && hasMySKUsAtXano) {
+    const fracao_existente = decimalRound(Number(websacProduct.fracao_venda), 2)
+
+    const disableList = xano_sku_list.filter(sku => {
+      return fracao_existente !== sku.sale_fraction
+    })
+
+    for (const sku of disableList) {
+      if (skus_response_delete.includes(sku.id)) continue
+
+      skus_response_delete.push(sku.id)
+    }
+
+    const variacaoExiste = xano_sku_list.find(sku => {
+      return fracao_existente === sku.sale_fraction && !skus_response_delete.includes(sku.id)
+    })
+
+    const { price, full_price } = getWebsacProductPrices(websacProduct)
+
+    if (variacaoExiste) {
+      skus_response.push({
+        id: variacaoExiste.id,
+        product_id: CURRENT_PRODUCT_ID,
+        sale_fraction: variacaoExiste.sale_fraction,
+        price: decimalRound(price * variacaoExiste.sale_fraction, 2),
+        full_price: decimalRound(full_price * variacaoExiste.sale_fraction, 2),
+        label: `${variacaoExiste.sale_fraction} ${websacProduct.embalagem_venda.unidade}`,
+        variation_type: websacProduct.embalagem_venda.unidade,
+      })
+    } else {
+      skus_response_create.push({
+        product_id: CURRENT_PRODUCT_ID,
+        sale_fraction: variacaoExiste.sale_fraction,
+        price: decimalRound(price * variacaoExiste.sale_fraction, 2),
+        full_price: decimalRound(full_price * variacaoExiste.sale_fraction, 2),
+        label: `${variacaoExiste.sale_fraction} ${websacProduct.embalagem_venda.unidade}`,
+        variation_type: websacProduct.embalagem_venda.unidade,
+      })
+    }
+
+    product_response.push({
+      id: CURRENT_PRODUCT_ID,
+      updated_at: Date.now(),
+      websac_id: websacProduct.id,
+      title: websacProduct.descricao_resumida,
+      sync_required: true,
+      stock_quantity: Math.max(Number(websacProduct.estoque_atual), 0),
+    })
+
+    return responseObj()
   }
 
   return responseObj()
