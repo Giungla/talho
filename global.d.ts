@@ -448,15 +448,15 @@ export interface TalhoCheckoutAppData {
    */
   isPagSeguroLoaded: boolean;
   /**
-   * Data de entrega selecionada
+   * Armazena o valor de `shiftDays` que indica quantos dias se deslocar partindo da data atual
    */
-  deliveryDate: Nullable<ISODateString>;
+  deliveryDate: Nullable<number>;
   /**
    * Datas de entrega para o pedido
    */
   deliveryDates: Nullable<DeliveryDate[]>;
   /**
-   * Horário de entrega selecionado
+   * Armazenará o token recebido do backend que representará esse horário
    */
   deliveryHour: Nullable<string>;
   /**
@@ -670,6 +670,10 @@ export interface TalhoCheckoutAppMethods {
    * Configura um horário de entrega
    */
   setDeliveryHour: (hour: string) => void;
+  /**
+   * Captura uma e retorna uma cotação para entrega na Lalamove
+   */
+  captureDeliveryQuotation: () => Promise<ResponsePattern<unknown>>;
 }
 
 export interface TalhoCheckoutAppComputedDefinition {
@@ -1007,6 +1011,8 @@ declare global {
 
 export type ISODateString = `${number}${number}${number}${number}-${number}${number}-${number}${number}`;
 
+export type DeliveryPeriod = 'P1' | 'P2' | 'P1|P2';
+
 export interface DeliveryDate <T = ISODateString> {
   /**
    * Dias de diferença entre a data simulada e a data de entrega.
@@ -1016,15 +1022,34 @@ export interface DeliveryDate <T = ISODateString> {
    * Data estimada de entrega.
    */
   date: T;
+  /**
+   * Período de entrega
+   */
+  deliveryPeriod: DeliveryPeriod;
 }
 
 export interface ComputedDeliveryDate extends DeliveryDate<string> {
   selected: boolean;
 }
 
+export interface DeliveryHourItem {
+  /**
+   * Label indicativo para o horário
+   */
+  label: string;
+  /**
+   * Token de validação para a data e horário
+   */
+  validator: string;
+  /**
+   * Período de entrega desse item
+   */
+  period: 'P1' | 'P2';
+}
+
 export interface DeliveryHoursResponse {
-  hours: string[];
   periods_count: number;
+  hours: DeliveryHourItem[];
 }
 
 export interface ComputedDeliveryHours {
@@ -1053,7 +1078,13 @@ export interface PostOrderCreditCard {
 }
 
 export interface PostOrderDelivery {
-  delivery_date: ISODateString;
+  /**
+   * Envia o valor de `shiftDays`
+   */
+  delivery_date: number;
+  /**
+   * Envia o token gerado para "data + hora + secret" para ser validado no backend
+   */
   delivery_hour: string;
 }
 

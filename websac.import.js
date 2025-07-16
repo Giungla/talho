@@ -446,5 +446,80 @@ if (!websacProduct.peso_variavel) {
 
 
 
+/**
+ * Se `true` apenas o periodo da tarde está disponível, se `false` ambos os períodos estão disponíveis
+ */
+const currentPeriod = $input.integer_hour >= 14
+
+let periodsCount: number | null = null;
+
+/**
+ * Horário em que as entregas começam a ser realizadas
+ */
+const startingDeliveryHour: number = 10
+
+let currentDeliveryHour: number = startingDeliveryHour
+
+const deliveryInterval = 2
+
+switch ($var.week_day) {
+  // Sunday
+  case '7':
+    periodsCount = 2
+    break
+  // Saturday
+  case '6':
+    periodsCount = 3
+    break
+  // Friday
+  case '5':
+    periodsCount = 4
+    break
+  // Tuesday
+  // Wednesday
+  // Thursday
+  // Monday
+  default:
+    periodsCount = 4
+}
+
+const _response = []
+
+do {
+  _response.push({
+    token: `teste`,
+    label: `${currentDeliveryHour}:00`,
+    period: _response.length < 2 ? 'P1' : 'P2'
+  })
+
+  currentDeliveryHour += deliveryInterval
+} while (periodsCount > _response.length)
+
+return _response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

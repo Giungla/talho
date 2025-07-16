@@ -24,3 +24,9 @@ export interface SearchAddressCheckout {
   cep: string;
   deliveryMode?: boolean;
 }
+
+export interface CheckoutDeliveryRequestBody {
+  cep: string;
+  shiftDays: number;
+  hourToken: string;
+}

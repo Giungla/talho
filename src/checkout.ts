@@ -38,7 +38,7 @@ import type {
 import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
 import {
   PIXOrderResponse,
-  CreditCardOrderResponse, SearchAddressCheckout,
+  CreditCardOrderResponse, SearchAddressCheckout, CheckoutDeliveryRequestBody,
 } from '../types/checkout'
 
 (function () {
@@ -80,6 +80,8 @@ import {
 
   const MIN_AVAILABLE_INSTALLMENT_COUNT = 1
   const MAX_AVAILABLE_INSTALLMENT_COUNT = 2
+
+  const FREE_SHIPPING_MIN_CART_PRICE = 400
 
   const STORAGE_KEY_NAME = 'talho_cart_items'
 
@@ -787,9 +789,7 @@ import {
 
         if (method !== CREDIT_CARD_PAYMENT) {
           this.clearCreditCardData()
-        }
-
-        if (method === CREDIT_CARD_PAYMENT && !this.isPagSeguroLoaded) {
+        } else if (!this.isPagSeguroLoaded) {
           this.loadPagSeguro()
         }
 
@@ -1129,11 +1129,11 @@ import {
       },
 
       setDeliveryDate (shiftDays: number): void {
-        const date = this.deliveryDates?.find(date => date.shiftDays === shiftDays)?.date
+        const _shiftDays = this.deliveryDates?.find(date => date.shiftDays === shiftDays)?.shiftDays
 
-        if (!date || this.deliveryDate === date) return
+        if (!_shiftDays || this.deliveryDate === _shiftDays) return
 
-        this.deliveryDate = date
+        this.deliveryDate = _shiftDays
         this.deliveryHour = NULL_VALUE
 
         this.handleDeliveryHours()
@@ -1143,7 +1143,7 @@ import {
         const defaultErrorMessage = 'Falha ao capturar os horários'
 
         try {
-          const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?date=${this.deliveryDate}`, {
+          const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?shiftDays=${this.deliveryDate}`, {
             cache: 'force-cache',
             credentials: 'include',
           })
@@ -1170,15 +1170,45 @@ import {
         this.deliveryHours = response.data
       },
 
-      setDeliveryHour (hour: string): void {
+      setDeliveryHour (hourToken: string): void {
         if (
-          this.deliveryHour === hour ||
+          this.deliveryHour === hourToken ||
           this.deliveryHours?.periods_count === 0 ||
-          !includes(this.deliveryHours?.hours ?? [], hour)
+          !this.deliveryHours?.hours.some(({ validator }) => validator === hourToken)
         ) return
 
-        this.deliveryHour = hour
+        this.deliveryHour = hourToken
+
+        this.captureDeliveryQuotation()
       },
+
+      async captureDeliveryQuotation (): Promise<ResponsePattern<unknown>> {
+        const defaultErrorMessage = 'Falha ao gerar uma cotação'
+
+        try {
+          const response = await fetch(`${XANO_BASE_URL}/api:i6etHc7G/site/checkout-delivery`, {
+            ...POST_REQUEST,
+            credentials: 'include',
+            body: stringify<CheckoutDeliveryRequestBody>({
+              shiftDays: this.deliveryDate as number,
+              hourToken: this.deliveryHour as string,
+              cep: this.getParsedAddresses.shippingaddress.zipPostalCode,
+            })
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+
+            return postErrorResponse(error?.message ?? defaultErrorMessage)
+          }
+
+          const data = response.json()
+
+          return postSuccessResponse(data)
+        } catch (e) {
+          return postErrorResponse(defaultErrorMessage)
+        }
+      }
     },
 
     computed: {
@@ -1629,7 +1659,7 @@ import {
             : this.coupon?.code as string,
           delivery: {
             delivery_hour: this.deliveryHour as string,
-            delivery_date: this.deliveryDate as ISODateString,
+            delivery_date: this.deliveryDate as number,
           },
         }
       },
@@ -1703,18 +1733,19 @@ import {
         const { deliveryDate } = this
         const deliveryDates = this.deliveryDates as DeliveryDate[]
 
-        return deliveryDates.map(({ date, shiftDays }) => {
+        return deliveryDates.map(({ date, shiftDays, deliveryPeriod }) => {
           const _date = new Date(`${date}T00:00:00`)
 
-          return {
+          return ({
             shiftDays,
-            selected: deliveryDate === date,
+            deliveryPeriod,
+            selected: deliveryDate === shiftDays,
             date: _date.toLocaleDateString('pt-BR', {
               month: 'long',
               day: 'numeric',
               weekday: 'long',
             }),
-          } satisfies ComputedDeliveryDate
+          }) satisfies ComputedDeliveryDate
         })
       },
 
@@ -1725,15 +1756,9 @@ import {
       getParsedDeliveryHours (): ComputedDeliveryHours[] {
         if (!this.deliveryDate || !this.hasDeliveryHour) return []
 
-        const options: Intl.DateTimeFormatOptions = {
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit',
-        }
-
-        return (this.deliveryHours as DeliveryHoursResponse).hours.map(hour => ({
-          hour,
-          label: new Date(`${this.deliveryDate}T${hour}:00`).toLocaleTimeString('pt-BR', options)
+        return (this.deliveryHours as DeliveryHoursResponse).hours.map(({ label, validator }) => ({
+          label,
+          hour: validator,
         }))
       },
     },
