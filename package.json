@@ -7,15 +7,15 @@
   },
   "scripts": {
     "build": "tsc && yarn minify-consent-module",
-    "build-spp": "tsc && uglifyjs --compress --mangle --output ./dist/single-page-product.v03.min.js -- ./dist/single-page-product.js",
-    "build-floating-cart": "tsc && uglifyjs --compress --mangle --output ./dist/floating-cart.v04.min.js -- ./dist/floating-cart.js",
+    "build-spp": "tsc && uglifyjs --compress --mangle --output ./dist/single-page-product.v04.min.js -- ./dist/single-page-product.js",
+    "build-floating-cart": "tsc && uglifyjs --compress --mangle --output ./dist/floating-cart.v05.min.js -- ./dist/floating-cart.js",
     "minify-consent-module": "tsc && uglifyjs --compress --mangle --output ./dist/consent-module.v04.min.js -- ./dist/consent-module.js",
-    "build-checkout": "tsc && uglifyjs --compress --mangle --output ./dist/checkout.v04.min.js -- ./dist/checkout.js",
+    "build-checkout": "tsc && uglifyjs --compress --mangle --output ./dist/checkout.v05.min.js -- ./dist/checkout.js",
     "build-ad-tracking": "tsc && uglifyjs --compress --mangle --output ./dist/ad-tracking.v01.min.js -- ./dist/ad-tracking.js",
     "build-order-page": "tsc && uglifyjs --compress --mangle --output ./dist/order-page.v02.min.js -- ./dist/order-page.js",
     "build-pix-page": "tsc && uglifyjs --compress --mangle --output ./dist/pix-process.v02.min.js -- ./dist/pix-process.js",
     "build-user-orders": "tsc && uglifyjs --compress --mangle --output ./dist/user-orders.v02.min.js -- ./dist/user-orders.js",
-    "build-read-reviews": "tsc && uglifyjs --compress --mangle --output ./dist/product-reviews.v02.min.js -- ./dist/product-reviews.js",
+    "build-read-reviews": "tsc && uglifyjs --compress --mangle --output ./dist/product-reviews.v03.min.js -- ./dist/product-reviews.js",
     "build-review-approve": "tsc && uglifyjs --compress --mangle --output ./dist/review-approve.v02.min.js -- ./dist/review-approve.js",
     "build-user-personal-data": "tsc && uglifyjs --compress --mangle --output ./dist/user-personal-data.v05.min.js -- ./dist/user-personal-data.js"
   }

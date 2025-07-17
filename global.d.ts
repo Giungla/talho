@@ -1,12 +1,14 @@
 
 import Vue, { Ref, WatchOptions, WatchCallback } from 'vue';
 
-import type {
+export type { OnCleanup } from '@vue/reactivity'
+
+import {
   PIXOrderResponse,
-  CreditCardOrderResponse,
+  CreditCardOrderResponse, CheckoutDeliveryRequestBody, CheckoutDeliveryPriceResponse,
 } from './types/checkout'
 
-type TypeofResult =
+export type TypeofResult =
   | "string"
   | "number"
   | "boolean"
@@ -16,7 +18,7 @@ type TypeofResult =
   | "symbol"
   | "bigint";
 
-type TypeMap = {
+export type TypeMap = {
   string: string;
   number: number;
   boolean: boolean;
@@ -31,9 +33,9 @@ export type ComputedReturnValues <T> = {
   [K in keyof T]: T[K] extends () => infer R ? R : never;
 };
 
-type Nullable <T> = null | T;
+export type Nullable <T> = null | T;
 
-type Binary = '0' | '1';
+export type Binary = '0' | '1';
 
 export interface ILoginUser {
   email: string;
@@ -456,13 +458,18 @@ export interface TalhoCheckoutAppData {
    */
   deliveryDates: Nullable<DeliveryDate[]>;
   /**
-   * Armazenará o token recebido do backend que representará esse horário
+   * Armazena o valor inteiro que representa o horário fechado
    */
-  deliveryHour: Nullable<string>;
+  deliveryHour: Nullable<number>;
   /**
    * Horarios de entrega disponíves para a data selecionada
    */
   deliveryHours: Nullable<DeliveryHoursResponse>;
+
+  /**
+   * Valor cobrado pela entrega dos produtos
+   */
+  deliveryPrice: Nullable<number>;
 }
 
 export interface TalhoCheckoutAppSetup {
@@ -669,11 +676,11 @@ export interface TalhoCheckoutAppMethods {
   /**
    * Configura um horário de entrega
    */
-  setDeliveryHour: (hour: string) => void;
+  setDeliveryHour: (hour: number) => void;
   /**
    * Captura uma e retorna uma cotação para entrega na Lalamove
    */
-  captureDeliveryQuotation: () => Promise<ResponsePattern<unknown>>;
+  captureDeliveryQuotation: (controller: AbortController) => Promise<ResponsePattern<CheckoutDeliveryPriceResponse>>;
 }
 
 export interface TalhoCheckoutAppComputedDefinition {
@@ -932,6 +939,10 @@ export interface TalhoCheckoutAppComputedDefinition {
    * Retorna os horários de envio disponíveis para a data selecionada
    */
   getParsedDeliveryHours: () => ComputedDeliveryHours[];
+  /**
+   * Indica se os dados usados na geração da quotation são válidos
+   */
+  quotationPayload: () => false | CheckoutDeliveryRequestBody;
 }
 
 export type TalhoCheckoutAppComputed = ComputedReturnValues<TalhoCheckoutAppComputedDefinition>;
@@ -941,6 +952,7 @@ export interface TalhoCheckoutAppWatch {
   shippingCEP: WatchCallback<TalhoCheckoutContext['shippingCEP'], TalhoCheckoutContext['shippingCEP']>;
   getOrderPrice: WatchOptions;
   getCreditCardToken: WatchCallback<TalhoCheckoutContext['getCreditCardToken'], TalhoCheckoutContext['getCreditCardToken']>;
+  quotationPayload: WatchCallback<false | CheckoutDeliveryRequestBody, false | CheckoutDeliveryRequestBody>;
 }
 
 export type TalhoCheckoutContext = TalhoCheckoutAppData & TalhoCheckoutAppSetup & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;
@@ -1045,6 +1057,10 @@ export interface DeliveryHourItem {
    * Período de entrega desse item
    */
   period: 'P1' | 'P2';
+  /**
+   * Indicativo do horário selecionado
+   */
+  hour: number;
 }
 
 export interface DeliveryHoursResponse {
@@ -1053,7 +1069,7 @@ export interface DeliveryHoursResponse {
 }
 
 export interface ComputedDeliveryHours {
-  hour: string;
+  hour: number;
   label: string;
 }
 
@@ -1083,9 +1099,9 @@ export interface PostOrderDelivery {
    */
   delivery_date: number;
   /**
-   * Envia o token gerado para "data + hora + secret" para ser validado no backend
+   * Envia o valor inteiro do horário selecionado
    */
-  delivery_hour: string;
+  delivery_hour: number;
 }
 
 export interface PostOrder {

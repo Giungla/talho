@@ -5,6 +5,8 @@
     const NULL_VALUE = null;
     const ERROR_KEY = 'error';
     const GENERAL_HIDDEN_CLASS = 'oculto';
+    const SHIPPING_NAME_TOKEN = 'shipping';
+    const BILLING_NAME_TOKEN = 'billing';
     const CEP_LENGTH = 8;
     const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io';
     const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`;
@@ -22,6 +24,7 @@
     };
     const MIN_AVAILABLE_INSTALLMENT_COUNT = 1;
     const MAX_AVAILABLE_INSTALLMENT_COUNT = 2;
+    const FREE_SHIPPING_MIN_CART_PRICE = 400;
     const STORAGE_KEY_NAME = 'talho_cart_items';
     const statesMap = {
         'AC': 'Acre',
@@ -68,6 +71,9 @@
         currency: 'BRL',
         style: 'currency',
     });
+    function getAbortController() {
+        return new AbortController();
+    }
     function setPageLoader(status) {
         return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status);
     }
@@ -264,13 +270,19 @@
         node.addEventListener(eventName, callback, options);
         return () => node.removeEventListener(eventName, callback, options);
     }
-    async function searchAddress(cep) {
+    async function searchAddress({ cep, deliveryMode }) {
         const defaultErrorMessage = 'Não foi possível encontrar o endereço';
         cep = numberOnly(cep);
         if (cep.length !== CEP_LENGTH)
             return postErrorResponse(defaultErrorMessage);
         try {
-            const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}`);
+            const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}/checkout`, {
+                ...POST_REQUEST,
+                credentials: 'include',
+                body: stringify({
+                    deliveryMode,
+                })
+            });
             if (!response.ok) {
                 const error = await response.json();
                 return postErrorResponse(error?.message ?? defaultErrorMessage);
@@ -343,6 +355,9 @@
             const deliveryHourMessageElement = ref(NULL_VALUE);
             const installmentsMessageElement = ref(NULL_VALUE);
             const couponCodeElement = ref(NULL_VALUE);
+            const deliveryPlaceAddressErrorMessage = ref(NULL_VALUE);
+            const deliveryBillingAddressErrorMessage = ref(NULL_VALUE);
+            const deliveryShippingAddressErrorMessage = ref(NULL_VALUE);
             return {
                 customerCPF,
                 customerMail,
@@ -395,6 +410,9 @@
                 deliveryHourMessageElement,
                 installmentsMessageElement,
                 couponCodeElement,
+                deliveryPlaceAddressErrorMessage,
+                deliveryBillingAddressErrorMessage,
+                deliveryShippingAddressErrorMessage,
             };
         },
         data() {
@@ -434,6 +452,7 @@
                 deliveryDates: NULL_VALUE,
                 deliveryHour: NULL_VALUE,
                 deliveryHours: NULL_VALUE,
+                deliveryPrice: NULL_VALUE,
             };
         },
         created() {
@@ -467,6 +486,12 @@
                 return this.getCart().then(cartData => {
                     if (!cartData.succeeded)
                         return;
+                    if (cartData.data.items.length === 0) {
+                        location.href = buildURL('/', {
+                            reason: 'empty_cart'
+                        });
+                        return;
+                    }
                     this.productlist = cartData.data;
                 });
             },
@@ -476,6 +501,7 @@
                     const response = await fetch(`${PAYMENT_BASE_URL}/calculatefees`, {
                         ...POST_REQUEST,
                         cache: 'force-cache',
+                        credentials: 'include',
                         body: stringify({
                             amount: this.getOrderPrice,
                             cardBin: this.customerCreditCardNumber
@@ -518,7 +544,7 @@
                 if (method !== CREDIT_CARD_PAYMENT) {
                     this.clearCreditCardData();
                 }
-                if (method === CREDIT_CARD_PAYMENT && !this.isPagSeguroLoaded) {
+                else if (!this.isPagSeguroLoaded) {
                     this.loadPagSeguro();
                 }
                 this.selectedPayment = method;
@@ -559,7 +585,7 @@
                 const execPayment = paymentMap?.[this.selectedPayment ?? ERROR_KEY];
                 const response = await execPayment?.();
                 if (!response.succeeded) {
-                    this.hasPendingPayment = setPageLoader(false);
+                    this.hasPendingPayment = !setPageLoader(false);
                     alert('Pagamento falhou');
                     return;
                 }
@@ -637,7 +663,7 @@
                 }
             },
             feedAddress(addressType, { uf, bairro, logradouro, localidade, }) {
-                if (addressType === 'billing') {
+                if (addressType === BILLING_NAME_TOKEN) {
                     this.billingAddress = logradouro;
                     this.billingNeighborhood = bairro;
                     this.billingCity = localidade;
@@ -652,19 +678,49 @@
             setDeliveryPlace(deliveryPlace) {
                 if (this.deliveryPlace === deliveryPlace)
                     return;
+                if (deliveryPlace === DELIVERY_TYPE_SAME && /^\d{5}\-\d{3}$/.test(this.billingCEP) && this.isBillingAddressGroupValid) {
+                    searchAddress({
+                        cep: this.billingCEP,
+                        deliveryMode: true
+                    }).then(address => {
+                        if (address.succeeded)
+                            return;
+                        this.deliveryPlaceAddressErrorMessage = address.message;
+                    });
+                }
+                else {
+                    this.deliveryPlaceAddressErrorMessage = NULL_VALUE;
+                }
                 this.deliveryPlace = deliveryPlace;
             },
             async captureAddress(addressType, cep, oldCep) {
                 if (!regexTest(/^\d{5}-\d{3}$/, cep) || cep === oldCep)
-                    return;
+                    return false;
                 const fieldKey = `${addressType}CEP`;
-                const address = await searchAddress(cep);
+                const address = await searchAddress({
+                    cep,
+                    deliveryMode: addressType === SHIPPING_NAME_TOKEN
+                });
                 if (!address.succeeded) {
                     this[fieldKey] = EMPTY_STRING;
                     this.setVisitedField(fieldKey);
-                    return;
+                    if (addressType === SHIPPING_NAME_TOKEN) {
+                        this.deliveryShippingAddressErrorMessage = address.message;
+                    }
+                    if (addressType === BILLING_NAME_TOKEN) {
+                        this.deliveryBillingAddressErrorMessage = address.message;
+                    }
+                    return false;
+                }
+                switch (addressType) {
+                    case SHIPPING_NAME_TOKEN:
+                        this.deliveryShippingAddressErrorMessage = NULL_VALUE;
+                        break;
+                    case BILLING_NAME_TOKEN:
+                        this.deliveryBillingAddressErrorMessage = NULL_VALUE;
                 }
                 this.feedAddress(addressType, address.data);
+                return true;
             },
             async captureCoupon() {
                 const defaultErrorMessage = 'Falha ao capturar o cupom indicado';
@@ -728,6 +784,7 @@
                 try {
                     const response = await fetch(`${DELIVERY_BASE_URL}/delivery_dates`, {
                         cache: 'force-cache',
+                        credentials: 'include',
                     });
                     if (!response.ok) {
                         const error = await response.json();
@@ -742,23 +799,25 @@
             },
             async handleDeliveryDates() {
                 const response = await this.captureAvailableDeliveryDates();
-                if (!response.succeeded)
-                    return;
-                this.deliveryDates = response.data;
+                this.deliveryDates = response.succeeded
+                    ? response.data
+                    : NULL_VALUE;
             },
             setDeliveryDate(shiftDays) {
-                const date = this.deliveryDates?.find(date => date.shiftDays === shiftDays)?.date;
-                if (!date || this.deliveryDate === date)
+                const _shiftDays = this.deliveryDates?.find(date => date.shiftDays === shiftDays)?.shiftDays;
+                if (typeof _shiftDays !== 'number' || this.deliveryDate === _shiftDays)
                     return;
-                this.deliveryDate = date;
+                this.deliveryDate = _shiftDays;
                 this.deliveryHour = NULL_VALUE;
+                this.deliveryPrice = NULL_VALUE;
                 this.handleDeliveryHours();
             },
             async captureAvailableDeliveryHours() {
                 const defaultErrorMessage = 'Falha ao capturar os horários';
                 try {
-                    const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?date=${this.deliveryDate}`, {
-                        cache: 'force-cache'
+                    const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?shiftDays=${this.deliveryDate}`, {
+                        cache: 'force-cache',
+                        credentials: 'include',
                     });
                     if (!response.ok) {
                         const error = await response.json();
@@ -777,13 +836,33 @@
                     return;
                 this.deliveryHours = response.data;
             },
-            setDeliveryHour(hour) {
-                if (this.deliveryHour === hour ||
+            setDeliveryHour(_hour) {
+                if (this.deliveryHour === _hour ||
                     this.deliveryHours?.periods_count === 0 ||
-                    !includes(this.deliveryHours?.hours ?? [], hour))
+                    !this.deliveryHours?.hours.some(({ hour }) => hour === _hour))
                     return;
-                this.deliveryHour = hour;
+                this.deliveryHour = _hour;
             },
+            async captureDeliveryQuotation(controller) {
+                const defaultErrorMessage = 'Falha ao gerar uma cotação';
+                try {
+                    const response = await fetch(`${XANO_BASE_URL}/api:i6etHc7G/site/checkout-delivery`, {
+                        ...POST_REQUEST,
+                        credentials: 'include',
+                        signal: controller.signal,
+                        body: stringify(this.quotationPayload)
+                    });
+                    if (!response.ok) {
+                        const error = await response.json();
+                        return postErrorResponse(error?.message ?? defaultErrorMessage);
+                    }
+                    const data = await response.json();
+                    return postSuccessResponse(data);
+                }
+                catch (e) {
+                    return postErrorResponse(defaultErrorMessage);
+                }
+            }
         },
         computed: {
             hasSelectedPaymentMethod() {
@@ -811,7 +890,9 @@
                 return BRLFormatter.format(this.getOrderPrice);
             },
             getShippingPrice() {
-                return 34.90; // TODO: Retornar o valor correto do frete
+                return this.deliveryPrice === NULL_VALUE
+                    ? 0
+                    : this.deliveryPrice / 100;
             },
             getShippingPriceFormatted() {
                 return BRLFormatter.format(this.getShippingPrice);
@@ -915,7 +996,7 @@
                 return buildFieldValidation(this.billingStateElement, !this.hasVisitRegistry('billingState') || includes(statesAcronym, this.billingState), !this.isCreditCard);
             },
             isBillingAddressGroupValid() {
-                return [
+                return this.deliveryBillingAddressErrorMessage === NULL_VALUE && [
                     this.billingCEPValidation,
                     this.billingAddressValidation,
                     this.billingNumberValidation,
@@ -925,7 +1006,7 @@
                 ].every(validation => validation.valid);
             },
             deliveryPlaceValidation() {
-                return buildFieldValidation(this.deliveryPlaceMessageElement, this.hasSelectedAddress, !this.isCreditCard);
+                return buildFieldValidation(this.deliveryPlaceMessageElement, this.hasSelectedAddress && this.deliveryPlaceAddressErrorMessage === NULL_VALUE, !this.isCreditCard);
             },
             shippingRecipientValidation() {
                 return buildFieldValidation(this.shippingRecipientElement, !this.hasVisitRegistry('shippingRecipient') || regexTest(/^(\w{2,})(\s+(\w+))+$/, normalizeText(trimText(this.shippingRecipient)).replace(/\s{2,}/g, ' ')), !this.shouldValidateShippingAddress);
@@ -949,7 +1030,7 @@
                 return buildFieldValidation(this.shippingStateElement, !this.hasVisitRegistry('shippingState') || includes(statesAcronym, this.shippingState), !this.shouldValidateShippingAddress);
             },
             isShippingAddressGroupValid() {
-                return [
+                return this.deliveryShippingAddressErrorMessage === NULL_VALUE && [
                     this.shippingCEPValidation,
                     this.shippingAddressValidation,
                     this.shippingNumberValidation,
@@ -1127,42 +1208,59 @@
                     return [];
                 const { deliveryDate } = this;
                 const deliveryDates = this.deliveryDates;
-                return deliveryDates.map(({ date, shiftDays }) => {
+                return deliveryDates.map(({ date, shiftDays, deliveryPeriod }) => {
                     const _date = new Date(`${date}T00:00:00`);
-                    return {
+                    return ({
                         shiftDays,
-                        selected: deliveryDate === date,
+                        deliveryPeriod,
+                        selected: deliveryDate === shiftDays,
                         date: _date.toLocaleDateString('pt-BR', {
                             month: 'long',
                             day: 'numeric',
                             weekday: 'long',
                         }),
-                    };
+                    });
                 });
             },
             hasDeliveryHour() {
                 return this.deliveryHours !== NULL_VALUE && objectSize(this.deliveryHours.hours) > 0;
             },
             getParsedDeliveryHours() {
-                if (!this.deliveryDate || !this.hasDeliveryHour)
+                if (this.deliveryDate === NULL_VALUE || !this.hasDeliveryHour)
                     return [];
-                const options = {
-                    hour12: true,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                };
-                return this.deliveryHours.hours.map(hour => ({
+                return this.deliveryHours.hours.map(({ label, hour }) => ({
                     hour,
-                    label: new Date(`${this.deliveryDate}T${hour}:00`).toLocaleTimeString('pt-BR', options)
+                    label,
                 }));
+            },
+            quotationPayload() {
+                const selectedHour = this.deliveryHours?.hours.find(({ hour }) => hour === this.deliveryHour);
+                if (!selectedHour)
+                    return false;
+                const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode;
+                if (!/^\d{5}\-\d{3}$/.test(shippingCEP) || this.deliveryDate === NULL_VALUE)
+                    return false;
+                return {
+                    cep: shippingCEP,
+                    shiftDays: this.deliveryDate,
+                    selectedHour: selectedHour.hour,
+                    hourToken: selectedHour.validator,
+                };
             },
         },
         watch: {
             billingCEP(cep, oldCep) {
-                this.captureAddress('billing', cep.toString(), oldCep);
+                this.captureAddress(BILLING_NAME_TOKEN, cep, oldCep).then(succeeded => {
+                    if (!succeeded)
+                        return;
+                    this.deliveryPlaceAddressErrorMessage = NULL_VALUE;
+                    if (this.deliveryPlace === DELIVERY_TYPE_SAME) {
+                        this.deliveryPlace = NULL_VALUE;
+                    }
+                });
             },
             shippingCEP(cep, oldCep) {
-                this.captureAddress('shipping', cep, oldCep);
+                this.captureAddress(SHIPPING_NAME_TOKEN, cep, oldCep);
             },
             getOrderPrice: {
                 immediate: true,
@@ -1175,6 +1273,32 @@
                     return;
                 this.refreshInstallments();
             },
+            quotationPayload(payload, oldPayload, cleanup) {
+                if (!payload)
+                    return;
+                const { cep, shiftDays, hourToken, selectedHour, } = payload;
+                const controller = getAbortController();
+                if (!oldPayload) {
+                    this.captureDeliveryQuotation(controller).then(response => {
+                        if (!response.succeeded)
+                            return;
+                        this.deliveryPrice = response.data.total;
+                    });
+                    return cleanup(() => controller.abort());
+                }
+                const { shiftDays: oldShiftDays, selectedHour: oldSelectedHour, hourToken: oldHourToken, cep: oldCep, } = oldPayload;
+                if (shiftDays === oldShiftDays &&
+                    selectedHour === oldSelectedHour &&
+                    hourToken === oldHourToken &&
+                    cep === oldCep)
+                    return;
+                this.captureDeliveryQuotation(controller).then(response => {
+                    if (!response.succeeded)
+                        return;
+                    this.deliveryPrice = response.data.total;
+                });
+                return cleanup(() => controller.abort());
+            }
         },
         directives: {
             maskDate: buildMaskDirective(numberOnly, maskDate),

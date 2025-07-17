@@ -31,14 +31,15 @@ import type {
   TalhoCheckoutAppData, TalhoCheckoutAppMethods,
   TalhoCheckoutAppSetup, TalhoCheckoutAppWatch,
   TalhoCheckoutContext,
-  VIACEPFromXano
+  VIACEPFromXano,
+  OnCleanup,
 } from '../global'
 
 // @ts-expect-error
 import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
 import {
   PIXOrderResponse,
-  CreditCardOrderResponse, SearchAddressCheckout, CheckoutDeliveryRequestBody,
+  CreditCardOrderResponse, SearchAddressCheckout, CheckoutDeliveryRequestBody, CheckoutDeliveryPriceResponse,
 } from '../types/checkout'
 
 (function () {
@@ -138,6 +139,10 @@ import {
     currency: 'BRL',
     style: 'currency',
   })
+
+  function getAbortController () {
+    return new AbortController()
+  }
 
   function setPageLoader (status?: boolean): boolean {
     return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
@@ -686,6 +691,8 @@ import {
         deliveryDates: NULL_VALUE,
         deliveryHour: NULL_VALUE,
         deliveryHours: NULL_VALUE,
+
+        deliveryPrice: NULL_VALUE,
       }
     },
 
@@ -726,6 +733,14 @@ import {
       async refreshCart (): Promise<void> {
         return this.getCart().then(cartData => {
           if (!cartData.succeeded) return
+
+          if (cartData.data.items.length === 0) {
+            location.href = buildURL('/', {
+              reason: 'empty_cart'
+            })
+
+            return
+          }
 
           this.productlist = cartData.data
         })
@@ -847,7 +862,7 @@ import {
         const response = await execPayment?.()
 
         if (!response.succeeded) {
-          this.hasPendingPayment = setPageLoader(false)
+          this.hasPendingPayment = !setPageLoader(false)
 
           alert('Pagamento falhou')
 
@@ -1123,18 +1138,19 @@ import {
       async handleDeliveryDates () {
         const response = await this.captureAvailableDeliveryDates()
 
-        if (!response.succeeded) return
-
-        this.deliveryDates = response.data
+        this.deliveryDates = response.succeeded
+          ? response.data
+          : NULL_VALUE
       },
 
       setDeliveryDate (shiftDays: number): void {
         const _shiftDays = this.deliveryDates?.find(date => date.shiftDays === shiftDays)?.shiftDays
 
-        if (!_shiftDays || this.deliveryDate === _shiftDays) return
+        if (typeof _shiftDays !== 'number' || this.deliveryDate === _shiftDays) return
 
-        this.deliveryDate = _shiftDays
-        this.deliveryHour = NULL_VALUE
+        this.deliveryDate  = _shiftDays
+        this.deliveryHour  = NULL_VALUE
+        this.deliveryPrice = NULL_VALUE
 
         this.handleDeliveryHours()
       },
@@ -1170,30 +1186,25 @@ import {
         this.deliveryHours = response.data
       },
 
-      setDeliveryHour (hourToken: string): void {
+      setDeliveryHour (_hour: number): void {
         if (
-          this.deliveryHour === hourToken ||
+          this.deliveryHour === _hour ||
           this.deliveryHours?.periods_count === 0 ||
-          !this.deliveryHours?.hours.some(({ validator }) => validator === hourToken)
+          !this.deliveryHours?.hours.some(({ hour }) => hour === _hour)
         ) return
 
-        this.deliveryHour = hourToken
-
-        this.captureDeliveryQuotation()
+        this.deliveryHour = _hour
       },
 
-      async captureDeliveryQuotation (): Promise<ResponsePattern<unknown>> {
+      async captureDeliveryQuotation (controller: AbortController): Promise<ResponsePattern<CheckoutDeliveryPriceResponse>> {
         const defaultErrorMessage = 'Falha ao gerar uma cotação'
 
         try {
           const response = await fetch(`${XANO_BASE_URL}/api:i6etHc7G/site/checkout-delivery`, {
             ...POST_REQUEST,
             credentials: 'include',
-            body: stringify<CheckoutDeliveryRequestBody>({
-              shiftDays: this.deliveryDate as number,
-              hourToken: this.deliveryHour as string,
-              cep: this.getParsedAddresses.shippingaddress.zipPostalCode,
-            })
+            signal: controller.signal,
+            body: stringify<CheckoutDeliveryRequestBody>(this.quotationPayload as CheckoutDeliveryRequestBody)
           })
 
           if (!response.ok) {
@@ -1202,7 +1213,7 @@ import {
             return postErrorResponse(error?.message ?? defaultErrorMessage)
           }
 
-          const data = response.json()
+          const data: CheckoutDeliveryPriceResponse = await response.json()
 
           return postSuccessResponse(data)
         } catch (e) {
@@ -1243,7 +1254,9 @@ import {
       },
 
       getShippingPrice (): number {
-        return 0 // TODO: Retornar o valor correto do frete
+        return this.deliveryPrice === NULL_VALUE
+          ? 0
+          : this.deliveryPrice / 100
       },
 
       getShippingPriceFormatted (): string {
@@ -1658,7 +1671,7 @@ import {
             // @ts-ignore
             : this.coupon?.code as string,
           delivery: {
-            delivery_hour: this.deliveryHour as string,
+            delivery_hour: this.deliveryHour as number,
             delivery_date: this.deliveryDate as number,
           },
         }
@@ -1754,12 +1767,29 @@ import {
       },
 
       getParsedDeliveryHours (): ComputedDeliveryHours[] {
-        if (!this.deliveryDate || !this.hasDeliveryHour) return []
+        if (this.deliveryDate === NULL_VALUE || !this.hasDeliveryHour) return []
 
-        return (this.deliveryHours as DeliveryHoursResponse).hours.map(({ label, validator }) => ({
+        return (this.deliveryHours as DeliveryHoursResponse).hours.map(({ label, hour }) => ({
+          hour,
           label,
-          hour: validator,
         }))
+      },
+
+      quotationPayload (): false | CheckoutDeliveryRequestBody {
+        const selectedHour = this.deliveryHours?.hours.find(({ hour }) => hour === this.deliveryHour)
+
+        if (!selectedHour) return false
+
+        const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
+
+        if (!/^\d{5}\-\d{3}$/.test(shippingCEP) || this.deliveryDate === NULL_VALUE) return false
+
+        return {
+          cep: shippingCEP,
+          shiftDays: this.deliveryDate,
+          selectedHour: selectedHour.hour,
+          hourToken: selectedHour.validator,
+        }
       },
     },
 
@@ -1792,6 +1822,51 @@ import {
 
         this.refreshInstallments()
       },
+
+      quotationPayload (payload: false | CheckoutDeliveryRequestBody, oldPayload: false | CheckoutDeliveryRequestBody, cleanup: OnCleanup): void {
+        if (!payload) return
+
+        const {
+          cep,
+          shiftDays,
+          hourToken,
+          selectedHour,
+        } = payload
+
+        const controller = getAbortController()
+
+        if (!oldPayload) {
+          this.captureDeliveryQuotation(controller).then(response => {
+            if (!response.succeeded) return
+
+            this.deliveryPrice = response.data.total
+          })
+
+          return cleanup(() => controller.abort())
+        }
+
+        const {
+          shiftDays: oldShiftDays,
+          selectedHour: oldSelectedHour,
+          hourToken: oldHourToken,
+          cep: oldCep,
+        } = oldPayload
+
+        if (
+          shiftDays === oldShiftDays &&
+          selectedHour === oldSelectedHour &&
+          hourToken === oldHourToken &&
+          cep === oldCep
+        ) return
+
+        this.captureDeliveryQuotation(controller).then(response => {
+          if (!response.succeeded) return
+
+          this.deliveryPrice = response.data.total
+        })
+
+        return cleanup(() => controller.abort())
+      }
     },
 
     directives: {

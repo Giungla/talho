@@ -98,6 +98,7 @@ import {
   function drawReviews (): void {
     const reviewsFragment = document.createDocumentFragment()
 
+    toggleClass(querySelector('[data-wtf-top-product-rating]'), GENERAL_HIDDEN_CLASS, !state.hasReviews)
     toggleClass(querySelector('[data-wtf-review-section]'), GENERAL_HIDDEN_CLASS, !state.hasReviews)
     toggleClass(querySelector('[data-wtf-review-line]'), GENERAL_HIDDEN_CLASS, !state.hasReviews)
 
@@ -115,6 +116,8 @@ import {
     changeTextContent(querySelector('[data-wtf-review-count]'), state.response?.count ?? 0)
     changeTextContent(querySelector('[data-wtf-review-media]'), state.response?.average ?? 0)
     changeTextContent(querySelector('[data-wtf-review-title]'), state.reviewsCount > 1 ? 'Avaliaçôes' : 'Avaliação')
+
+    changeTextContent(querySelector('h1', querySelector('[data-wtf-top-product-rating]') as HTMLElement), state.response?.average ?? 0)
 
     reviewContainer?.replaceChildren(reviewsFragment)
   }
