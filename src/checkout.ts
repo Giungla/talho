@@ -869,6 +869,8 @@ import {
           return
         }
 
+        localStorage.removeItem(STORAGE_KEY_NAME)
+
         const redirectURL = this.isCreditCard
           ? 'confirmacao-do-pedido'
           : 'pix'
