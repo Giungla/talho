@@ -5,7 +5,11 @@ export type { OnCleanup } from '@vue/reactivity'
 
 import {
   PIXOrderResponse,
-  CreditCardOrderResponse, CheckoutDeliveryRequestBody, CheckoutDeliveryPriceResponse,
+  CreditCardOrderResponse,
+  CheckoutDeliveryRequestBody,
+  CheckoutDeliveryPriceResponse,
+  CheckoutDeliveryOption,
+  ComputedDeliveryDates, CheckoutDeliveryResponse, CheckoutDeliveryHour,
 } from './types/checkout'
 
 export type TypeofResult =
@@ -348,18 +352,6 @@ export interface IAddressModel {
   token: IAddressType;
 }
 
-export type ICorreiosDeliveryCode =
-  | '20133'
-  | '03298'
-  | '03220';
-
-export interface IDeliveryOption {
-  value: string;
-  option: string;
-  deadline: string;
-  code: ICorreiosDeliveryCode;
-}
-
 export interface IPagSeguroEncryptError {
   code:
     | 'INVALID_NUMBER'
@@ -395,6 +387,11 @@ export type IAbandonmentCartKeys =
   | 'phone'
   | 'billing_cep'
   | 'shipping_cep';
+
+export interface SubsidyResponse {
+  has: boolean;
+  value: number;
+}
 
 export interface TalhoCheckoutAppData {
   /**
@@ -454,22 +451,30 @@ export interface TalhoCheckoutAppData {
    */
   deliveryDate: Nullable<number>;
   /**
-   * Datas de entrega para o pedido
-   */
-  deliveryDates: Nullable<DeliveryDate[]>;
-  /**
    * Armazena o valor inteiro que representa o horário fechado
    */
   deliveryHour: Nullable<number>;
   /**
-   * Horarios de entrega disponíves para a data selecionada
+   * Indica se o preço do frete ainda está sendo capturado
    */
-  deliveryHours: Nullable<DeliveryHoursResponse>;
-
+  isDeliveryLoading: boolean;
   /**
    * Valor cobrado pela entrega dos produtos
    */
-  deliveryPrice: Nullable<number>;
+  deliveryPrice: Nullable<Omit<PostOrderDeliveryGroup, 'has_priority'>>;
+  /**
+   * Datas e horários disponíveis para entrega
+   */
+  deliveryOptions: Nullable<CheckoutDeliveryResponse>;
+  /**
+   * Indica qual é o percentual do subtotal cobrado adicionamente para ter prioridade na entrega do pedido
+   */
+  priorityTax: Nullable<number>;
+
+  /**
+   * Indica se o frete indicado para realização da entrega possui subsídio e qual o valor
+   */
+  subsidy: Nullable<SubsidyResponse>;
 }
 
 export interface TalhoCheckoutAppSetup {
@@ -654,25 +659,17 @@ export interface TalhoCheckoutAppMethods {
    */
   clearCreditCardData: () => void;
   /**
-   * Captura as datas de entrega disponíveis
+   * Captura e altera o estado com as datas e horários disponíveis para entrega
    */
-  captureAvailableDeliveryDates: () => Promise<ResponsePattern<DeliveryDate[]>>;
+  handleDeliveryOptions: () => Promise<void>;
   /**
-   * Captura e altera o estado com as datas disponíveis
+   * Captura as datas e períodos de entrega disponíveis
    */
-  handleDeliveryDates: () => Promise<void>;
+  captureDeliveryOptions: () => Promise<ResponsePattern<CheckoutDeliveryResponse>>;
   /**
    * Configura uma data de envio
    */
   setDeliveryDate: (shiftDays: number) => void;
-  /**
-   * Captura os horários de entrega disponíveis
-   */
-  captureAvailableDeliveryHours: () => Promise<ResponsePattern<DeliveryHoursResponse>>;
-  /**
-   * Captura os horários de entrega disponíveis
-   */
-  handleDeliveryHours: () => Promise<void>;
   /**
    * Configura um horário de entrega
    */
@@ -681,14 +678,21 @@ export interface TalhoCheckoutAppMethods {
    * Captura uma e retorna uma cotação para entrega na Lalamove
    */
   captureDeliveryQuotation: (controller: AbortController) => Promise<ResponsePattern<CheckoutDeliveryPriceResponse>>;
+  /**
+   * Captura e salva no estado os dados de subsídio
+   */
+  handleSubsidy: () => Promise<void>;
+  /**
+   * Verifica se o CEP que será usado para entrega do pedido possui subsídio
+   */
+  verifyForSubsidy: (cep: string) => Promise<ResponsePattern<SubsidyResponse>>;
 }
 
 export interface TalhoCheckoutAppComputedDefinition {
   /**
-   * Verifica se existe um método de pagamento selecionado
+   * Verifica se existe um meio de pagamento selecionado
    */
   hasSelectedPaymentMethod: () => boolean;
-
   /**
    * `true` se o metodo de pagamento selecionado for `creditcard`
    */
@@ -710,11 +714,11 @@ export interface TalhoCheckoutAppComputedDefinition {
    */
   getOrderPriceFormatted: () => string;
   /**
-   * Captura o valor que será cobrado sobre o envio
+   * Captura o valor que será cobrado sobre o envio, retornará zero sempre que o valor do subtotal for igual ou maior a 400
    */
   getShippingPrice: () => number;
   /**
-   * Retorna o valor de `getShippingPrice` formatado em BRL
+   * Retorna o valor de `getShippingPrice` formatado em BRL ou a mensagem 'Frete grátis' se o valor do carrinho for maior ou igual a 400 BRL
    */
   getShippingPriceFormatted: () => string;
   /**
@@ -759,7 +763,7 @@ export interface TalhoCheckoutAppComputedDefinition {
   customerPhoneValidation: () => ISingleValidateCheckout;
 
   /**
-   * Verifica se o usuário selecionou um método de pagamento
+   * Verifica se o usuário selecionou um meio de pagamento
    */
   paymentMethodValidation: () => ISingleValidateCheckout;
 
@@ -890,9 +894,14 @@ export interface TalhoCheckoutAppComputedDefinition {
   getParsedCustomer: () => PostOrderCustomer;
 
   /**
+   * Retorna os valores de data e horário de entrega, junto com seus respectivos validators
+   */
+  getParsedDeliveryData: () => Omit<PostOrderDelivery, 'delivery_price'>;
+
+  /**
    * Retorna os dados base formatados para envio ao backend
    */
-  getOrderBaseData: () => Omit<PostOrder, 'customer'>;
+  getOrderBaseData: () => Omit<PostOrder, 'customer' | ''>;
 
   /**
    * Informa se a seção de parcelamento deve ser exibida
@@ -930,7 +939,27 @@ export interface TalhoCheckoutAppComputedDefinition {
   /**
    * Retorna as datas de envio parseadas
    */
-  getParsedDeliveryDates: () => ComputedDeliveryDate[];
+  getParsedDeliveryDates: () => ComputedDeliveryDates[];
+  /**
+   * Retorna o objeto que representa o dia selecionado para entrega
+   */
+  getSelectedDateDetails: () => Nullable<CheckoutDeliveryOption>;
+  /**
+   * Retorna o objeto que representa o horário selecionado para entrega
+   */
+  getSelectedHourDetails: () => Nullable<CheckoutDeliveryHour>;
+  /**
+   * Indica se a data selecionada possui adicional por prioridade
+   */
+  hasPriorityFee: () => boolean;
+  /**
+   * Indica qual valor será cobrado adicionalmente pela entrega prioritária do pedido
+   */
+  priorityFee: () => number;
+  /**
+   * Retorna o valor de `priorityFee` formatado em BRL
+   */
+  priorityFeeFormatted: () => string;
   /**
    * Verifica se existem horários de entrega
    */
@@ -942,7 +971,24 @@ export interface TalhoCheckoutAppComputedDefinition {
   /**
    * Indica se os dados usados na geração da quotation são válidos
    */
-  quotationPayload: () => false | CheckoutDeliveryRequestBody;
+  quotationPayload: () => false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>);
+
+  /**
+   * Indica se o CEP usado no envio possui subsídio
+   */
+  hasSubsidy: () => boolean;
+  /**
+   * Retorna o valor de desconto de subsídio (valor negativo ou zero)
+   */
+  subsidyDiscountPrice: () => number;
+  /**
+   * Retorna o valor de desconto de subsídio retornado em `subsidyDiscountPrice`
+   */
+  subsidyDiscountPriceFormatted: () => string;
+  /**
+   * Verifica se o cliente terá frete grátis baseado no valor do seu carrinho
+   */
+  hasFreeShippingByCartPrice: () => boolean;
 }
 
 export type TalhoCheckoutAppComputed = ComputedReturnValues<TalhoCheckoutAppComputedDefinition>;
@@ -953,6 +999,7 @@ export interface TalhoCheckoutAppWatch {
   getOrderPrice: WatchOptions;
   getCreditCardToken: WatchCallback<TalhoCheckoutContext['getCreditCardToken'], TalhoCheckoutContext['getCreditCardToken']>;
   quotationPayload: WatchCallback<false | CheckoutDeliveryRequestBody, false | CheckoutDeliveryRequestBody>;
+  getParsedAddresses: WatchCallback<IParsedAddressContent, IParsedAddressContent>;
 }
 
 export type TalhoCheckoutContext = TalhoCheckoutAppData & TalhoCheckoutAppSetup & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;
@@ -1093,15 +1140,25 @@ export interface PostOrderCreditCard {
   installmentValue: number;
 }
 
+export interface PostOrderDeliveryGroup {
+  value: number;
+  validator: string;
+  has_priority: boolean;
+}
+
 export interface PostOrderDelivery {
   /**
-   * Envia o valor de `shiftDays`
+   * Envia o valor de `shiftDays` e um token para validação no backend
    */
-  delivery_date: number;
+  delivery_date: PostOrderDeliveryGroup;
   /**
-   * Envia o valor inteiro do horário selecionado
+   * Envia o valor inteiro do horário selecionado e um token para validação no backend
    */
-  delivery_hour: number;
+  delivery_hour: PostOrderDeliveryGroup;
+  /**
+   * Envia o valor de frete que será cobrado e um token para validação no backend
+   */
+  delivery_price: Omit<PostOrderDeliveryGroup, 'has_priority'>;
 }
 
 export interface PostOrder {
@@ -1139,7 +1196,10 @@ export interface IParsedAddressContent {
 export interface GetCouponRequestBody {
   cpf: Nullable<string>;
   coupon_code: string;
+  has_subsidy: boolean;
   verify_amount: boolean;
+  has_selected_delivery: boolean;
+  delivery_cep?: string;
 }
 
 
@@ -1231,12 +1291,6 @@ export interface IOrderDetailsResponse {
 export type IOrderAddressType =
   | 'shipping'
   | 'billing';
-
-
-export interface IOrderConfirmationData {
-  isExpanded: boolean;
-  order?: IOrderDetailsResponse;
-}
 
 
 

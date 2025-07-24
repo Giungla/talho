@@ -52,6 +52,14 @@ export interface QuotationPayload {
    * Valor retornado pela cotação reprensentado por um inteiro
    */
   total: number;
+  /**
+   * Indica se o CEP apontado possui subsídio
+   */
+  has_subsidy: boolean;
+  /**
+   * Indica o valor fornecido de subsídio, válido somente se `has_subsidy` for `true`
+   */
+  subsidy_value: number;
 }
 
 export type LocationResponse = QuotationResponse<'locationlist', LocationList[]>;

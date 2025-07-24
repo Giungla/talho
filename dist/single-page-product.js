@@ -123,6 +123,7 @@
     const shippingBlock = querySelector('[data-wtf-shipping-form]');
     const shippingValue = querySelector('[data-wtf-shipping-value]');
     const buyButton = querySelector('[data-wtf-comprar]');
+    const quotationErrorMessage = querySelector('[data-wtf-error-message-shipping]');
     const BRLFormatter = new Intl.NumberFormat('pt-BR', {
         currency: 'BRL',
         style: 'currency',
@@ -313,6 +314,7 @@
     }
     function renderStockElements() {
         const { stockCount, } = state;
+        toggleClass(buyButton, GENERAL_HIDDEN_CLASS, stockCount < 1);
         toggleClass(outtaStockElement, GENERAL_HIDDEN_CLASS, stockCount > 0);
         const hideAvailableMessage = toggleClass(maxAvailableProductsElement, GENERAL_HIDDEN_CLASS, stockCount > 10 || stockCount < 1);
         if (hideAvailableMessage)
@@ -367,7 +369,9 @@
                 cep,
                 reference_id: slug[objectSize(slug) - 1]
             });
+            toggleClass(quotationErrorMessage, GENERAL_HIDDEN_CLASS, response.succeeded);
             if (!response.succeeded) {
+                changeTextContent(querySelector('div', quotationErrorMessage), response.message);
                 return; // TODO: necessário exibir o erro recebido
             }
             switch (response.data.type) {
@@ -382,8 +386,9 @@
         addClass(shippingCalcCTA, GENERAL_HIDDEN_CLASS);
         addClass(shippingBlock, GENERAL_HIDDEN_CLASS);
         removeClass(shippingValue, GENERAL_HIDDEN_CLASS);
+        const shippingPriceValue = Math.max((quotation.total / 100) - (quotation.has_subsidy ? quotation.subsidy_value : 0), 0);
         // TODO: necessário exibir a data de validade da cotação
-        changeTextContent(querySelector('[data-wtf-quotation-price]', shippingValue), BRLFormatter.format(quotation.total / 100));
+        changeTextContent(querySelector('[data-wtf-quotation-price]', shippingValue), shippingPriceValue === 0 ? 'Frete grátis' : BRLFormatter.format(shippingPriceValue));
         attachEvent(querySelector('[data-wtf-quotation-reload]', shippingValue), 'click', e => {
             removeClass(shippingBlock, GENERAL_HIDDEN_CLASS);
             addClass(shippingValue, GENERAL_HIDDEN_CLASS);

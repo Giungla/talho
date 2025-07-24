@@ -1,12 +1,9 @@
 
-import type {
+import {
   BRLString,
   CartResponse,
-  ComputedDeliveryDate,
   ComputedDeliveryHours,
   CreditCardPostOrder,
-  DeliveryDate,
-  DeliveryHoursResponse,
   FunctionErrorPattern,
   FunctionSucceededPattern,
   GetCouponRequestBody,
@@ -20,7 +17,6 @@ import type {
   ISingleOrderCouponError,
   ISinglePaymentKey,
   ISingleValidateCheckout,
-  ISODateString,
   IStateAcronym,
   Nullable,
   PagSeguroCardEncrypt,
@@ -32,14 +28,18 @@ import type {
   TalhoCheckoutAppSetup, TalhoCheckoutAppWatch,
   TalhoCheckoutContext,
   VIACEPFromXano,
-  OnCleanup,
+  OnCleanup, SubsidyResponse, PostOrderDelivery, PostOrderDeliveryGroup,
 } from '../global'
 
 // @ts-expect-error
 import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
 import {
   PIXOrderResponse,
-  CreditCardOrderResponse, SearchAddressCheckout, CheckoutDeliveryRequestBody, CheckoutDeliveryPriceResponse,
+  CreditCardOrderResponse,
+  SearchAddressCheckout,
+  CheckoutDeliveryRequestBody,
+  CheckoutDeliveryPriceResponse,
+  CheckoutDeliveryOption, ComputedDeliveryDates, CheckoutDeliveryResponse, CheckoutDeliveryHour,
 } from '../types/checkout'
 
 (function () {
@@ -688,11 +688,16 @@ import {
         coupon: NULL_VALUE,
         isPagSeguroLoaded: false,
         deliveryDate: NULL_VALUE,
-        deliveryDates: NULL_VALUE,
         deliveryHour: NULL_VALUE,
-        deliveryHours: NULL_VALUE,
 
+        isDeliveryLoading: false,
         deliveryPrice: NULL_VALUE,
+
+        deliveryOptions: NULL_VALUE,
+
+        priorityTax: NULL_VALUE,
+
+        subsidy: NULL_VALUE,
       }
     },
 
@@ -777,7 +782,7 @@ import {
       },
 
       async refreshInstallments (): Promise<void> {
-        if (!this.isCreditCard) return
+        if (!this.isCreditCard || !this.isCreditCardGroupValid || this.getCreditCardToken.hasErrors) return
 
         this.installment = NULL_VALUE
         this.selectedInstallment = NULL_VALUE
@@ -799,7 +804,7 @@ import {
         if (this.selectedPayment === method) return
 
         if (!this.hasDeliveryDates) {
-          this.handleDeliveryDates()
+          this.handleDeliveryOptions()
         }
 
         if (method !== CREDIT_CARD_PAYMENT) {
@@ -807,6 +812,8 @@ import {
         } else if (!this.isPagSeguroLoaded) {
           this.loadPagSeguro()
         }
+
+        this.deliveryPlace = NULL_VALUE
 
         this.selectedPayment = method
       },
@@ -822,7 +829,7 @@ import {
       async handlePayment (e: MouseEvent): Promise<void> {
         e.preventDefault()
 
-        if (this.hasPendingPayment) return
+        if (this.hasPendingPayment || this.isDeliveryLoading) return
 
         this.triggerValidations()
 
@@ -1052,6 +1059,9 @@ import {
               verify_amount: true,
               coupon_code: this.couponCode,
               cpf: this.customerCPF && NULL_VALUE,
+              has_subsidy: this.subsidy?.has ?? false,
+              delivery_cep: this.getParsedAddresses.shippingaddress.zipPostalCode,
+              has_selected_delivery: this.deliveryHour !== NULL_VALUE && this.deliveryDate !== NULL_VALUE
             })
           })
 
@@ -1114,86 +1124,51 @@ import {
         this.customerCreditCardCVV    = EMPTY_STRING
       },
 
-      async captureAvailableDeliveryDates (): Promise<ResponsePattern<DeliveryDate[]>> {
-        const defaultErrorMessage = 'Falha ao capturar as datas'
-
-        try {
-          const response = await fetch(`${DELIVERY_BASE_URL}/delivery_dates`, {
-            cache: 'force-cache',
-            credentials: 'include',
-          })
-
-          if (!response.ok) {
-            const error = await response.json()
-
-            return postErrorResponse(error?.message ?? defaultErrorMessage)
-          }
-
-          const data: DeliveryDate[] = await response.json()
-
-          return postSuccessResponse(data)
-        } catch (e) {
-          return postErrorResponse(defaultErrorMessage)
-        }
-      },
-
-      async handleDeliveryDates () {
-        const response = await this.captureAvailableDeliveryDates()
-
-        this.deliveryDates = response.succeeded
-          ? response.data
-          : NULL_VALUE
-      },
-
-      setDeliveryDate (shiftDays: number): void {
-        const _shiftDays = this.deliveryDates?.find(date => date.shiftDays === shiftDays)?.shiftDays
-
-        if (typeof _shiftDays !== 'number' || this.deliveryDate === _shiftDays) return
-
-        this.deliveryDate  = _shiftDays
-        this.deliveryHour  = NULL_VALUE
-        this.deliveryPrice = NULL_VALUE
-
-        this.handleDeliveryHours()
-      },
-
-      async captureAvailableDeliveryHours (): Promise<ResponsePattern<DeliveryHoursResponse>> {
-        const defaultErrorMessage = 'Falha ao capturar os horários'
-
-        try {
-          const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?shiftDays=${this.deliveryDate}`, {
-            cache: 'force-cache',
-            credentials: 'include',
-          })
-
-          if (!response.ok) {
-            const error = await response.json()
-
-            return postErrorResponse(error?.message ?? defaultErrorMessage)
-          }
-
-          const data: DeliveryHoursResponse = await response.json()
-
-          return postSuccessResponse(data)
-        } catch (e) {
-          return postErrorResponse(defaultErrorMessage)
-        }
-      },
-
-      async handleDeliveryHours (): Promise<void> {
-        const response = await this.captureAvailableDeliveryHours()
+      async handleDeliveryOptions (): Promise<void> {
+        const response = await this.captureDeliveryOptions()
 
         if (!response.succeeded) return
 
-        this.deliveryHours = response.data
+        this.deliveryOptions = response.data
+      },
+
+      async captureDeliveryOptions (): Promise<ResponsePattern<CheckoutDeliveryResponse>> {
+        const defaultErrorMessage = 'Falha ao capturar as opções de entrega'
+
+        try {
+          const response = await fetch(`${DELIVERY_BASE_URL}/delivery`, {
+            credentials: 'include',
+            headers: {
+              Accept: 'application/json',
+            },
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+
+            return postErrorResponse(error?.message ?? defaultErrorMessage)
+          }
+
+          const data: CheckoutDeliveryResponse = await response.json()
+
+          return postSuccessResponse(data)
+        } catch (e) {
+          return postErrorResponse(defaultErrorMessage)
+        }
+      },
+
+      setDeliveryDate (shiftDays: number): void {
+        const deliveryOption = this.deliveryOptions?.dates?.find(({ shift_days }) => shift_days === shiftDays)
+
+        if (!deliveryOption || this.deliveryDate === shiftDays) return
+
+        this.deliveryDate  = deliveryOption.shift_days
+        this.deliveryHour  = NULL_VALUE
+        this.deliveryPrice = NULL_VALUE
       },
 
       setDeliveryHour (_hour: number): void {
-        if (
-          this.deliveryHour === _hour ||
-          this.deliveryHours?.periods_count === 0 ||
-          !this.deliveryHours?.hours.some(({ hour }) => hour === _hour)
-        ) return
+        if (this.deliveryHour === _hour || this.getSelectedDateDetails?.periods.periods_count === 0) return
 
         this.deliveryHour = _hour
       },
@@ -1206,7 +1181,7 @@ import {
             ...POST_REQUEST,
             credentials: 'include',
             signal: controller.signal,
-            body: stringify<CheckoutDeliveryRequestBody>(this.quotationPayload as CheckoutDeliveryRequestBody)
+            body: stringify<Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>>(this.quotationPayload as (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>)),
           })
 
           if (!response.ok) {
@@ -1221,7 +1196,44 @@ import {
         } catch (e) {
           return postErrorResponse(defaultErrorMessage)
         }
-      }
+      },
+
+      async handleSubsidy (): Promise<void> {
+        const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
+
+        if (!/^\d{5}\-\d{3}$/.test(shippingCEP)) return
+
+        const response = await this.verifyForSubsidy(numberOnly(shippingCEP))
+
+        this.subsidy = response.succeeded
+          ? response.data
+          : NULL_VALUE
+      },
+
+      async verifyForSubsidy (cep: string): Promise<ResponsePattern<SubsidyResponse>> {
+        const defaultErrorMessage = 'Houve uma falha na verificação'
+
+        try {
+          const response = await fetch(`${DELIVERY_BASE_URL}/delivery/${cep}/subsidy`, {
+            credentials: 'include',
+            headers: {
+              Accept: 'application/json',
+            },
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+
+            return postErrorResponse(error?.message ?? defaultErrorMessage)
+          }
+
+          const data: SubsidyResponse = await response.json()
+
+          return postSuccessResponse(data)
+        } catch (e) {
+          return postErrorResponse(defaultErrorMessage)
+        }
+      },
     },
 
     computed: {
@@ -1245,6 +1257,8 @@ import {
         return [
           this.getOrderSubtotal,
           this.getShippingPrice,
+          this.priorityFee,
+          this.subsidyDiscountPrice,
           this.getCouponDiscountPrice,
         ].reduce((finalPrice, price) => {
           return finalPrice + price
@@ -1256,12 +1270,16 @@ import {
       },
 
       getShippingPrice (): number {
+        if (this.hasFreeShippingByCartPrice) return 0
+
         return this.deliveryPrice === NULL_VALUE
           ? 0
-          : this.deliveryPrice / 100
+          : this.deliveryPrice.value / 100
       },
 
       getShippingPriceFormatted (): string {
+        if (this.hasFreeShippingByCartPrice) return 'Frete grátis'
+
         return BRLFormatter.format(this.getShippingPrice)
       },
 
@@ -1270,16 +1288,21 @@ import {
 
         const {
           value,
-          is_percentage
+          cupom_type,
+          is_percentage,
         } = this.coupon as ISingleOrderCoupon
 
         const selectedPrice = this.getParsedPriceForApplyDiscount
 
-        if (is_percentage) {
-          return Math.min(value / 100, 1) * (selectedPrice * -1)
+        let discountPrice: number = is_percentage
+          ? Math.min(value / 100, 1) * (selectedPrice * -1)
+          : Math.min(selectedPrice, value) * -1
+
+        if (this.hasSubsidy && cupom_type === SHIPPING_NAME_TOKEN) {
+          return Math.max(this.getShippingPrice + this.subsidyDiscountPrice, 0)
         }
 
-        return Math.min(selectedPrice, value) * -1
+        return discountPrice
       },
 
       getCouponDiscountPriceFormatted (): string {
@@ -1289,11 +1312,13 @@ import {
       getParsedPriceForApplyDiscount (): number {
         if (this.hasNullCoupon || this.hasInvalidCoupon) return 0
 
+        const { cupom_type } = (this.coupon as ISingleOrderCoupon)
+
         return {
           subtotal: this.getOrderSubtotal,
           shipping: this.getShippingPrice,
           product_id: 0,
-        }[(this.coupon as ISingleOrderCoupon).cupom_type]
+        }[cupom_type]
       },
 
       getParsedProducts (): ParsedProductList[] {
@@ -1665,6 +1690,26 @@ import {
         }
       },
 
+      getParsedDeliveryData (): Omit<PostOrderDelivery, 'delivery_price'> {
+        const {
+          getSelectedHourDetails,
+          getSelectedDateDetails,
+        } = this
+
+        return {
+          delivery_hour: {
+            value: this.deliveryHour as number,
+            validator: getSelectedHourDetails?.validator as string,
+            has_priority: getSelectedHourDetails?.has_priority as boolean,
+          },
+          delivery_date: {
+            value: this.deliveryDate as number,
+            validator: getSelectedDateDetails?.validator as string,
+            has_priority: getSelectedDateDetails?.has_priority as boolean,
+          },
+        }
+      },
+
       getOrderBaseData (): Omit<PostOrder, 'customer'> {
         return {
           user_id: NULL_VALUE,
@@ -1673,8 +1718,8 @@ import {
             // @ts-ignore
             : this.coupon?.code as string,
           delivery: {
-            delivery_hour: this.deliveryHour as number,
-            delivery_date: this.deliveryDate as number,
+            ...this.getParsedDeliveryData,
+            delivery_price: this.deliveryPrice as Omit<PostOrderDeliveryGroup, 'has_priority'>,
           },
         }
       },
@@ -1737,61 +1782,105 @@ import {
       },
 
       hasDeliveryDates (): boolean {
-        const { deliveryDates } = this
+        const { deliveryOptions } = this
 
-        return isArray(deliveryDates) && objectSize(deliveryDates as DeliveryDate[]) > 0
-      },
-
-      getParsedDeliveryDates (): ComputedDeliveryDate[] {
-        if (!this.hasDeliveryDates) return []
-
-        const { deliveryDate } = this
-        const deliveryDates = this.deliveryDates as DeliveryDate[]
-
-        return deliveryDates.map(({ date, shiftDays, deliveryPeriod }) => {
-          const _date = new Date(`${date}T00:00:00`)
-
-          return ({
-            shiftDays,
-            deliveryPeriod,
-            selected: deliveryDate === shiftDays,
-            date: _date.toLocaleDateString('pt-BR', {
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long',
-            }),
-          }) satisfies ComputedDeliveryDate
-        })
+        return isArray(deliveryOptions?.dates) && objectSize(deliveryOptions?.dates as []) > 0
       },
 
       hasDeliveryHour (): boolean {
-        return this.deliveryHours !== NULL_VALUE && objectSize(this.deliveryHours.hours) > 0
+        return this.deliveryDate !== NULL_VALUE && objectSize(this.getParsedDeliveryHours) > 0
       },
 
       getParsedDeliveryHours (): ComputedDeliveryHours[] {
-        if (this.deliveryDate === NULL_VALUE || !this.hasDeliveryHour) return []
+        if (!this.hasDeliveryDates || this.getSelectedDateDetails === NULL_VALUE) return []
 
-        return (this.deliveryHours as DeliveryHoursResponse).hours.map(({ label, hour }) => ({
+        const hourList = this.getSelectedDateDetails.periods.hours
+
+        return hourList.map(({ label, hour }) => ({
           hour,
           label,
         }))
       },
 
-      quotationPayload (): false | CheckoutDeliveryRequestBody {
-        const selectedHour = this.deliveryHours?.hours.find(({ hour }) => hour === this.deliveryHour)
-
-        if (!selectedHour) return false
+      quotationPayload (): false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>) {
+        if ([this.deliveryDate, this.deliveryHour].some(v => v === NULL_VALUE)) return false
 
         const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
 
-        if (!/^\d{5}\-\d{3}$/.test(shippingCEP) || this.deliveryDate === NULL_VALUE) return false
+        if (!/^\d{5}\-\d{3}$/.test(shippingCEP)) return false
+
+        const {
+          delivery_hour,
+          delivery_date,
+        } = this.getParsedDeliveryData
 
         return {
           cep: shippingCEP,
-          shiftDays: this.deliveryDate,
-          selectedHour: selectedHour.hour,
-          hourToken: selectedHour.validator,
+          delivery_hour,
+          delivery_date,
         }
+      },
+
+      getParsedDeliveryDates (): ComputedDeliveryDates[] {
+        if (this.deliveryOptions === NULL_VALUE) return []
+
+        const selectedDate = this.deliveryDate
+
+        return this.deliveryOptions.dates.map(({ label, shift_days }) => ({
+          label,
+          shift_days,
+          selected: selectedDate === shift_days,
+        }))
+      },
+
+      getSelectedDateDetails (): Nullable<CheckoutDeliveryOption> {
+        if (!this.deliveryDate === NULL_VALUE) return NULL_VALUE
+
+        const selectedDate = this.deliveryOptions?.dates.find(({ shift_days }) => shift_days === this.deliveryDate)
+
+        if (!selectedDate) return NULL_VALUE
+
+        return selectedDate
+      },
+
+      getSelectedHourDetails (): Nullable<CheckoutDeliveryHour> {
+        if (!this.getSelectedDateDetails || !this.deliveryHour) return NULL_VALUE
+
+        return this.getSelectedDateDetails.periods.hours.find(({ hour }) => hour === this.deliveryHour) ?? NULL_VALUE
+      },
+
+      hasPriorityFee (): boolean {
+        if (!this.hasDeliveryHour || !this.getSelectedDateDetails || !this.getSelectedHourDetails) return false
+
+        return this.getSelectedDateDetails.has_priority && this.getSelectedHourDetails.has_priority
+      },
+
+      priorityFee (): number {
+        return this.hasPriorityFee
+          ? this.deliveryOptions?.priority_fee as number
+          : 0
+      },
+
+      priorityFeeFormatted (): string {
+        return BRLFormatter.format(this.priorityFee)
+      },
+
+      hasSubsidy (): boolean {
+        return this.subsidy?.has === true && this.getShippingPrice > 0
+      },
+
+      subsidyDiscountPrice (): number {
+        return this.subsidy?.has === true
+          ? Math.min(this.subsidy.value, this.getShippingPrice) * -1
+          : 0
+      },
+
+      subsidyDiscountPriceFormatted (): string {
+        return BRLFormatter.format(this.subsidyDiscountPrice)
+      },
+
+      hasFreeShippingByCartPrice (): boolean {
+        return this.getOrderSubtotal >= FREE_SHIPPING_MIN_CART_PRICE
       },
     },
 
@@ -1809,6 +1898,9 @@ import {
       },
 
       shippingCEP (cep: string, oldCep?: string): void {
+        this.deliveryDate = NULL_VALUE
+        this.deliveryHour = NULL_VALUE
+
         this.captureAddress(SHIPPING_NAME_TOKEN, cep, oldCep)
       },
 
@@ -1825,49 +1917,76 @@ import {
         this.refreshInstallments()
       },
 
-      quotationPayload (payload: false | CheckoutDeliveryRequestBody, oldPayload: false | CheckoutDeliveryRequestBody, cleanup: OnCleanup): void {
+      quotationPayload (payload: false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>), oldPayload: false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>), cleanup: OnCleanup): void {
         if (!payload) return
 
         const {
           cep,
-          shiftDays,
-          hourToken,
-          selectedHour,
+          delivery_hour,
+          delivery_date,
         } = payload
+
+        if (!/^\d{5}\-\d{3}$/.test(cep)) return
 
         const controller = getAbortController()
 
         if (!oldPayload) {
+          this.isDeliveryLoading = true
+
           this.captureDeliveryQuotation(controller).then(response => {
             if (!response.succeeded) return
 
-            this.deliveryPrice = response.data.total
+            const {
+              total: value,
+              validator,
+            } = response.data
+
+            this.deliveryPrice = {
+              value,
+              validator,
+            } satisfies Omit<PostOrderDeliveryGroup, 'has_priority'>
+
+            this.isDeliveryLoading = false
           })
 
           return cleanup(() => controller.abort())
         }
 
         const {
-          shiftDays: oldShiftDays,
-          selectedHour: oldSelectedHour,
-          hourToken: oldHourToken,
           cep: oldCep,
         } = oldPayload
 
-        if (
-          shiftDays === oldShiftDays &&
-          selectedHour === oldSelectedHour &&
-          hourToken === oldHourToken &&
-          cep === oldCep
-        ) return
+        this.isDeliveryLoading = true
 
         this.captureDeliveryQuotation(controller).then(response => {
           if (!response.succeeded) return
 
-          this.deliveryPrice = response.data.total
+          const {
+            total: value,
+            validator,
+          } = response.data
+
+          this.deliveryPrice = {
+            value,
+            validator,
+          } satisfies Omit<PostOrderDeliveryGroup, 'has_priority'>
+
+          this.isDeliveryLoading = false
         })
 
         return cleanup(() => controller.abort())
+      },
+
+      getParsedAddresses (currentAddresses: IParsedAddressContent, oldAddresses: IParsedAddressContent): void {
+        if (!currentAddresses || !oldAddresses) return
+
+        if (currentAddresses.shippingaddress.zipPostalCode === oldAddresses.shippingaddress.zipPostalCode) return
+
+        if (!/^\d{5}\-\d{3}$/.test(currentAddresses.shippingaddress.zipPostalCode)) return
+
+        if (this.isCreditCard && this.deliveryPlace === NULL_VALUE) return
+
+        this.handleSubsidy()
       }
     },
 

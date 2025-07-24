@@ -449,10 +449,12 @@
                 coupon: NULL_VALUE,
                 isPagSeguroLoaded: false,
                 deliveryDate: NULL_VALUE,
-                deliveryDates: NULL_VALUE,
                 deliveryHour: NULL_VALUE,
-                deliveryHours: NULL_VALUE,
+                isDeliveryLoading: false,
                 deliveryPrice: NULL_VALUE,
+                deliveryOptions: NULL_VALUE,
+                priorityTax: NULL_VALUE,
+                subsidy: NULL_VALUE,
             };
         },
         created() {
@@ -521,7 +523,7 @@
                 }
             },
             async refreshInstallments() {
-                if (!this.isCreditCard)
+                if (!this.isCreditCard || !this.isCreditCardGroupValid || this.getCreditCardToken.hasErrors)
                     return;
                 this.installment = NULL_VALUE;
                 this.selectedInstallment = NULL_VALUE;
@@ -539,7 +541,7 @@
                 if (this.selectedPayment === method)
                     return;
                 if (!this.hasDeliveryDates) {
-                    this.handleDeliveryDates();
+                    this.handleDeliveryOptions();
                 }
                 if (method !== CREDIT_CARD_PAYMENT) {
                     this.clearCreditCardData();
@@ -547,6 +549,7 @@
                 else if (!this.isPagSeguroLoaded) {
                     this.loadPagSeguro();
                 }
+                this.deliveryPlace = NULL_VALUE;
                 this.selectedPayment = method;
             },
             setVisitedField(fieldName) {
@@ -557,7 +560,7 @@
             },
             async handlePayment(e) {
                 e.preventDefault();
-                if (this.hasPendingPayment)
+                if (this.hasPendingPayment || this.isDeliveryLoading)
                     return;
                 this.triggerValidations();
                 if (!this.isSubmitted) {
@@ -589,6 +592,7 @@
                     alert('Pagamento falhou');
                     return;
                 }
+                localStorage.removeItem(STORAGE_KEY_NAME);
                 const redirectURL = this.isCreditCard
                     ? 'confirmacao-do-pedido'
                     : 'pix';
@@ -732,6 +736,9 @@
                             verify_amount: true,
                             coupon_code: this.couponCode,
                             cpf: this.customerCPF && NULL_VALUE,
+                            has_subsidy: this.subsidy?.has ?? false,
+                            delivery_cep: this.getParsedAddresses.shippingaddress.zipPostalCode,
+                            has_selected_delivery: this.deliveryHour !== NULL_VALUE && this.deliveryDate !== NULL_VALUE
                         })
                     });
                     if (!response.ok) {
@@ -779,67 +786,42 @@
                 this.customerCreditCardDate = EMPTY_STRING;
                 this.customerCreditCardCVV = EMPTY_STRING;
             },
-            async captureAvailableDeliveryDates() {
-                const defaultErrorMessage = 'Falha ao capturar as datas';
-                try {
-                    const response = await fetch(`${DELIVERY_BASE_URL}/delivery_dates`, {
-                        cache: 'force-cache',
-                        credentials: 'include',
-                    });
-                    if (!response.ok) {
-                        const error = await response.json();
-                        return postErrorResponse(error?.message ?? defaultErrorMessage);
-                    }
-                    const data = await response.json();
-                    return postSuccessResponse(data);
-                }
-                catch (e) {
-                    return postErrorResponse(defaultErrorMessage);
-                }
-            },
-            async handleDeliveryDates() {
-                const response = await this.captureAvailableDeliveryDates();
-                this.deliveryDates = response.succeeded
-                    ? response.data
-                    : NULL_VALUE;
-            },
-            setDeliveryDate(shiftDays) {
-                const _shiftDays = this.deliveryDates?.find(date => date.shiftDays === shiftDays)?.shiftDays;
-                if (typeof _shiftDays !== 'number' || this.deliveryDate === _shiftDays)
-                    return;
-                this.deliveryDate = _shiftDays;
-                this.deliveryHour = NULL_VALUE;
-                this.deliveryPrice = NULL_VALUE;
-                this.handleDeliveryHours();
-            },
-            async captureAvailableDeliveryHours() {
-                const defaultErrorMessage = 'Falha ao capturar os horários';
-                try {
-                    const response = await fetch(`${DELIVERY_BASE_URL}/delivery_hours?shiftDays=${this.deliveryDate}`, {
-                        cache: 'force-cache',
-                        credentials: 'include',
-                    });
-                    if (!response.ok) {
-                        const error = await response.json();
-                        return postErrorResponse(error?.message ?? defaultErrorMessage);
-                    }
-                    const data = await response.json();
-                    return postSuccessResponse(data);
-                }
-                catch (e) {
-                    return postErrorResponse(defaultErrorMessage);
-                }
-            },
-            async handleDeliveryHours() {
-                const response = await this.captureAvailableDeliveryHours();
+            async handleDeliveryOptions() {
+                const response = await this.captureDeliveryOptions();
                 if (!response.succeeded)
                     return;
-                this.deliveryHours = response.data;
+                this.deliveryOptions = response.data;
+            },
+            async captureDeliveryOptions() {
+                const defaultErrorMessage = 'Falha ao capturar as opções de entrega';
+                try {
+                    const response = await fetch(`${DELIVERY_BASE_URL}/delivery`, {
+                        credentials: 'include',
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                    });
+                    if (!response.ok) {
+                        const error = await response.json();
+                        return postErrorResponse(error?.message ?? defaultErrorMessage);
+                    }
+                    const data = await response.json();
+                    return postSuccessResponse(data);
+                }
+                catch (e) {
+                    return postErrorResponse(defaultErrorMessage);
+                }
+            },
+            setDeliveryDate(shiftDays) {
+                const deliveryOption = this.deliveryOptions?.dates?.find(({ shift_days }) => shift_days === shiftDays);
+                if (!deliveryOption || this.deliveryDate === shiftDays)
+                    return;
+                this.deliveryDate = deliveryOption.shift_days;
+                this.deliveryHour = NULL_VALUE;
+                this.deliveryPrice = NULL_VALUE;
             },
             setDeliveryHour(_hour) {
-                if (this.deliveryHour === _hour ||
-                    this.deliveryHours?.periods_count === 0 ||
-                    !this.deliveryHours?.hours.some(({ hour }) => hour === _hour))
+                if (this.deliveryHour === _hour || this.getSelectedDateDetails?.periods.periods_count === 0)
                     return;
                 this.deliveryHour = _hour;
             },
@@ -850,7 +832,7 @@
                         ...POST_REQUEST,
                         credentials: 'include',
                         signal: controller.signal,
-                        body: stringify(this.quotationPayload)
+                        body: stringify(this.quotationPayload),
                     });
                     if (!response.ok) {
                         const error = await response.json();
@@ -862,7 +844,36 @@
                 catch (e) {
                     return postErrorResponse(defaultErrorMessage);
                 }
-            }
+            },
+            async handleSubsidy() {
+                const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode;
+                if (!/^\d{5}\-\d{3}$/.test(shippingCEP))
+                    return;
+                const response = await this.verifyForSubsidy(numberOnly(shippingCEP));
+                this.subsidy = response.succeeded
+                    ? response.data
+                    : NULL_VALUE;
+            },
+            async verifyForSubsidy(cep) {
+                const defaultErrorMessage = 'Houve uma falha na verificação';
+                try {
+                    const response = await fetch(`${DELIVERY_BASE_URL}/delivery/${cep}/subsidy`, {
+                        credentials: 'include',
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                    });
+                    if (!response.ok) {
+                        const error = await response.json();
+                        return postErrorResponse(error?.message ?? defaultErrorMessage);
+                    }
+                    const data = await response.json();
+                    return postSuccessResponse(data);
+                }
+                catch (e) {
+                    return postErrorResponse(defaultErrorMessage);
+                }
+            },
         },
         computed: {
             hasSelectedPaymentMethod() {
@@ -881,6 +892,8 @@
                 return [
                     this.getOrderSubtotal,
                     this.getShippingPrice,
+                    this.priorityFee,
+                    this.subsidyDiscountPrice,
                     this.getCouponDiscountPrice,
                 ].reduce((finalPrice, price) => {
                     return finalPrice + price;
@@ -890,22 +903,29 @@
                 return BRLFormatter.format(this.getOrderPrice);
             },
             getShippingPrice() {
+                if (this.hasFreeShippingByCartPrice)
+                    return 0;
                 return this.deliveryPrice === NULL_VALUE
                     ? 0
-                    : this.deliveryPrice / 100;
+                    : this.deliveryPrice.value / 100;
             },
             getShippingPriceFormatted() {
+                if (this.hasFreeShippingByCartPrice)
+                    return 'Frete grátis';
                 return BRLFormatter.format(this.getShippingPrice);
             },
             getCouponDiscountPrice() {
                 if (this.hasNullCoupon || this.hasInvalidCoupon)
                     return 0;
-                const { value, is_percentage } = this.coupon;
+                const { value, cupom_type, is_percentage, } = this.coupon;
                 const selectedPrice = this.getParsedPriceForApplyDiscount;
-                if (is_percentage) {
-                    return Math.min(value / 100, 1) * (selectedPrice * -1);
+                let discountPrice = is_percentage
+                    ? Math.min(value / 100, 1) * (selectedPrice * -1)
+                    : Math.min(selectedPrice, value) * -1;
+                if (this.hasSubsidy && cupom_type === SHIPPING_NAME_TOKEN) {
+                    return Math.max(this.getShippingPrice + this.subsidyDiscountPrice, 0);
                 }
-                return Math.min(selectedPrice, value) * -1;
+                return discountPrice;
             },
             getCouponDiscountPriceFormatted() {
                 return BRLFormatter.format(this.getCouponDiscountPrice);
@@ -913,11 +933,12 @@
             getParsedPriceForApplyDiscount() {
                 if (this.hasNullCoupon || this.hasInvalidCoupon)
                     return 0;
+                const { cupom_type } = this.coupon;
                 return {
                     subtotal: this.getOrderSubtotal,
                     shipping: this.getShippingPrice,
                     product_id: 0,
-                }[this.coupon.cupom_type];
+                }[cupom_type];
             },
             getParsedProducts() {
                 const productlist = this.productlist?.items;
@@ -1143,6 +1164,21 @@
                     phone: this.customerPhone,
                 };
             },
+            getParsedDeliveryData() {
+                const { getSelectedHourDetails, getSelectedDateDetails, } = this;
+                return {
+                    delivery_hour: {
+                        value: this.deliveryHour,
+                        validator: getSelectedHourDetails?.validator,
+                        has_priority: getSelectedHourDetails?.has_priority,
+                    },
+                    delivery_date: {
+                        value: this.deliveryDate,
+                        validator: getSelectedDateDetails?.validator,
+                        has_priority: getSelectedDateDetails?.has_priority,
+                    },
+                };
+            },
             getOrderBaseData() {
                 return {
                     user_id: NULL_VALUE,
@@ -1151,8 +1187,8 @@
                         // @ts-ignore
                         : this.coupon?.code,
                     delivery: {
-                        delivery_hour: this.deliveryHour,
-                        delivery_date: this.deliveryDate,
+                        ...this.getParsedDeliveryData,
+                        delivery_price: this.deliveryPrice,
                     },
                 };
             },
@@ -1200,52 +1236,83 @@
                 });
             },
             hasDeliveryDates() {
-                const { deliveryDates } = this;
-                return isArray(deliveryDates) && objectSize(deliveryDates) > 0;
-            },
-            getParsedDeliveryDates() {
-                if (!this.hasDeliveryDates)
-                    return [];
-                const { deliveryDate } = this;
-                const deliveryDates = this.deliveryDates;
-                return deliveryDates.map(({ date, shiftDays, deliveryPeriod }) => {
-                    const _date = new Date(`${date}T00:00:00`);
-                    return ({
-                        shiftDays,
-                        deliveryPeriod,
-                        selected: deliveryDate === shiftDays,
-                        date: _date.toLocaleDateString('pt-BR', {
-                            month: 'long',
-                            day: 'numeric',
-                            weekday: 'long',
-                        }),
-                    });
-                });
+                const { deliveryOptions } = this;
+                return isArray(deliveryOptions?.dates) && objectSize(deliveryOptions?.dates) > 0;
             },
             hasDeliveryHour() {
-                return this.deliveryHours !== NULL_VALUE && objectSize(this.deliveryHours.hours) > 0;
+                return this.deliveryDate !== NULL_VALUE && objectSize(this.getParsedDeliveryHours) > 0;
             },
             getParsedDeliveryHours() {
-                if (this.deliveryDate === NULL_VALUE || !this.hasDeliveryHour)
+                if (!this.hasDeliveryDates || this.getSelectedDateDetails === NULL_VALUE)
                     return [];
-                return this.deliveryHours.hours.map(({ label, hour }) => ({
+                const hourList = this.getSelectedDateDetails.periods.hours;
+                return hourList.map(({ label, hour }) => ({
                     hour,
                     label,
                 }));
             },
             quotationPayload() {
-                const selectedHour = this.deliveryHours?.hours.find(({ hour }) => hour === this.deliveryHour);
-                if (!selectedHour)
+                if ([this.deliveryDate, this.deliveryHour].some(v => v === NULL_VALUE))
                     return false;
                 const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode;
-                if (!/^\d{5}\-\d{3}$/.test(shippingCEP) || this.deliveryDate === NULL_VALUE)
+                if (!/^\d{5}\-\d{3}$/.test(shippingCEP))
                     return false;
+                const { delivery_hour, delivery_date, } = this.getParsedDeliveryData;
                 return {
                     cep: shippingCEP,
-                    shiftDays: this.deliveryDate,
-                    selectedHour: selectedHour.hour,
-                    hourToken: selectedHour.validator,
+                    delivery_hour,
+                    delivery_date,
                 };
+            },
+            getParsedDeliveryDates() {
+                if (this.deliveryOptions === NULL_VALUE)
+                    return [];
+                const selectedDate = this.deliveryDate;
+                return this.deliveryOptions.dates.map(({ label, shift_days }) => ({
+                    label,
+                    shift_days,
+                    selected: selectedDate === shift_days,
+                }));
+            },
+            getSelectedDateDetails() {
+                if (!this.deliveryDate === NULL_VALUE)
+                    return NULL_VALUE;
+                const selectedDate = this.deliveryOptions?.dates.find(({ shift_days }) => shift_days === this.deliveryDate);
+                if (!selectedDate)
+                    return NULL_VALUE;
+                return selectedDate;
+            },
+            getSelectedHourDetails() {
+                if (!this.getSelectedDateDetails || !this.deliveryHour)
+                    return NULL_VALUE;
+                return this.getSelectedDateDetails.periods.hours.find(({ hour }) => hour === this.deliveryHour) ?? NULL_VALUE;
+            },
+            hasPriorityFee() {
+                if (!this.hasDeliveryHour || !this.getSelectedDateDetails || !this.getSelectedHourDetails)
+                    return false;
+                return this.getSelectedDateDetails.has_priority && this.getSelectedHourDetails.has_priority;
+            },
+            priorityFee() {
+                return this.hasPriorityFee
+                    ? this.deliveryOptions?.priority_fee
+                    : 0;
+            },
+            priorityFeeFormatted() {
+                return BRLFormatter.format(this.priorityFee);
+            },
+            hasSubsidy() {
+                return this.subsidy?.has === true && this.getShippingPrice > 0;
+            },
+            subsidyDiscountPrice() {
+                return this.subsidy?.has === true
+                    ? Math.min(this.subsidy.value, this.getShippingPrice) * -1
+                    : 0;
+            },
+            subsidyDiscountPriceFormatted() {
+                return BRLFormatter.format(this.subsidyDiscountPrice);
+            },
+            hasFreeShippingByCartPrice() {
+                return this.getOrderSubtotal >= FREE_SHIPPING_MIN_CART_PRICE;
             },
         },
         watch: {
@@ -1260,6 +1327,8 @@
                 });
             },
             shippingCEP(cep, oldCep) {
+                this.deliveryDate = NULL_VALUE;
+                this.deliveryHour = NULL_VALUE;
                 this.captureAddress(SHIPPING_NAME_TOKEN, cep, oldCep);
             },
             getOrderPrice: {
@@ -1276,28 +1345,48 @@
             quotationPayload(payload, oldPayload, cleanup) {
                 if (!payload)
                     return;
-                const { cep, shiftDays, hourToken, selectedHour, } = payload;
+                const { cep, delivery_hour, delivery_date, } = payload;
+                if (!/^\d{5}\-\d{3}$/.test(cep))
+                    return;
                 const controller = getAbortController();
                 if (!oldPayload) {
+                    this.isDeliveryLoading = true;
                     this.captureDeliveryQuotation(controller).then(response => {
                         if (!response.succeeded)
                             return;
-                        this.deliveryPrice = response.data.total;
+                        const { total: value, validator, } = response.data;
+                        this.deliveryPrice = {
+                            value,
+                            validator,
+                        };
+                        this.isDeliveryLoading = false;
                     });
                     return cleanup(() => controller.abort());
                 }
-                const { shiftDays: oldShiftDays, selectedHour: oldSelectedHour, hourToken: oldHourToken, cep: oldCep, } = oldPayload;
-                if (shiftDays === oldShiftDays &&
-                    selectedHour === oldSelectedHour &&
-                    hourToken === oldHourToken &&
-                    cep === oldCep)
-                    return;
+                const { cep: oldCep, } = oldPayload;
+                this.isDeliveryLoading = true;
                 this.captureDeliveryQuotation(controller).then(response => {
                     if (!response.succeeded)
                         return;
-                    this.deliveryPrice = response.data.total;
+                    const { total: value, validator, } = response.data;
+                    this.deliveryPrice = {
+                        value,
+                        validator,
+                    };
+                    this.isDeliveryLoading = false;
                 });
                 return cleanup(() => controller.abort());
+            },
+            getParsedAddresses(currentAddresses, oldAddresses) {
+                if (!currentAddresses || !oldAddresses)
+                    return;
+                if (currentAddresses.shippingaddress.zipPostalCode === oldAddresses.shippingaddress.zipPostalCode)
+                    return;
+                if (!/^\d{5}\-\d{3}$/.test(currentAddresses.shippingaddress.zipPostalCode))
+                    return;
+                if (this.isCreditCard && this.deliveryPlace === NULL_VALUE)
+                    return;
+                this.handleSubsidy();
             }
         },
         directives: {
