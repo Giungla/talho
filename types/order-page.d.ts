@@ -53,14 +53,45 @@ export interface TalhoOrderPageComputedDefinition {
    */
   getOrderPriceFormatted: () => string;
   /**
-   * Captura o valor do frete do pedido formatado em BRL
+   * Retorna o valor do frete desse pedido
+   */
+  getOrderShipping: () => number;
+  /**
+   * Retorna o valor de `getOrderShipping` formatado em BRL
    */
   getOrderShippingPriceFormatted: () => string;
   /**
    * Captura o valor recebido de desconto sobre este pedido formatado em BRL
    */
   getOrderDiscountPriceFormatted: () => string;
+  /**
+   * Retorna a lista de produtos deste pedido
+   */
   getParsedProducts: () => ParsedProduct[];
+  /**
+   * Indica se foi solicitada prioridade no pedido
+   */
+  hasPriority: () => boolean;
+  /**
+   * Indica o valor cobrado pela prioridade no pedido (0 se `hasPriority` for `false`)
+   */
+  getPriorityFee: () => number;
+  /**
+   * Retorna o valor de `getPriorityFee` formatado em BRL
+   */
+  getPriorityFeePriceFormatted: () => string;
+  /**
+   * Indica se o pedido tem desconto por subsídio
+   */
+  hasSubsidy: () => boolean;
+  /**
+   * Retorna o valor de subsídio deste pedido (0 se `hasSubsidy` for `false`)
+   */
+  getDeliverySubsidy: () => number;
+  /**
+   * Retorna o valor de `getDeliverySubsidy` formatado em BRL
+   */
+  getDeliverySubsidyPriceFormatted: () => string;
 }
 
 // como os dados computados serão capturados no contexto this
@@ -83,20 +114,33 @@ export interface OrderShippingAddress extends OrderAddress {
 }
 
 export interface OrderProduct {
-  slug: string;
-  title: string;
-  image: string;
-  sku_id: number;
-  quantity: number;
+  /**
+   * Nome do produto
+   */
+  name: string;
+  /**
+   * ID do produto no Xano
+   */
   product_id: number;
-  unit_amount: number;
+  /**
+   * ID do SKU adquirido
+   */
+  sku_id: number;
+  /**
+   * Valor unitário do produto
+   */
+  unit_price: number;
+  /**
+   * Indica quantas unidades deste item foram adquiridas neste pedido
+   */
+  quantity: number;
 }
 
 export interface ParsedProduct {
   /**
    * Identificador único do item
    */
-  key: string;
+  key: number;
   /**
    * Nome do produto
    */
@@ -114,6 +158,31 @@ export interface ParsedProduct {
    */
   final_price: string;
 }
+
+export interface OrderPriority <T, K> {
+  has_priority: T;
+  priority_price: K;
+}
+
+export interface OrderSubsidy <T, K> {
+  has_subsidy: T;
+  subsidy_price: K;
+}
+
+export interface BaseOrderDelivery {
+  quotation_price: number;
+  date: string;
+  hour: number;
+  delivered: boolean;
+  status: null;
+  address: OrderShippingAddress;
+}
+
+export type DeliveryOrder =
+  | (BaseOrderDelivery & OrderPriority<true, number> & OrderSubsidy<true, number>)
+  | (BaseOrderDelivery & OrderPriority<true, number> & OrderSubsidy<false, null>)
+  | (BaseOrderDelivery & OrderPriority<false, null> & OrderSubsidy<true, number>)
+  | (BaseOrderDelivery & OrderPriority<false, null> & OrderSubsidy<false, null>);
 
 export interface OrderData {
   /**
@@ -180,4 +249,8 @@ export interface OrderData {
    * Lista de produtos que foram adquiros neste pedido
    */
   order_items: OrderProduct[];
+  /**
+   * Dados de entrega do pedido
+   */
+  delivery: DeliveryOrder;
 }

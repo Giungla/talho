@@ -631,6 +631,11 @@ export interface TalhoCheckoutAppSetup {
   deliveryShippingAddressErrorMessage: Nullable<string>;
 }
 
+export type PaymentResponseMap = {
+  pix: ResponsePattern<PIXOrderResponse>;
+  creditcard: ResponsePattern<CreditCardOrderResponse>;
+}
+
 export interface TalhoCheckoutAppMethods {
   getCart: () => Promise<ResponsePattern<CartResponse>>;
   refreshCart: () => Promise<void>;
@@ -641,8 +646,10 @@ export interface TalhoCheckoutAppMethods {
   setVisitedField: (fieldName: string) => number;
   hasVisitRegistry: (fieldName: string) => boolean;
   handlePayment: (e: MouseEvent) => Promise<void>;
-  handleProcessPIX: () => Promise<ResponsePattern<PIXOrderResponse>>;
-  handleProcessCreditCard: () => Promise<ResponsePattern<CreditCardOrderResponse>>;
+  handlePostPayment (paymentType: 'pix'): Promise<PaymentResponseMap['pix']>;
+  handlePostPayment (paymentType: 'creditcard'): Promise<PaymentResponseMap['creditcard']>;
+  //handleProcessPIX: () => Promise<ResponsePattern<PIXOrderResponse>>;
+  //handleProcessCreditCard: () => Promise<ResponsePattern<CreditCardOrderResponse>>;
   triggerValidations: () => void;
   feedAddress: (addressType: IOrderAddressType, address: VIACEPFromXano) => void;
   setDeliveryPlace: (deliveryPlace: IAddressType) => void;
@@ -674,6 +681,10 @@ export interface TalhoCheckoutAppMethods {
    * Configura um horário de entrega
    */
   setDeliveryHour: (hour: number) => void;
+  /**
+   * Captura os dados de cotação de entrega do pedido
+   */
+  handleDeliveryQuotation: (controller: AbortController) => Promise<void>;
   /**
    * Captura uma e retorna uma cotação para entrega na Lalamove
    */
@@ -989,6 +1000,8 @@ export interface TalhoCheckoutAppComputedDefinition {
    * Verifica se o cliente terá frete grátis baseado no valor do seu carrinho
    */
   hasFreeShippingByCartPrice: () => boolean;
+
+  creditCardAdditionalInfo: () => CreditCardPostAdditional;
 }
 
 export type TalhoCheckoutAppComputed = ComputedReturnValues<TalhoCheckoutAppComputedDefinition>;
@@ -1003,10 +1016,6 @@ export interface TalhoCheckoutAppWatch {
 }
 
 export type TalhoCheckoutContext = TalhoCheckoutAppData & TalhoCheckoutAppSetup & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;
-
-export interface WatchOptionItem <V, OV> {
-  handler: WatchCallback<V, OV>;
-}
 
 export type BRLString = `R$ ${string}`;
 
@@ -1168,10 +1177,12 @@ export interface PostOrder {
   delivery: PostOrderDelivery;
 }
 
-export interface CreditCardPostOrder extends PostOrder {
+export interface CreditCardPostAdditional {
   is_same_address: boolean;
   credit_card_info: PostOrderCreditCard;
 }
+
+export type CreditCardPostOrder = PostOrder & CreditCardPostAdditional;
 
 export interface IParsedProducts {
   quantity: number;

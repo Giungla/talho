@@ -5,6 +5,15 @@ import {
   ISinglePaymentKey, ComputedReturnValues,
 } from '../global'
 
+import { type ShallowRef } from "vue"
+
+export interface TalhoPixProcessSetup {
+  /**
+   * Indica se o navegador tem suporte ao EventSource
+   */
+  hasEventSource: ShallowRef<Nullable<boolean>>;
+}
+
 export interface TalhoPixProcessData {
   /**
    * Detalhes do pedido atual
@@ -22,6 +31,10 @@ export interface TalhoPixProcessData {
    * Interval ID
    */
   nowInterval: Nullable<number>;
+  /**
+   * Indica se o navegador tem suporte ao EventSource
+   */
+  // hasEventSource: ShallowRef<Nullable<boolean>>;
 }
 
 export interface TalhoPixProcessMethods {
@@ -83,7 +96,7 @@ export interface TalhoPixProcessWatch {
   timmer: (time: string) => void;
 }
 
-export type TalhoPixProcessContext = TalhoPixProcessData & TalhoPixProcessMethods & TalhoPixOrderComputed;
+export type TalhoPixProcessContext = TalhoPixProcessSetup & TalhoPixProcessData & TalhoPixProcessMethods & TalhoPixOrderComputed;
 
 export interface PixOrderData {
   /**
@@ -99,7 +112,7 @@ export interface PixOrderData {
    */
   order_status: 1 | 2 | 3;
   /**
-   * Método de pagamento usado no pedido
+   * Meio de pagamento usado no pedido
    */
   payment_method: ISinglePaymentKey;
   /**

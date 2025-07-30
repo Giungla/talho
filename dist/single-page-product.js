@@ -314,9 +314,12 @@
     }
     function renderStockElements() {
         const { stockCount, } = state;
-        toggleClass(buyButton, GENERAL_HIDDEN_CLASS, stockCount < 1);
+        const hastStock = stockCount < 1;
+        toggleClass(querySelector('[data-wtf-shipping]'), GENERAL_HIDDEN_CLASS, hastStock);
+        toggleClass(querySelector('[data-wtf-quantity-selector]'), GENERAL_HIDDEN_CLASS, hastStock);
+        toggleClass(buyButton, GENERAL_HIDDEN_CLASS, hastStock);
         toggleClass(outtaStockElement, GENERAL_HIDDEN_CLASS, stockCount > 0);
-        const hideAvailableMessage = toggleClass(maxAvailableProductsElement, GENERAL_HIDDEN_CLASS, stockCount > 10 || stockCount < 1);
+        const hideAvailableMessage = toggleClass(maxAvailableProductsElement, GENERAL_HIDDEN_CLASS, stockCount > 10 || hastStock);
         if (hideAvailableMessage)
             return;
         const maxIndexMessages = objectSize(STOCK_MESSAGE) - 1;

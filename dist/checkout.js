@@ -82,6 +82,10 @@
             return false;
         return element.classList.toggle(className, force);
     }
+    function decimalRound(value, decimalCount = 0) {
+        const factor = Math.pow(10, decimalCount);
+        return Math.round(value * factor) / factor;
+    }
     function buildURL(path, query) {
         const baseURL = new URL(`${location.protocol}//${location.hostname}`);
         const nextPage = new URL(path, baseURL);
@@ -485,6 +489,8 @@
                 }
             },
             async refreshCart() {
+                if (this.hasPendingPayment)
+                    return;
                 return this.getCart().then(cartData => {
                     if (!cartData.succeeded)
                         return;
@@ -579,31 +585,25 @@
                     }
                     return;
                 }
-                this.hasPendingPayment = setPageLoader(true);
-                const paymentMap = {
-                    [PIX_PAYMENT]: this.handleProcessPIX,
-                    [CREDIT_CARD_PAYMENT]: this.handleProcessCreditCard,
-                    [ERROR_KEY]: async () => postErrorResponse('Houve uma falha no envio de seu pedido')
-                };
-                const execPayment = paymentMap?.[this.selectedPayment ?? ERROR_KEY];
-                const response = await execPayment?.();
+                this.hasPendingPayment = !setPageLoader(true);
+                const response = await this.handlePostPayment(this.selectedPayment);
                 if (!response.succeeded) {
                     this.hasPendingPayment = !setPageLoader(false);
-                    alert('Pagamento falhou');
-                    return;
+                    return alert(response.message);
                 }
-                localStorage.removeItem(STORAGE_KEY_NAME);
-                const redirectURL = this.isCreditCard
-                    ? 'confirmacao-do-pedido'
-                    : 'pix';
+                const redirectURL = {
+                    'pix': 'pix',
+                    'creditcard': 'confirmacao-do-pedido',
+                }[this.selectedPayment];
                 location.href = buildURL(['/pagamento', redirectURL].join(SLASH_STRING), {
-                    order: response.data.transactionid
+                    order: response.data.transactionid,
                 });
+                localStorage.removeItem(STORAGE_KEY_NAME);
             },
-            async handleProcessPIX() {
+            async handlePostPayment(paymentType) {
                 const defaultErrorMessage = 'Falha ao gerar o pedido';
                 try {
-                    const response = await fetch(`${PAYMENT_BASE_URL}/process_pix`, {
+                    const response = await fetch(`${PAYMENT_BASE_URL}/payment/process/${paymentType}`, {
                         ...POST_REQUEST,
                         credentials: 'include',
                         body: stringify({
@@ -612,6 +612,7 @@
                                 ...this.getParsedCustomer,
                                 ...this.getParsedAddresses,
                             },
+                            ...(paymentType === CREDIT_CARD_PAYMENT && this.creditCardAdditionalInfo),
                         })
                     });
                     if (!response.ok) {
@@ -625,41 +626,76 @@
                     return postErrorResponse(defaultErrorMessage);
                 }
             },
-            async handleProcessCreditCard() {
-                const defaultErrorMessage = 'Falha ao gerar o pedido';
-                try {
-                    const selectedInstallment = this.selectedInstallment;
-                    const response = await fetch(`${PAYMENT_BASE_URL}/process_creditcard`, {
-                        ...POST_REQUEST,
-                        credentials: 'include',
-                        body: stringify({
-                            ...this.getOrderBaseData,
-                            customer: {
-                                ...this.getParsedCustomer,
-                                ...this.getParsedAddresses,
-                            },
-                            is_same_address: this.isSameAddress,
-                            credit_card_info: {
-                                holderName: this.customerCreditCardHolder,
-                                creditCardToken: this.getCreditCardToken.encryptedCard ?? EMPTY_STRING,
-                                numberOfPayments: selectedInstallment,
-                                installmentValue: this.installment
-                                    ?.find(({ installments }) => installments === selectedInstallment)
-                                    ?.installment_value ?? 0
-                            }
-                        })
-                    });
-                    if (!response.ok) {
-                        const error = await response.json();
-                        return postErrorResponse(error?.message ?? defaultErrorMessage);
-                    }
-                    const data = await response.json();
-                    return postSuccessResponse(data);
+            /*async handleProcessPIX (): Promise<ResponsePattern<PIXOrderResponse>> {
+              const defaultErrorMessage = 'Falha ao gerar o pedido'
+      
+              try {
+                const response = await fetch(`${PAYMENT_BASE_URL}/process_pix`, {
+                  ...POST_REQUEST,
+                  credentials: 'include',
+                  body: stringify<PostOrder>({
+                    ...this.getOrderBaseData,
+                    customer: {
+                      ...this.getParsedCustomer,
+                      ...this.getParsedAddresses,
+                    },
+                  })
+                })
+      
+                if (!response.ok) {
+                  const error = await response.json()
+      
+                  return postErrorResponse(error?.message ?? defaultErrorMessage)
                 }
-                catch (e) {
-                    return postErrorResponse(defaultErrorMessage);
-                }
+      
+                const data = await response.json()
+      
+                return postSuccessResponse(data)
+              } catch (e) {
+                return postErrorResponse(defaultErrorMessage)
+              }
             },
+      
+            async handleProcessCreditCard (): Promise<ResponsePattern<CreditCardOrderResponse>> {
+              const defaultErrorMessage = 'Falha ao gerar o pedido'
+      
+              try {
+                const selectedInstallment = this.selectedInstallment as number
+      
+                const response = await fetch(`${PAYMENT_BASE_URL}/process_creditcard`, {
+                  ...POST_REQUEST,
+                  credentials: 'include',
+                  body: stringify<CreditCardPostOrder>({
+                    ...this.getOrderBaseData,
+                    customer: {
+                      ...this.getParsedCustomer,
+                      ...this.getParsedAddresses,
+                    },
+                    is_same_address: this.isSameAddress,
+                    credit_card_info: {
+                      holderName: this.customerCreditCardHolder,
+                      creditCardToken: this.getCreditCardToken.encryptedCard ?? EMPTY_STRING,
+                      numberOfPayments: selectedInstallment,
+                      installmentValue: this.installment
+                        ?.find(({ installments }) => installments === selectedInstallment)
+                        ?.installment_value ?? 0
+                    }
+                  })
+                })
+      
+                if (!response.ok) {
+                  const error = await response.json()
+      
+                  return postErrorResponse(error?.message ?? defaultErrorMessage)
+                }
+      
+                const data = await response.json()
+      
+                return postSuccessResponse(data)
+              } catch (e) {
+                return postErrorResponse(defaultErrorMessage)
+              }
+            },*/
             triggerValidations() {
                 const notIgnoredFields = this.notIgnoredFields;
                 for (const { field } of notIgnoredFields) {
@@ -825,6 +861,18 @@
                     return;
                 this.deliveryHour = _hour;
             },
+            async handleDeliveryQuotation(controller) {
+                this.isDeliveryLoading = true;
+                const response = await this.captureDeliveryQuotation(controller);
+                if (!response.succeeded)
+                    return;
+                const { total: value, validator, } = response.data;
+                this.deliveryPrice = {
+                    value,
+                    validator,
+                };
+                this.isDeliveryLoading = false;
+            },
             async captureDeliveryQuotation(controller) {
                 const defaultErrorMessage = 'Falha ao gerar uma cotação';
                 try {
@@ -889,15 +937,14 @@
                 return BRLFormatter.format(this.getOrderSubtotal);
             },
             getOrderPrice() {
-                return [
+                const finalPrice = [
                     this.getOrderSubtotal,
                     this.getShippingPrice,
                     this.priorityFee,
                     this.subsidyDiscountPrice,
                     this.getCouponDiscountPrice,
-                ].reduce((finalPrice, price) => {
-                    return finalPrice + price;
-                }, 0);
+                ].reduce((accPrice, price) => accPrice + price, 0);
+                return decimalRound(finalPrice, 2);
             },
             getOrderPriceFormatted() {
                 return BRLFormatter.format(this.getOrderPrice);
@@ -917,15 +964,12 @@
             getCouponDiscountPrice() {
                 if (this.hasNullCoupon || this.hasInvalidCoupon)
                     return 0;
-                const { value, cupom_type, is_percentage, } = this.coupon;
+                const { value, is_percentage, } = this.coupon;
                 const selectedPrice = this.getParsedPriceForApplyDiscount;
                 let discountPrice = is_percentage
                     ? Math.min(value / 100, 1) * (selectedPrice * -1)
                     : Math.min(selectedPrice, value) * -1;
-                if (this.hasSubsidy && cupom_type === SHIPPING_NAME_TOKEN) {
-                    return Math.max(this.getShippingPrice + this.subsidyDiscountPrice, 0);
-                }
-                return discountPrice;
+                return Math.round(Math.abs(discountPrice) * 100) / 100 * Math.sign(discountPrice);
             },
             getCouponDiscountPriceFormatted() {
                 return BRLFormatter.format(this.getCouponDiscountPrice);
@@ -934,10 +978,14 @@
                 if (this.hasNullCoupon || this.hasInvalidCoupon)
                     return 0;
                 const { cupom_type } = this.coupon;
+                const { getShippingPrice } = this;
+                if (cupom_type === SHIPPING_NAME_TOKEN && this.hasSubsidy) {
+                    return Math.max(getShippingPrice + this.subsidyDiscountPrice, 0);
+                }
                 return {
-                    subtotal: this.getOrderSubtotal,
-                    shipping: this.getShippingPrice,
                     product_id: 0,
+                    shipping: getShippingPrice,
+                    subtotal: this.getOrderSubtotal,
                 }[cupom_type];
             },
             getParsedProducts() {
@@ -1314,6 +1362,20 @@
             hasFreeShippingByCartPrice() {
                 return this.getOrderSubtotal >= FREE_SHIPPING_MIN_CART_PRICE;
             },
+            creditCardAdditionalInfo() {
+                const { installment, isSameAddress, getCreditCardToken, selectedInstallment, customerCreditCardHolder, } = this;
+                return {
+                    is_same_address: isSameAddress,
+                    credit_card_info: {
+                        holderName: customerCreditCardHolder,
+                        creditCardToken: getCreditCardToken.encryptedCard ?? EMPTY_STRING,
+                        numberOfPayments: selectedInstallment,
+                        installmentValue: installment
+                            ?.find(({ installments }) => installments === selectedInstallment)
+                            ?.installment_value ?? 0
+                    }
+                };
+            },
         },
         watch: {
             billingCEP(cep, oldCep) {
@@ -1350,31 +1412,11 @@
                     return;
                 const controller = getAbortController();
                 if (!oldPayload) {
-                    this.isDeliveryLoading = true;
-                    this.captureDeliveryQuotation(controller).then(response => {
-                        if (!response.succeeded)
-                            return;
-                        const { total: value, validator, } = response.data;
-                        this.deliveryPrice = {
-                            value,
-                            validator,
-                        };
-                        this.isDeliveryLoading = false;
-                    });
+                    this.handleDeliveryQuotation(controller);
                     return cleanup(() => controller.abort());
                 }
-                const { cep: oldCep, } = oldPayload;
-                this.isDeliveryLoading = true;
-                this.captureDeliveryQuotation(controller).then(response => {
-                    if (!response.succeeded)
-                        return;
-                    const { total: value, validator, } = response.data;
-                    this.deliveryPrice = {
-                        value,
-                        validator,
-                    };
-                    this.isDeliveryLoading = false;
-                });
+                const { cep: oldCep, delivery_date: oldDeliveryDate, delivery_hour: oldDeliveryHour, } = oldPayload;
+                this.handleDeliveryQuotation(controller);
                 return cleanup(() => controller.abort());
             },
             getParsedAddresses(currentAddresses, oldAddresses) {

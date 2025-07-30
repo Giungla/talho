@@ -23,16 +23,24 @@ import {
   ParsedProductList,
   PostOrder,
   PostOrderCustomer,
-  ResponsePattern, TalhoCheckoutAppComputedDefinition,
-  TalhoCheckoutAppData, TalhoCheckoutAppMethods,
-  TalhoCheckoutAppSetup, TalhoCheckoutAppWatch,
+  ResponsePattern,
+  TalhoCheckoutAppComputedDefinition,
+  TalhoCheckoutAppData,
+  TalhoCheckoutAppMethods,
+  TalhoCheckoutAppSetup,
+  TalhoCheckoutAppWatch,
   TalhoCheckoutContext,
   VIACEPFromXano,
-  OnCleanup, SubsidyResponse, PostOrderDelivery, PostOrderDeliveryGroup,
+  OnCleanup,
+  SubsidyResponse,
+  PostOrderDelivery,
+  PostOrderDeliveryGroup,
+  CreditCardPostAdditional,
+  ISinglePaymentType, PaymentResponseMap,
 } from '../global'
 
 // @ts-expect-error
-import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
+import type { DirectiveBinding, Ref, ObjectDirective, ShallowRef } from 'vue'
 import {
   PIXOrderResponse,
   CreditCardOrderResponse,
@@ -152,6 +160,12 @@ import {
     if (!element) return false
 
     return element.classList.toggle(className, force)
+  }
+
+  function decimalRound (value: number, decimalCount = 0): number {
+    const factor = Math.pow(10, decimalCount)
+
+    return Math.round(value * factor) / factor
   }
 
   function buildURL (path: string, query: Record<string, string>): string {
@@ -736,6 +750,8 @@ import {
       },
 
       async refreshCart (): Promise<void> {
+        if (this.hasPendingPayment) return
+
         return this.getCart().then(cartData => {
           if (!cartData.succeeded) return
 
@@ -856,38 +872,60 @@ import {
           return
         }
 
-        this.hasPendingPayment = setPageLoader(true)
+        this.hasPendingPayment = !setPageLoader(true)
 
-        const paymentMap = {
-          [PIX_PAYMENT]: this.handleProcessPIX,
-          [CREDIT_CARD_PAYMENT]: this.handleProcessCreditCard,
-          [ERROR_KEY]: async () => postErrorResponse('Houve uma falha no envio de seu pedido')
-        }
-
-        const execPayment = paymentMap?.[this.selectedPayment ?? ERROR_KEY]
-
-        const response = await execPayment?.()
+        const response = await this.handlePostPayment(this.selectedPayment as 'pix')
 
         if (!response.succeeded) {
           this.hasPendingPayment = !setPageLoader(false)
 
-          alert('Pagamento falhou')
-
-          return
+          return alert(response.message)
         }
 
-        localStorage.removeItem(STORAGE_KEY_NAME)
-
-        const redirectURL = this.isCreditCard
-          ? 'confirmacao-do-pedido'
-          : 'pix'
+        const redirectURL = {
+          'pix': 'pix',
+          'creditcard': 'confirmacao-do-pedido',
+        }[this.selectedPayment as ISinglePaymentKey]
 
         location.href = buildURL(['/pagamento', redirectURL].join(SLASH_STRING), {
-          order: response.data.transactionid
+          order: response.data.transactionid,
         })
+
+        localStorage.removeItem(STORAGE_KEY_NAME)
       },
 
-      async handleProcessPIX (): Promise<ResponsePattern<PIXOrderResponse>> {
+      async handlePostPayment <T extends ISinglePaymentKey> (paymentType: T): Promise<PaymentResponseMap[T]> {
+        const defaultErrorMessage = 'Falha ao gerar o pedido'
+
+        try {
+          const response = await fetch(`${PAYMENT_BASE_URL}/payment/process/${paymentType}`, {
+            ...POST_REQUEST,
+            credentials: 'include',
+            body: stringify({
+              ...this.getOrderBaseData,
+              customer: {
+                ...this.getParsedCustomer,
+                ...this.getParsedAddresses,
+              },
+              ...(paymentType === CREDIT_CARD_PAYMENT && this.creditCardAdditionalInfo),
+            })
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+
+            return postErrorResponse(error?.message ?? defaultErrorMessage)
+          }
+
+          const data = await response.json()
+
+          return postSuccessResponse(data)
+        } catch (e) {
+          return postErrorResponse(defaultErrorMessage)
+        }
+      },
+
+      /*async handleProcessPIX (): Promise<ResponsePattern<PIXOrderResponse>> {
         const defaultErrorMessage = 'Falha ao gerar o pedido'
 
         try {
@@ -956,7 +994,7 @@ import {
         } catch (e) {
           return postErrorResponse(defaultErrorMessage)
         }
-      },
+      },*/
 
       triggerValidations (): void {
         const notIgnoredFields: ISingleValidateCheckout<Nullable<HTMLElement>>[] = this.notIgnoredFields
@@ -1173,6 +1211,26 @@ import {
         this.deliveryHour = _hour
       },
 
+      async handleDeliveryQuotation (controller: AbortController): Promise<void> {
+        this.isDeliveryLoading = true
+
+        const response = await this.captureDeliveryQuotation(controller)
+
+        if (!response.succeeded) return
+
+        const {
+          total: value,
+          validator,
+        } = response.data
+
+        this.deliveryPrice = {
+          value,
+          validator,
+        } satisfies Omit<PostOrderDeliveryGroup, 'has_priority'>
+
+        this.isDeliveryLoading = false
+      },
+
       async captureDeliveryQuotation (controller: AbortController): Promise<ResponsePattern<CheckoutDeliveryPriceResponse>> {
         const defaultErrorMessage = 'Falha ao gerar uma cotação'
 
@@ -1254,15 +1312,15 @@ import {
       },
 
       getOrderPrice (): number {
-        return [
+        const finalPrice = [
           this.getOrderSubtotal,
           this.getShippingPrice,
           this.priorityFee,
           this.subsidyDiscountPrice,
           this.getCouponDiscountPrice,
-        ].reduce((finalPrice, price) => {
-          return finalPrice + price
-        }, 0)
+        ].reduce((accPrice, price) => accPrice + price, 0)
+
+        return decimalRound(finalPrice, 2)
       },
 
       getOrderPriceFormatted (): string {
@@ -1288,7 +1346,6 @@ import {
 
         const {
           value,
-          cupom_type,
           is_percentage,
         } = this.coupon as ISingleOrderCoupon
 
@@ -1298,11 +1355,7 @@ import {
           ? Math.min(value / 100, 1) * (selectedPrice * -1)
           : Math.min(selectedPrice, value) * -1
 
-        if (this.hasSubsidy && cupom_type === SHIPPING_NAME_TOKEN) {
-          return Math.max(this.getShippingPrice + this.subsidyDiscountPrice, 0)
-        }
-
-        return discountPrice
+        return Math.round(Math.abs(discountPrice) * 100) / 100 * Math.sign(discountPrice)
       },
 
       getCouponDiscountPriceFormatted (): string {
@@ -1312,12 +1365,18 @@ import {
       getParsedPriceForApplyDiscount (): number {
         if (this.hasNullCoupon || this.hasInvalidCoupon) return 0
 
-        const { cupom_type } = (this.coupon as ISingleOrderCoupon)
+        const { cupom_type } = this.coupon as ISingleOrderCoupon
+
+        const { getShippingPrice } = this
+
+        if (cupom_type === SHIPPING_NAME_TOKEN && this.hasSubsidy) {
+          return Math.max(getShippingPrice + this.subsidyDiscountPrice, 0)
+        }
 
         return {
-          subtotal: this.getOrderSubtotal,
-          shipping: this.getShippingPrice,
           product_id: 0,
+          shipping: getShippingPrice,
+          subtotal: this.getOrderSubtotal,
         }[cupom_type]
       },
 
@@ -1882,6 +1941,28 @@ import {
       hasFreeShippingByCartPrice (): boolean {
         return this.getOrderSubtotal >= FREE_SHIPPING_MIN_CART_PRICE
       },
+
+      creditCardAdditionalInfo (): CreditCardPostAdditional {
+        const {
+          installment,
+          isSameAddress,
+          getCreditCardToken,
+          selectedInstallment,
+          customerCreditCardHolder,
+        } = this
+
+        return {
+          is_same_address: isSameAddress,
+          credit_card_info: {
+            holderName: customerCreditCardHolder,
+            creditCardToken: getCreditCardToken.encryptedCard ?? EMPTY_STRING,
+            numberOfPayments: selectedInstallment as number,
+            installmentValue: installment
+              ?.find(({ installments }) => installments === selectedInstallment)
+              ?.installment_value ?? 0
+          }
+        }
+      },
     },
 
     watch: {
@@ -1931,48 +2012,18 @@ import {
         const controller = getAbortController()
 
         if (!oldPayload) {
-          this.isDeliveryLoading = true
-
-          this.captureDeliveryQuotation(controller).then(response => {
-            if (!response.succeeded) return
-
-            const {
-              total: value,
-              validator,
-            } = response.data
-
-            this.deliveryPrice = {
-              value,
-              validator,
-            } satisfies Omit<PostOrderDeliveryGroup, 'has_priority'>
-
-            this.isDeliveryLoading = false
-          })
+          this.handleDeliveryQuotation(controller)
 
           return cleanup(() => controller.abort())
         }
 
         const {
           cep: oldCep,
+          delivery_date: oldDeliveryDate,
+          delivery_hour: oldDeliveryHour,
         } = oldPayload
 
-        this.isDeliveryLoading = true
-
-        this.captureDeliveryQuotation(controller).then(response => {
-          if (!response.succeeded) return
-
-          const {
-            total: value,
-            validator,
-          } = response.data
-
-          this.deliveryPrice = {
-            value,
-            validator,
-          } satisfies Omit<PostOrderDeliveryGroup, 'has_priority'>
-
-          this.isDeliveryLoading = false
-        })
+        this.handleDeliveryQuotation(controller)
 
         return cleanup(() => controller.abort())
       },

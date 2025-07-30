@@ -6,12 +6,12 @@ import {
   TalhoPixProcessWatch,
   TalhoPixProcessContext,
   TalhoPixProcessMethods,
-  TalhoPixOrderComputedDefinition,
+  TalhoPixOrderComputedDefinition, TalhoPixProcessSetup,
 } from '../types/pix-process'
 
 import type {
   FunctionErrorPattern,
-  FunctionSucceededPattern, ResponsePattern
+  FunctionSucceededPattern, Nullable, ResponsePattern
 } from '../global'
 
 (function () {
@@ -92,7 +92,13 @@ import type {
   const TalhoOrderPage = createApp({
     name: 'PIXProcessPage',
 
-    setup () {},
+    setup () {
+      const hasEventSource = Vue.shallowRef<Nullable<boolean>>(NULL_VALUE)
+
+      return {
+        hasEventSource
+      }
+    },
 
     data () {
       return {
@@ -104,6 +110,8 @@ import type {
     },
 
     async created (): Promise<void> {
+      this.hasEventSource = 'EventSource' in window
+
       const searchParams = new URLSearchParams(location.search)
 
       const transactionId = searchParams.get('order')
@@ -140,7 +148,7 @@ import type {
 
       this.nowInterval = setInterval(() => this.now = Date.now(), 1000)
 
-      if ('EventSource' in window) {
+      if (this.hasEventSource) {
         return this.pollOrder(transactionId)
       }
     },
@@ -260,7 +268,13 @@ import type {
 
     computed: {
       orderPrice (): string {
-        return BRLFormatter.format(this.order?.total ?? 0)
+        const { order } = this
+
+        return BRLFormatter.format(
+          order
+            ? (order.total / 100)
+            : 0
+        )
       },
 
       timmer (): string {
@@ -303,7 +317,7 @@ import type {
     },
   } satisfies {
     name: string;
-    setup: () => void;
+    setup: () => TalhoPixProcessSetup;
     created: () => Promise<void>;
     data: () => TalhoPixProcessData;
     methods: TalhoPixProcessMethods;

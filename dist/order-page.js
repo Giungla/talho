@@ -94,7 +94,7 @@
                 return this.order?.phone ?? FALLBACK_STRING;
             },
             shipping() {
-                const { number = FALLBACK_STRING, cep = FALLBACK_STRING, address = FALLBACK_STRING, state = FALLBACK_STRING, city = FALLBACK_STRING, complement = FALLBACK_STRING, neighborhood = FALLBACK_STRING, user_name = FALLBACK_STRING, } = this.order?.shipping_address ?? {};
+                const { number = FALLBACK_STRING, cep = FALLBACK_STRING, address = FALLBACK_STRING, state = FALLBACK_STRING, city = FALLBACK_STRING, complement = FALLBACK_STRING, neighborhood = FALLBACK_STRING, user_name = FALLBACK_STRING, } = this.order?.delivery.address ?? {};
                 return {
                     user_name,
                     cep,
@@ -122,30 +122,61 @@
                 return this.order?.discount_code !== NULL_VALUE;
             },
             getOrderSubtotalPriceFormatted() {
-                const price = this.order?.order_items.reduce((acc, { unit_amount, quantity }) => {
-                    return acc + unit_amount * quantity;
+                const price = this.order?.order_items.reduce((acc, { unit_price, quantity }) => {
+                    return acc + unit_price * quantity;
                 }, 0);
                 return BRLFormatter.format(price ? (price / 100) : 0);
             },
             getOrderPriceFormatted() {
-                return BRLFormatter.format(this.order?.total ?? 0);
+                const total = this.order?.total;
+                return BRLFormatter.format(typeof total === 'number'
+                    ? (total / 100)
+                    : 0);
+            },
+            getOrderShipping() {
+                const price = this.order?.delivery.quotation_price;
+                return typeof price === 'number'
+                    ? (price / 100)
+                    : 0;
             },
             getOrderShippingPriceFormatted() {
-                return BRLFormatter.format(this.order?.shipping_total ?? 0);
+                return BRLFormatter.format(this.getOrderShipping);
             },
             getOrderDiscountPriceFormatted() {
                 return BRLFormatter.format((this.order?.discount ?? 0) * -1);
             },
             getParsedProducts() {
                 const { order_items = [] } = this.order ?? {};
-                return order_items.map(({ title, slug, unit_amount, image, quantity, }) => ({
-                    title,
+                return order_items.map(({ name, product_id, unit_price, quantity }) => ({
                     quantity,
-                    key: slug,
-                    unit_amount: BRLFormatter.format(unit_amount / 100),
-                    final_price: BRLFormatter.format((unit_amount * quantity) / 100),
+                    title: name,
+                    key: product_id,
+                    unit_amount: BRLFormatter.format(unit_price / 100),
+                    final_price: BRLFormatter.format((unit_price * quantity) / 100),
                 }));
-            }
+            },
+            hasPriority() {
+                return this.order?.delivery.has_priority ?? false;
+            },
+            getPriorityFee() {
+                return this.hasPriority
+                    ? (this.order?.delivery.priority_price / 100)
+                    : 0;
+            },
+            getPriorityFeePriceFormatted() {
+                return BRLFormatter.format(this.getPriorityFee);
+            },
+            hasSubsidy() {
+                return this.order?.delivery.has_subsidy ?? false;
+            },
+            getDeliverySubsidy() {
+                if (!this.hasSubsidy)
+                    return 0;
+                return -1 * Math.min(this.getOrderShipping, this.order?.delivery.subsidy_price / 100);
+            },
+            getDeliverySubsidyPriceFormatted() {
+                return BRLFormatter.format(this.getDeliverySubsidy);
+            },
         },
     });
     TalhoOrderPage.mount(querySelector('#orderapp'));

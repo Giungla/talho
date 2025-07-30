@@ -54,7 +54,12 @@
     }
     const TalhoOrderPage = createApp({
         name: 'PIXProcessPage',
-        setup() { },
+        setup() {
+            const hasEventSource = Vue.shallowRef(NULL_VALUE);
+            return {
+                hasEventSource
+            };
+        },
         data() {
             return {
                 now: Date.now(),
@@ -64,6 +69,7 @@
             };
         },
         async created() {
+            this.hasEventSource = 'EventSource' in window;
             const searchParams = new URLSearchParams(location.search);
             const transactionId = searchParams.get('order');
             if (!transactionId) {
@@ -88,7 +94,7 @@
             if (response.data.expired)
                 return;
             this.nowInterval = setInterval(() => this.now = Date.now(), 1000);
-            if ('EventSource' in window) {
+            if (this.hasEventSource) {
                 return this.pollOrder(transactionId);
             }
         },
@@ -181,7 +187,10 @@
         },
         computed: {
             orderPrice() {
-                return BRLFormatter.format(this.order?.total ?? 0);
+                const { order } = this;
+                return BRLFormatter.format(order
+                    ? (order.total / 100)
+                    : 0);
             },
             timmer() {
                 if (!this.order || this.isExpired)
