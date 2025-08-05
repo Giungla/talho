@@ -5,24 +5,17 @@ import {
 } from "../global";
 
 import {
+  XANO_BASE_URL,
+  AUTH_COOKIE_NAME,
   setCookie,
-  getCookie,
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
+  isAuthenticated,
 } from '../utils'
 
 (function () {
-  'use strict';
-
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
   const USER_DATA_PATH = '/area-do-usuario/pedidos-de-compra'
-
-  function isAuthenticated (): boolean {
-    const hasAuth = getCookie(COOKIE_NAME)
-
-    return !!hasAuth
-  }
 
   if (isAuthenticated()) {
     location.href = USER_DATA_PATH
@@ -37,7 +30,7 @@ import {
       return postErrorResponse(defaultErrorMessage)
     }
 
-    const url = new URL('https://xef5-44zo-gegm.b2.xano.io/api:h_RKfex8/oauth/google/continue')
+    const url = new URL(`${XANO_BASE_URL}/api:h_RKfex8/oauth/google/continue`)
 
     url.searchParams.set('code', code)
     url.searchParams.set('redirect_uri', location.origin.concat(location.pathname))
@@ -84,7 +77,7 @@ import {
       return console.warn('[Social Login] %s', result.message)
     }
 
-    setCookie(COOKIE_NAME, result.data.token, {
+    setCookie(AUTH_COOKIE_NAME, result.data.token, {
       path: '/',
       secure: true,
       sameSite: 'Strict',

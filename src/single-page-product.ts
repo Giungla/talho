@@ -26,6 +26,7 @@ import {
   NULL_VALUE,
   BRLFormatter,
   GENERAL_HIDDEN_CLASS,
+  STORAGE_KEY_NAME,
   attachEvent,
   clamp,
   stringify,
@@ -37,11 +38,10 @@ import {
   changeTextContent,
   toggleClass,
   removeClass,
-  removeAttribute,
+  removeAttribute, objectSize, isNull,
 } from '../utils'
 
 const SELECTED_CLASS = 'selecionado'
-const STORAGE_KEY_NAME = 'talho_cart_items'
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
 const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
@@ -129,7 +129,7 @@ const state = new Proxy<SingleProductPageState>(_state, {
           } satisfies ComputedFinalPrices
         }
       case 'hasSelectedVariation':
-        return target.selectedVariation !== NULL_VALUE
+        return !isNull(target.selectedVariation)
       default:
         return Reflect.get(target, key)
     }
@@ -194,10 +194,6 @@ const quotationErrorMessage = querySelector('[data-wtf-error-message-shipping]')
 
 function replaceText (value: string, search: string | RegExp, replacer: string): string {
   return value.replace(search, replacer)
-}
-
-function objectSize <T extends string | any[]> (value: T): number {
-  return value.length
 }
 
 function buildPriceResponse <T = number> (
@@ -536,7 +532,7 @@ getProduct(slug[objectSize(slug) - 1])
 
     const delivery = response.data.delivery
 
-    if (delivery !== NULL_VALUE) {
+    if (!isNull(delivery)) {
       startShippingForm()
 
       drawQuotation(delivery as QuotationPayload)
