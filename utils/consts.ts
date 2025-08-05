@@ -3,6 +3,8 @@ import type {
   IStateAcronym
 } from '../global'
 
+export const STORAGE_KEY_NAME = 'talho_cart_items'
+
 export const statesMap = {
   'AC': 'Acre',
   'AL': 'Alagoas',

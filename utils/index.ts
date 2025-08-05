@@ -33,6 +33,7 @@ export {
   SCROLL_INTO_VIEW_DEFAULT_ARGS,
   splitText,
   isArray,
+  hasClass,
   addClass,
   removeClass,
   toggleClass,
@@ -64,4 +65,5 @@ export {
   statesMap,
   statesValues,
   statesAcronym,
+  STORAGE_KEY_NAME,
 } from './consts'

@@ -1,35 +1,39 @@
 
 import {
   CartOperation,
-  CartResponse, CartResponseItem, CreateCartProduct,
+  CartResponse,
+  CartResponseItem,
+  CreateCartProduct,
   FloatingCartState,
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
-  GroupFloatingCartState, HttpMethod, ICookieOptions, ISplitCookieObject,
-  ResponsePattern, TypeMap, TypeofResult
+  GroupFloatingCartState,
+  ResponsePattern,
+  TypeMap,
+  TypeofResult,
 } from '../global';
 
 import {
+  NULL_VALUE,
   BRLFormatter,
+  XANO_BASE_URL,
+  STORAGE_KEY_NAME,
+  GENERAL_HIDDEN_CLASS,
+  safeParseJson,
+  querySelector,
+  attachEvent,
+  toggleClass,
+  objectSize,
+  hasClass,
   postErrorResponse,
+  changeTextContent,
   postSuccessResponse,
-  buildRequestOptions,
+  buildRequestOptions, stringify,
 } from '../utils'
 
-const COOKIE_SEPARATOR = '; '
-const GENERAL_HIDDEN_CLASS = 'oculto'
-const STORAGE_KEY_NAME = 'talho_cart_items'
-const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
-const DISABLED_ATTR = 'disabled'
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
 const FREE_SHIPPING_MINIMUM_PRICE = 400
 
-const REQUEST_CONTROLLERS: AbortController[] = []
-
-const NULL_VALUE = null
-
-const CART_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:79PnTkh_'
+const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 
 const _state: FloatingCartState = {
   cart: NULL_VALUE,
@@ -106,95 +110,6 @@ function isArray <T extends any> (value: any): value is T[] {
   return Array.isArray(value)
 }
 
-function safeParseJson <T = unknown> (value: string | null | undefined): T | null {
-  if (typeof value !== 'string') return NULL_VALUE
-
-  try {
-    return JSON.parse(value) as T
-  } catch {
-    return NULL_VALUE
-  }
-}
-
-function querySelector<
-  K extends keyof HTMLElementTagNameMap,
-  T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
->(
-  selector: K | string,
-  node: HTMLElement | Document | null = document
-): T {
-  if (!node) return NULL_VALUE as T
-
-  return node.querySelector(selector as string) as T;
-}
-
-function attachEvent <
-  T extends HTMLElement | Document,
-  K extends T extends HTMLElement
-    ? keyof HTMLElementEventMap
-    : keyof DocumentEventMap
-> (
-  node: T | null,
-  eventName: K,
-  callback: (event: T extends HTMLElement
-    ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-    : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-  ) => void,
-  options?: boolean | AddEventListenerOptions
-): VoidFunction | void {
-  if (!node) return
-
-  node.addEventListener(eventName, callback as EventListener, options)
-
-  return () => node.removeEventListener(eventName, callback as EventListener, options)
-}
-
-function addAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string, value: string) {
-  if (!element) return
-
-  element.setAttribute(qualifiedName, value)
-}
-
-function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string) {
-  if (!element) return
-
-  element.removeAttribute(qualifiedName)
-}
-
-function changeTextContent (element: ReturnType<typeof querySelector>, textContent: string) {
-  if (!element) return
-
-  element.textContent = textContent
-}
-
-function hasClass (element: ReturnType<typeof querySelector>, className: string): boolean {
-  if (!element) return false
-
-  return element.classList.contains(className)
-}
-
-function addClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-  if (!element) return
-
-  element.classList.add(...className)
-}
-
-function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-  if (!element) return
-
-  element.classList.remove(...className)
-}
-
-function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-  if (!element) return false
-
-  return element.classList.toggle(className, force)
-}
-
-function objectSize (value: string | Array<any>): number {
-  return value.length
-}
-
 function hasValidCart (cart: object): cart is CartResponse {
   if (!hasOwn(cart, 'order_price', 'number') || !hasOwn(cart, 'items')) return false
 
@@ -250,12 +165,12 @@ async function getCartProducts (): Promise<ResponsePattern<CartResponse>> {
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse(error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
     }
 
     const data: CartResponse = await response.json()
 
-    return postSuccessResponse(data)
+    return postSuccessResponse.call(response.headers, data)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -267,7 +182,7 @@ async function updateCartProducts (item: CreateCartProduct, operation: CartOpera
   try {
     const response = await fetch(`${CART_BASE_URL}/cart/handle`, {
       ...buildRequestOptions([], 'POST'),
-      body: JSON.stringify({
+      body: stringify({
         item,
         operation,
       })
@@ -276,12 +191,12 @@ async function updateCartProducts (item: CreateCartProduct, operation: CartOpera
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse(error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
     }
 
     const data: CartResponse = await response.json()
 
-    return postSuccessResponse(data)
+    return postSuccessResponse.call(response.headers, data)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -349,7 +264,7 @@ function renderCart () {
     ]
 
     for (const [ operation, elementTrigger ] of productEventMap) {
-      attachEvent(querySelector(`[${elementTrigger}]`, template), 'click', (e) => execCartAction.call(e, operation, changeCartPayload))
+      attachEvent(querySelector(`[${elementTrigger}]`, template), 'click', (e: MouseEvent) => execCartAction.call(e, operation, changeCartPayload))
     }
 
     cartFragment.appendChild(template)

@@ -80,6 +80,12 @@ export function getAttribute (element: ReturnType<typeof querySelector>, qualifi
   return element.getAttribute(qualifiedName)
 }
 
+export function hasClass (element: ReturnType<typeof querySelector>, className: string): boolean {
+  if (!element) return false
+
+  return element.classList.contains(className)
+}
+
 export function addClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
   if (!element) return
 
