@@ -24,6 +24,7 @@ import {
   postSuccessResponse,
   buildRequestOptions,
   EMAIL_REGEX_VALIDATION,
+  stringify,
 } from '../utils'
 
 (function () {
@@ -45,7 +46,7 @@ import {
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:t3reRXiD/auth/login`, {
         ...buildRequestOptions([], 'POST'),
-        body: JSON.stringify(credentials)
+        body: stringify<ILoginUser>(credentials)
       })
 
       if (!response.ok) {
