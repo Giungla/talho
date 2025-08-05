@@ -7,23 +7,19 @@ import type {
 import {
   AUTH_COOKIE_NAME,
   GENERAL_HIDDEN_CLASS,
-  getCookie,
   setCookie,
   postErrorResponse,
   postSuccessResponse,
   querySelector,
   removeClass,
-  changeTextContent, buildRequestOptions,
+  changeTextContent,
+  buildRequestOptions,
+  isAuthenticated,
+  stringify,
 } from '../utils'
 
 (function () {
   const USER_DATA_PATH = '/area-do-usuario/pedidos-de-compra'
-
-  function isAuthenticated (): boolean {
-    const hasAuth = getCookie(AUTH_COOKIE_NAME)
-
-    return !!hasAuth
-  }
 
   if (isAuthenticated()) {
     location.href = USER_DATA_PATH
@@ -37,7 +33,7 @@ import {
     try {
       const response = await fetch(`https://xef5-44zo-gegm.b2.xano.io/api:uImEuFxO/auth/magic-login`, {
         ...buildRequestOptions([], 'POST'),
-        body: JSON.stringify({
+        body: stringify({
           magic_token
         })
       })
