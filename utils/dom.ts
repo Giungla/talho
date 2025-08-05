@@ -19,7 +19,9 @@ export const SCROLL_INTO_VIEW_DEFAULT_ARGS: ScrollIntoViewOptions = {
   behavior: 'smooth'
 }
 
-export function isArray <T> (value: any): value is T[] {
+export function isArray(value: unknown): value is unknown[];
+export function isArray<T>(value: T[] | unknown): value is T[];
+export function isArray(value: unknown): value is unknown[] {
   return Array.isArray(value)
 }
 
@@ -104,8 +106,8 @@ export function toggleClass (element: ReturnType<typeof querySelector>, classNam
   return element.classList.toggle(className, force)
 }
 
-export function isPageLoading (status: boolean) {
-  toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
+export function isPageLoading (status: boolean): boolean {
+  return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
 }
 
 export function changeTextContent (element: ReturnType<typeof querySelector>, textContent: string | number | boolean) {
@@ -178,4 +180,8 @@ export function splitText (value: string, separator: string | RegExp, limit?: nu
 
 export function shouldAuthenticate () {
   location.href = `/acessos/entrar?redirect_to=${encodeURIComponent(location.pathname)}`
+}
+
+export function isNull <T> (v: any): v is null {
+  return v === NULL_VALUE
 }

@@ -5,7 +5,7 @@ import {
   CartResponseItem,
   CreateCartProduct,
   FloatingCartState,
-  GroupFloatingCartState,
+  GroupFloatingCartState, Nullable,
   ResponsePattern,
   TypeMap,
   TypeofResult,
@@ -17,12 +17,14 @@ import {
   XANO_BASE_URL,
   STORAGE_KEY_NAME,
   GENERAL_HIDDEN_CLASS,
+  FREE_SHIPPING_MIN_CART_PRICE,
   safeParseJson,
   querySelector,
   attachEvent,
   toggleClass,
   objectSize,
   hasClass,
+  isArray,
   postErrorResponse,
   changeTextContent,
   postSuccessResponse,
@@ -30,8 +32,6 @@ import {
 } from '../utils'
 
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
-
-const FREE_SHIPPING_MINIMUM_PRICE = 400
 
 const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 
@@ -50,9 +50,9 @@ const state = new Proxy(_state, {
     switch (key) {
       case 'hasFreeShipping':
         //TODO: Improve
-        return (target.cart?.order_price ?? 0) > FREE_SHIPPING_MINIMUM_PRICE
+        return (target.cart?.order_price ?? 0) > FREE_SHIPPING_MIN_CART_PRICE
       case 'missingForFreeShipping':
-        return Math.max(0, FREE_SHIPPING_MINIMUM_PRICE - (target.cart?.order_price ?? 0))
+        return Math.max(0, FREE_SHIPPING_MIN_CART_PRICE - (target.cart?.order_price ?? 0))
       case 'getOrderPrice':
         return BRLFormatter.format(target.cart?.order_price ?? 0)
       default:
@@ -106,9 +106,9 @@ function hasOwn <
   return Object.prototype.hasOwnProperty.call(o, v) && (!type || typeof (o as any)[v] === type)
 }
 
-function isArray <T extends any> (value: any): value is T[] {
-  return Array.isArray(value)
-}
+// function isArray <T extends any> (value: any): value is T[] {
+//   return Array.isArray(value)
+// }
 
 function hasValidCart (cart: object): cart is CartResponse {
   if (!hasOwn(cart, 'order_price', 'number') || !hasOwn(cart, 'items')) return false
@@ -222,12 +222,14 @@ async function handleProductChangeQuantity (operation: Exclude<CartOperation, 'a
 function renderCart () {
   changeTextContent(cartTotalElement, state.getOrderPrice)
 
-  if (!isArray<CartResponseItem>(state.cart?.items) || !cartItemTemplate || !cartItemsWrapper) return
+  const items = state.cart?.items
 
-  toggleClass(querySelector('[data-wtf-floating-cart-total-block]'), GENERAL_HIDDEN_CLASS, objectSize(state.cart?.items) === 0)
-  toggleClass(querySelector('[data-wtf-floating-cart-checkout-button]', cart), GENERAL_HIDDEN_CLASS, objectSize(state.cart?.items) === 0)
+  if (!isArray<CartResponseItem>(items) || !cartItemTemplate || !cartItemsWrapper) return
 
-  if (!toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, objectSize(state.cart?.items) > 0)) {
+  toggleClass(querySelector('[data-wtf-floating-cart-total-block]'), GENERAL_HIDDEN_CLASS, objectSize(items) === 0)
+  toggleClass(querySelector('[data-wtf-floating-cart-checkout-button]', cart), GENERAL_HIDDEN_CLASS, objectSize(items) === 0)
+
+  if (!toggleClass(cartEmpty, GENERAL_HIDDEN_CLASS, objectSize(items) > 0)) {
     changeTextContent(querySelector('[data-wtf-floating-cart-items-indicator]'), '0')
 
     return cartItemsWrapper.replaceChildren()
@@ -237,7 +239,7 @@ function renderCart () {
 
   const cartFragment = document.createDocumentFragment()
 
-  for (const { slug, imageUrl, quantity, price, sku_id, name } of state.cart.items) {
+  for (const { slug, imageUrl, quantity, price, sku_id, name } of (items as CartResponseItem[])) {
     unitCount += quantity
 
     const template = cartItemTemplate.cloneNode(true) as HTMLElement

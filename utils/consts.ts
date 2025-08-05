@@ -5,6 +5,8 @@ import type {
 
 export const STORAGE_KEY_NAME = 'talho_cart_items'
 
+export const FREE_SHIPPING_MIN_CART_PRICE = 400
+
 export const statesMap = {
   'AC': 'Acre',
   'AL': 'Alagoas',

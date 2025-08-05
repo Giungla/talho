@@ -1,10 +1,8 @@
 
-import {
+import type {
   BRLString,
   CartResponse,
   ComputedDeliveryHours,
-  CreditCardPostOrder,
-  FunctionErrorPattern,
   FunctionSucceededPattern,
   GetCouponRequestBody,
   GetInstallmentsBody,
@@ -36,18 +34,19 @@ import {
   PostOrderDelivery,
   PostOrderDeliveryGroup,
   CreditCardPostAdditional,
-  ISinglePaymentType, PaymentResponseMap, HttpMethod, ISplitCookieObject, ICookieOptions,
+  PaymentResponseMap,
 } from '../global'
 
 // @ts-expect-error
-import type { DirectiveBinding, Ref, ObjectDirective, ShallowRef } from 'vue'
+import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
 import type {
-  PIXOrderResponse,
-  CreditCardOrderResponse,
   SearchAddressCheckout,
   CheckoutDeliveryRequestBody,
   CheckoutDeliveryPriceResponse,
-  CheckoutDeliveryOption, ComputedDeliveryDates, CheckoutDeliveryResponse, CheckoutDeliveryHour,
+  CheckoutDeliveryOption,
+  ComputedDeliveryDates,
+  CheckoutDeliveryResponse,
+  CheckoutDeliveryHour,
 } from '../types/checkout'
 
 const {
@@ -56,69 +55,44 @@ const {
 } = Vue
 
 import {
+  NULL_VALUE,
+  EMPTY_STRING,
+  XANO_BASE_URL,
+  FREE_SHIPPING_MIN_CART_PRICE,
+  BRLFormatter,
+  statesMap,
+  statesAcronym,
+  STORAGE_KEY_NAME,
+  buildURL,
+  isArray,
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  BRLFormatter,
+  isNull,
+  clamp,
+  isPageLoading,
+  stringify,
+  numberOnly,
+  decimalRound,
+  normalizeText,
+  objectSize,
+  attachEvent,
 } from '../utils'
 
-const EMPTY_STRING = ''
 const SLASH_STRING = '/'
-const NULL_VALUE = null
 const ERROR_KEY = 'error'
-const GENERAL_HIDDEN_CLASS = 'oculto'
 
 const SHIPPING_NAME_TOKEN = 'shipping'
 const BILLING_NAME_TOKEN = 'billing'
 
 const CEP_LENGTH = 8
 
-const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
-
 const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
-
 const PAYMENT_BASE_URL = `${XANO_BASE_URL}/api:5lp3Lw8X`
-
 const DELIVERY_BASE_URL = `${XANO_BASE_URL}/api:24B7O9Aj`
 
 const MIN_AVAILABLE_INSTALLMENT_COUNT = 1
 const MAX_AVAILABLE_INSTALLMENT_COUNT = 2
-
-const FREE_SHIPPING_MIN_CART_PRICE = 400
-
-const STORAGE_KEY_NAME = 'talho_cart_items'
-
-const statesMap = {
-  'AC': 'Acre',
-  'AL': 'Alagoas',
-  'AP': 'Amapá',
-  'AM': 'Amazonas',
-  'BA': 'Bahia',
-  'CE': 'Ceará',
-  'DF': 'Distrito Federal',
-  'ES': 'Espírito Santo',
-  'GO': 'Goiás',
-  'MA': 'Maranhão',
-  'MT': 'Mato Grosso',
-  'MS': 'Mato Grosso do Sul',
-  'MG': 'Minas Gerais',
-  'PA': 'Pará',
-  'PB': 'Paraíba',
-  'PR': 'Paraná',
-  'PE': 'Pernambuco',
-  'PI': 'Piauí',
-  'RJ': 'Rio de Janeiro',
-  'RN': 'Rio Grande do Norte',
-  'RS': 'Rio Grande do Sul',
-  'RO': 'Rondônia',
-  'RR': 'Roraima',
-  'SC': 'Santa Catarina',
-  'SP': 'São Paulo',
-  'SE': 'Sergipe',
-  'TO': 'Tocantins'
-}
-
-const statesAcronym = Object.keys(statesMap) as IStateAcronym[]
 
 const CPF_VERIFIERS_INDEXES = [10, 11]
 
@@ -141,62 +115,12 @@ function getAbortController () {
   return new AbortController()
 }
 
-function setPageLoader (status?: boolean): boolean {
-  return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
-}
-
-function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-  if (!element) return false
-
-  return element.classList.toggle(className, force)
-}
-
-function decimalRound (value: number, decimalCount = 0): number {
-  const factor = Math.pow(10, decimalCount)
-
-  return Math.round(value * factor) / factor
-}
-
-function buildURL (path: string, query: Record<string, string>): string {
-  const baseURL = new URL(`${location.protocol}//${location.hostname}`)
-
-  const nextPage = new URL(path, baseURL)
-
-  for (const [key, value] of Object.entries(query)) {
-    nextPage.searchParams.set(key, value)
-  }
-
-  return nextPage.toString()
-}
-
 function hasOwn (object: object, key: PropertyKey): boolean {
   return Object.hasOwn(object, key)
 }
 
-function clamp (min: number, max: number, value: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
-function stringify <T extends object> (value: T): string {
-  return JSON.stringify(value)
-}
-
-function normalizeText (text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, EMPTY_STRING)
-}
-
-function numberOnly (value: string): string {
-  return value.replace(/\D+/g, EMPTY_STRING)
-}
-
 function trimText (text: string): string {
   return text.trim()
-}
-
-function objectSize <T extends string | any[]> (value: T): number {
-  return value.length
 }
 
 function scrollIntoView (element: HTMLElement, args: boolean | ScrollIntoViewOptions) {
@@ -332,10 +256,6 @@ function toUpperCase (value: string): string {
   return value.toUpperCase()
 }
 
-function isArray (arg: any): boolean {
-  return Array.isArray(arg)
-}
-
 function pushIf <T extends any> (condition: any, list: T[], value: T) {
   if (!condition) return -1
 
@@ -356,7 +276,7 @@ function regexTest (regex: RegExp, value: string): boolean {
 function buildMaskDirective (...mappers: ((value: string) => string)[]) {
   return {
     mounted (el: HTMLInputElement) {
-      const remover = attachEvent(el, 'input', (event) => {
+      const remover = attachEvent(el, 'input', (event: InputEvent) => {
         if (!event.isTrusted) return
 
         const target = event.target as HTMLInputElement
@@ -417,39 +337,6 @@ function isCPFValid (cpf: string): boolean {
   })
 
   return cpf.endsWith(verifiers.join(EMPTY_STRING))
-}
-
-function querySelector<
-  K extends keyof HTMLElementTagNameMap,
-  T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
->(
-  selector: K | string,
-  node: HTMLElement | Document | null = document
-): T {
-  if (!node) return NULL_VALUE as T
-
-  return node.querySelector(selector as string) as T
-}
-
-function attachEvent <
-  T extends HTMLElement | Document,
-  K extends T extends HTMLElement
-    ? keyof HTMLElementEventMap
-    : keyof DocumentEventMap
-> (
-  node: T | null,
-  eventName: K,
-  callback: (event: T extends HTMLElement
-    ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-    : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-  ) => void,
-  options?: boolean | AddEventListenerOptions
-): VoidFunction | void {
-  if (!node) return
-
-  node.addEventListener(eventName, callback as EventListener, options)
-
-  return () => node.removeEventListener(eventName, callback as EventListener, options)
 }
 
 async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Promise<ResponsePattern<VIACEPFromXano>> {
@@ -690,7 +577,7 @@ const TalhoCheckoutApp = createApp({
   },
 
   created (): void {
-    this.refreshCart().then(() => setPageLoader(false))
+    this.refreshCart().then(() => isPageLoading(false))
 
     window.addEventListener('storage', (e) => {
       if (e.key !== STORAGE_KEY_NAME) return
@@ -844,12 +731,12 @@ const TalhoCheckoutApp = createApp({
         return
       }
 
-      this.hasPendingPayment = !setPageLoader(true)
+      this.hasPendingPayment = !isPageLoading(true)
 
       const response = await this.handlePostPayment(this.selectedPayment as 'pix')
 
       if (!response.succeeded) {
-        this.hasPendingPayment = !setPageLoader(false)
+        this.hasPendingPayment = !isPageLoading(false)
 
         return alert(response.message)
       }
@@ -1069,7 +956,7 @@ const TalhoCheckoutApp = createApp({
             cpf: this.customerCPF && NULL_VALUE,
             has_subsidy: this.subsidy?.has ?? false,
             delivery_cep: this.getParsedAddresses.shippingaddress.zipPostalCode,
-            has_selected_delivery: this.deliveryHour !== NULL_VALUE && this.deliveryDate !== NULL_VALUE
+            has_selected_delivery: !isNull(this.deliveryHour) && !isNull(this.deliveryDate)
           })
         })
 
@@ -1259,7 +1146,7 @@ const TalhoCheckoutApp = createApp({
 
   computed: {
     hasSelectedPaymentMethod (): boolean {
-      return this.selectedPayment !== NULL_VALUE
+      return !isNull(this.selectedPayment)
     },
 
     isCreditCard (): boolean {
@@ -1293,9 +1180,9 @@ const TalhoCheckoutApp = createApp({
     getShippingPrice (): number {
       if (this.hasFreeShippingByCartPrice) return 0
 
-      return this.deliveryPrice === NULL_VALUE
+      return isNull(this.deliveryPrice)
         ? 0
-        : this.deliveryPrice.value / 100
+        : (this.deliveryPrice as Omit<PostOrderDeliveryGroup, "has_priority">).value / 100
     },
 
     getShippingPriceFormatted (): string {
@@ -1399,7 +1286,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     paymentMethodValidation (): ISingleValidateCheckout {
-      return buildFieldValidation(this.paymentMethodMessageElement, this.selectedPayment !== NULL_VALUE)
+      return buildFieldValidation(this.paymentMethodMessageElement, !isNull(this.selectedPayment))
     },
 
     customerCreditCardHolderValidation (): ISingleValidateCheckout {
@@ -1494,7 +1381,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     isBillingAddressGroupValid (): boolean {
-      return this.deliveryBillingAddressErrorMessage === NULL_VALUE && [
+      return isNull(this.deliveryBillingAddressErrorMessage) && [
         this.billingCEPValidation,
         this.billingAddressValidation,
         this.billingNumberValidation,
@@ -1507,7 +1394,7 @@ const TalhoCheckoutApp = createApp({
     deliveryPlaceValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.deliveryPlaceMessageElement,
-        this.hasSelectedAddress && this.deliveryPlaceAddressErrorMessage === NULL_VALUE,
+        this.hasSelectedAddress && isNull(this.deliveryPlaceAddressErrorMessage),
         !this.isCreditCard
       )
     },
@@ -1569,7 +1456,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     isShippingAddressGroupValid (): boolean {
-      return this.deliveryShippingAddressErrorMessage === NULL_VALUE && [
+      return isNull(this.deliveryShippingAddressErrorMessage) && [
         this.shippingCEPValidation,
         this.shippingAddressValidation,
         this.shippingNumberValidation,
@@ -1582,7 +1469,7 @@ const TalhoCheckoutApp = createApp({
     deliveryDatesGroupValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.deliveryDateMessageElement,
-        this.deliveryDate !== NULL_VALUE,
+        !isNull(this.deliveryDate),
         !this.paymentMethodValidation.valid
       )
     },
@@ -1590,7 +1477,7 @@ const TalhoCheckoutApp = createApp({
     deliveryHoursGroupValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.deliveryHourMessageElement,
-        this.deliveryHour !== NULL_VALUE,
+        !isNull(this.deliveryHour),
         !this.deliveryDatesGroupValidation.valid
       )
     },
@@ -1598,7 +1485,7 @@ const TalhoCheckoutApp = createApp({
     installmentGroupValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.installmentsMessageElement,
-        this.selectedInstallment !== NULL_VALUE,
+        !isNull(this.selectedInstallment),
         !this.isCreditCard || !this.paymentMethodValidation.valid
       )
     },
@@ -1639,7 +1526,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     hasSelectedAddress (): boolean {
-      return this.deliveryPlace !== NULL_VALUE
+      return !isNull(this.deliveryPlace)
     },
 
     isSameAddress (): boolean {
@@ -1762,7 +1649,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     hasNullCoupon (): boolean {
-      return this.coupon === NULL_VALUE
+      return isNull(this.coupon)
     },
 
     hasAppliedCoupon (): boolean {
@@ -1810,13 +1697,13 @@ const TalhoCheckoutApp = createApp({
     },
 
     hasDeliveryHour (): boolean {
-      return this.deliveryDate !== NULL_VALUE && objectSize(this.getParsedDeliveryHours) > 0
+      return !isNull(this.deliveryDate) && objectSize(this.getParsedDeliveryHours) > 0
     },
 
     getParsedDeliveryHours (): ComputedDeliveryHours[] {
-      if (!this.hasDeliveryDates || this.getSelectedDateDetails === NULL_VALUE) return []
+      if (!this.hasDeliveryDates || isNull(this.getSelectedDateDetails)) return []
 
-      const hourList = this.getSelectedDateDetails.periods.hours
+      const hourList = (this.getSelectedDateDetails as CheckoutDeliveryOption).periods.hours
 
       return hourList.map(({ label, hour }) => ({
         hour,
@@ -1825,7 +1712,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     quotationPayload (): false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>) {
-      if ([this.deliveryDate, this.deliveryHour].some(v => v === NULL_VALUE)) return false
+      if ([this.deliveryDate, this.deliveryHour].some(v => isNull(v))) return false
 
       const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
 
@@ -1844,11 +1731,11 @@ const TalhoCheckoutApp = createApp({
     },
 
     getParsedDeliveryDates (): ComputedDeliveryDates[] {
-      if (this.deliveryOptions === NULL_VALUE) return []
+      if (isNull(this.deliveryOptions)) return []
 
       const selectedDate = this.deliveryDate
 
-      return this.deliveryOptions.dates.map(({ label, shift_days }) => ({
+      return (this.deliveryOptions as CheckoutDeliveryResponse).dates.map(({ label, shift_days }) => ({
         label,
         shift_days,
         selected: selectedDate === shift_days,
@@ -1998,7 +1885,7 @@ const TalhoCheckoutApp = createApp({
 
       if (!/^\d{5}\-\d{3}$/.test(currentAddresses.shippingaddress.zipPostalCode)) return
 
-      if (this.isCreditCard && this.deliveryPlace === NULL_VALUE) return
+      if (this.isCreditCard && isNull(this.deliveryPlace)) return
 
       this.handleSubsidy()
     }
@@ -2025,7 +1912,7 @@ const TalhoCheckoutApp = createApp({
 
     visitedField: {
       mounted (el: HTMLInputElement, { value, instance }: DirectiveBinding<string>) {
-        const remover = attachEvent(el, 'blur', (event) => {
+        const remover = attachEvent(el, 'blur', () => {
           instance.setVisitedField(value)
 
           eventMap.delete(el)
