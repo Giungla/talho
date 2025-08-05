@@ -8,6 +8,7 @@ import type {
 import {
   XANO_BASE_URL,
   AUTH_COOKIE_NAME,
+  GENERAL_HIDDEN_CLASS,
   getCookie,
   toggleClass,
   removeClass,
@@ -18,24 +19,18 @@ import {
   postSuccessResponse,
   buildRequestOptions,
   EMAIL_REGEX_VALIDATION,
-  changeTextContent, addAttribute,
+  changeTextContent,
+  addAttribute,
+  isAuthenticated, stringify,
 } from '../utils'
 
 (function () {
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-
   const DISABLED_ATTR = 'disabled'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
   const WRAPPER_SELECTOR = '[data-wtf-wrapper]'
 
   const USER_DATA_PATH = '/area-do-usuario/pedidos-de-compra'
   const formSelector = '#wf-form-recover-password'
-
-  function isAuthenticated (): boolean {
-    const hasAuth = getCookie(AUTH_COOKIE_NAME)
-
-    return !!hasAuth
-  }
 
   function validatorResponse (datasetName: string): ValidatorResponse {
     return function (valid: boolean) {
@@ -74,7 +69,7 @@ import {
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:uImEuFxO/auth/magic-link`, {
         ...buildRequestOptions([], 'POST'),
-        body: JSON.stringify({ email }),
+        body: stringify({ email }),
       })
 
       if (!response.ok) {
