@@ -24,6 +24,7 @@ import {
   EMPTY_STRING,
   BRLFormatter,
   XANO_BASE_URL,
+  isNull,
   buildURL,
   safeParseJson,
   addAttribute,
@@ -110,7 +111,7 @@ const TalhoOrderPage = createApp({
       source.addEventListener('message', async (event: MessageEvent<string>) => {
         const orderData = safeParseJson<PixOrderDataPoll>(event.data)
 
-        if (orderData === NULL_VALUE) return
+        if (isNull(orderData)) return
 
         this.patchOrder({
           ...orderData,
