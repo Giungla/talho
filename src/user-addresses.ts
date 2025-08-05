@@ -1,17 +1,33 @@
-import {
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
+
+import type {
   IAddress,
-  ISplitCookieObject,
-  type IStateAcronym, IUserCreatedAddress, ResponsePattern,
-  VIACEPFromXano
+  IStateAcronym,
+  VIACEPFromXano,
+  ResponsePattern,
+  IUserCreatedAddress,
 } from "../global";
 
+import {
+  XANO_BASE_URL,
+  statesAcronym,
+  GENERAL_HIDDEN_CLASS,
+  toggleClass,
+  querySelector,
+  isAuthenticated,
+  buildRequestOptions,
+  attachEvent,
+  postErrorResponse,
+  postSuccessResponse,
+  stringify,
+  addClass,
+  changeTextContent,
+  objectSize,
+  removeAttribute,
+  removeClass,
+  isPageLoading,
+} from '../utils'
+
 (function () {
-  const COOKIE_SEPARATOR = '; '
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
   const WTF_WRAPPER_SELECTOR = '[data-wtf-wrapper]'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
 
@@ -21,132 +37,6 @@ import {
     location.href = `/acessos/entrar?redirect_to=${encodeURIComponent(location.pathname)}`
 
     return
-  }
-
-  const statesAcronym: IStateAcronym[] = [
-    'AL',
-    'AM',
-    'AP',
-    'CE',
-    'BA',
-    'AC',
-    'DF',
-    'ES',
-    'GO',
-    'MA',
-    'MG',
-    'MS',
-    'MT',
-    'PA',
-    'PB',
-    'PE',
-    'PI',
-    'PR',
-    'RJ',
-    'RN',
-    'RO',
-    'RR',
-    'RS',
-    'SC',
-    'SE',
-    'SP',
-    'TO',
-  ]
-
-  function isPageLoading (status: boolean) {
-    toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
-  }
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document = document
-  ): T {
-    return node.querySelector(selector as string) as T;
-  }
-
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
-  > (
-    node: T,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction {
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value
-    }
-  }
-
-  function isAuthenticated (): boolean {
-    return getCookie(COOKIE_NAME) !== false
-  }
-
-  function addClass (element: Element, ...className: string[]) {
-    element.classList.add(...className)
-  }
-
-  function removeClass (element: Element, ...className: string[]) {
-    element.classList.remove(...className)
-  }
-
-  function toggleClass (element: Element, className: string, force?: boolean) {
-    element.classList.toggle(className, force)
-  }
-
-  function removeAttribute (element: Element, attribute: string) {
-    element.removeAttribute(attribute)
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  const HEADERS = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    Authorization: getCookie(COOKIE_NAME) as string,
   }
 
   const noAddressesMessage = querySelector<'div'>('[data-wtf-error-message-no-address-registered]')
@@ -179,7 +69,7 @@ import {
   })
 
   function toggleNoAddressesMessage (hasAddresses: boolean) {
-    noAddressesMessage && toggleClass(noAddressesMessage, GENERAL_HIDDEN_CLASS, !hasAddresses)
+    toggleClass(noAddressesMessage, GENERAL_HIDDEN_CLASS, !hasAddresses)
   }
 
   function renderAddress (incomingAddress: IUserCreatedAddress) {
@@ -220,17 +110,19 @@ import {
     const defaultErrorMessage = 'O CEP informado não foi encontrado'
 
     try {
-      const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}`)
+      const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}`, {
+        ...buildRequestOptions(),
+      })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const address: VIACEPFromXano = await response.json()
 
-      return postSuccessResponse(address)
+      return postSuccessResponse.call(response.headers, address)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -241,18 +133,18 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/all`, {
-        headers: HEADERS
+        ...buildRequestOptions(),
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const addresses: IUserCreatedAddress[] = await response.json()
 
-      return postSuccessResponse(addresses)
+      return postSuccessResponse.call(response.headers, addresses)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -263,17 +155,16 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/${id}/delete`, {
-        method: 'DELETE',
-        headers: HEADERS
+        ...buildRequestOptions([], 'DELETE'),
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
-      return postSuccessResponse(null)
+      return postSuccessResponse.call(response.headers, null)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -284,20 +175,19 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:Yytq8Zut/user_addresses/create`, {
-        method: 'POST',
-        headers: HEADERS,
-        body: JSON.stringify(address)
+        ...buildRequestOptions([], 'POST'),
+        body: stringify<Omit<IAddress, 'id'>>(address)
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const createdAddress: IAddress = await response.json()
 
-      return postSuccessResponse(createdAddress)
+      return postSuccessResponse.call(response.headers, createdAddress)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -315,24 +205,18 @@ import {
     const errorMessage = querySelector('[data-wtf-error-new]', form)
     const successMessage = querySelector('[data-wtf-success-new]', form)
 
-    errorMessage && toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
-    successMessage && toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
+    toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
+    toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
 
     if (!isError) {
-      setTimeout(() => successMessage && addClass(successMessage, GENERAL_HIDDEN_CLASS), 8000)
+      setTimeout(() => addClass(successMessage, GENERAL_HIDDEN_CLASS), 8000)
 
       return
     }
 
     const textElement = errorMessage && querySelector('div', errorMessage)
 
-    if (!textElement) return
-
-    textElement.textContent = response.message
-  }
-
-  function objectSize (str: string | Array<any>) {
-    return str.length
+    changeTextContent(textElement, response.message)
   }
 
   function captureFieldWrapper (field: Exclude<ReturnType<typeof querySelector>, null>) {
@@ -342,7 +226,7 @@ import {
   function toggleFieldWrapperError (field: Exclude<ReturnType<typeof querySelector>, null>, isValid: boolean) {
     const fieldWrapper = captureFieldWrapper(field)
 
-    fieldWrapper && toggleClass(fieldWrapper, ERROR_MESSAGE_CLASS, !isValid)
+    toggleClass(fieldWrapper, ERROR_MESSAGE_CLASS, !isValid)
   }
 
   function camelToKebabCase (str: string) {

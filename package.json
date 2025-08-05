@@ -2,21 +2,65 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "typescript": "^5.7.3",
-    "uglify-js": "^3.19.3",
-    "vue": "^3.5.14"
+    "vue": "^3.5.14",
+    "tsup": "^8.0.0"
   },
   "scripts": {
-    "build": "tsc && yarn minify-consent-module",
-    "build-spp": "tsc && uglifyjs --compress --mangle --output ./dist/single-page-product.v06.min.js -- ./dist/single-page-product.js",
-    "build-floating-cart": "tsc && uglifyjs --compress --mangle --output ./dist/floating-cart.v05.min.js -- ./dist/floating-cart.js",
-    "minify-consent-module": "tsc && uglifyjs --compress --mangle --output ./dist/consent-module.v04.min.js -- ./dist/consent-module.js",
-    "build-checkout": "tsc && uglifyjs --compress --mangle --output ./dist/checkout.v07.min.js -- ./dist/checkout.js",
-    "build-ad-tracking": "tsc && uglifyjs --compress --mangle --output ./dist/ad-tracking.v01.min.js -- ./dist/ad-tracking.js",
-    "build-order-page": "tsc && uglifyjs --compress --mangle --output ./dist/order-page.v03.min.js -- ./dist/order-page.js",
-    "build-pix-page": "tsc && uglifyjs --compress --mangle --output ./dist/pix-process.v03.min.js -- ./dist/pix-process.js",
-    "build-user-orders": "tsc && uglifyjs --compress --mangle --output ./dist/user-orders.v02.min.js -- ./dist/user-orders.js",
-    "build-read-reviews": "tsc && uglifyjs --compress --mangle --output ./dist/product-reviews.v03.min.js -- ./dist/product-reviews.js",
-    "build-review-approve": "tsc && uglifyjs --compress --mangle --output ./dist/review-approve.v02.min.js -- ./dist/review-approve.js",
-    "build-user-personal-data": "tsc && uglifyjs --compress --mangle --output ./dist/user-personal-data.v05.min.js -- ./dist/user-personal-data.js"
+    "tsup-spp": "tsup src/single-page-product.ts --format iife --minify --out-dir dev",
+    "tsup-spp-prod": "node build-commands/build-for-production.js --name=single-page-product",
+
+    "tsup-floating-cart": "tsup src/floating-cart.ts --format iife --minify --out-dir dev",
+    "tsup-floating-cart-prod": "node build-commands/build-for-production.js --name=floating-cart",
+
+    "tsup-consent-module": "tsup src/consent-module.ts --format iife --minify --out-dir dev",
+    "tsup-consent-module-prod": "node build-commands/build-for-production.js --name=consent-module",
+
+    "tsup-checkout": "tsup src/checkout.ts --format iife --minify --out-dir dev",
+    "tsup-checkout-prod": "node build-commands/build-for-production.js --name=checkout",
+
+    "tsup-ad-tracking": "tsup src/ad-tracking.ts --format iife --minify --out-dir dev",
+    "tsup-ad-tracking-prod": "node build-commands/build-for-production.js --name=ad-tracking",
+
+    "tsup-pix-page": "tsup src/pix-process.ts --format iife --minify --out-dir dev",
+    "tsup-pix-page-prod": "node build-commands/build-for-production.js --name=pix-process",
+
+    "tsup-user-orders": "tsup src/user-orders.ts --format iife --minify --out-dir dev",
+    "tsup-user-orders-prod": "node build-commands/build-for-production.js --name=user-orders",
+
+    "tsup-read-reviews": "tsup src/product-reviews.ts --format iife --minify --out-dir dev",
+    "tsup-read-reviews-prod": "node build-commands/build-for-production.js --name=product-reviews",
+
+    "tsup-review-approve": "tsup src/review-approve.ts --format iife --minify --out-dir dev",
+    "tsup-review-approve-prod": "node build-commands/build-for-production.js --name=review-approve",
+
+    "tsup-user-personal-data": "tsup src/user-personal-data.ts --format iife --minify --out-dir dev",
+    "tsup-user-personal-data-prod": "node build-commands/build-for-production.js --name=user-personal-data",
+
+    "tsup-order-page": "tsup src/order-page.ts --format iife --minify --out-dir dev",
+    "tsup-order-page-prod": "node build-commands/build-for-production.js --name=order-page",
+
+    "tsup-change-password": "tsup src/change-password.ts --format iife --minify --out-dir dev",
+    "tsup-change-password-prod": "node build-commands/build-for-production.js --name=change-password",
+
+    "tsup-google-social-login": "tsup src/google-social-login.ts --format iife --minify --out-dir dev",
+    "tsup-google-social-login-prod": "node build-commands/build-for-production.js --name=google-social-login",
+
+    "tsup-login": "tsup src/login.ts --format iife --minify --out-dir dev",
+    "tsup-login-prod": "node build-commands/build-for-production.js --name=login",
+
+    "tsup-magic-link": "tsup src/magic-link.ts --format iife --minify --out-dir dev",
+    "tsup-magic-link-prod": "node build-commands/build-for-production.js --name=magic-link",
+
+    "tsup-newsletter": "tsup src/newsletter.ts --format iife --minify --out-dir dev",
+    "tsup-newsletter-prod": "node build-commands/build-for-production.js --name=newsletter",
+
+    "tsup-recover-access": "tsup src/recover-access.ts --format iife --minify --out-dir dev",
+    "tsup-recover-access-prod": "node build-commands/build-for-production.js --name=recover-access",
+
+    "tsup-signup": "tsup src/signup.ts --format iife --minify --out-dir dev",
+    "tsup-signup-prod": "node build-commands/build-for-production.js --name=signup",
+
+    "tsup-user-addresses": "tsup src/user-addresses.ts --format iife --minify --out-dir dev",
+    "tsup-user-addresses-prod": "node build-commands/build-for-production.js --name=user-addresses"
   }
 }

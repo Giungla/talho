@@ -1,118 +1,40 @@
 
-import {
+import type {
+  UserStateProxy,
+  ICurrentUserData,
   FunctionErrorPattern,
   FunctionSucceededPattern,
-  ICurrentUserData,
-  ISplitCookieObject,
-  UserStateProxy,
-} from "../global";
+} from '../global'
+
+import {
+  XANO_BASE_URL,
+  addClass,
+  getCookie,
+  toggleClass,
+  querySelector,
+  changeTextContent,
+  removeAttribute,
+  removeClass,
+  attachEvent,
+  splitText,
+  stringify,
+  shouldAuthenticate,
+  buildRequestOptions,
+  postErrorResponse,
+  postSuccessResponse,
+} from '../utils'
 
 (function () {
-  const COOKIE_SEPARATOR = '; '
   const GENERAL_HIDDEN_CLASS = 'oculto'
   const COOKIE_NAME = '__Host-Talho-AuthToken'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document = document
-  ): T {
-    return node.querySelector(selector as string) as T;
-  }
-
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
-  > (
-    node: T,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction {
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function splitText (value: string, separator: string | RegExp, limit?: number): string[] {
-    return value.split(separator, limit)
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = splitText(document.cookie, COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = splitText(cookie, '=')
-
-    return {
-      name,
-      value
-    }
-  }
 
   function camelToKebabCase (str: string): string {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
   }
 
-  function removeAttribute (element: ReturnType<typeof querySelector>, attribute: string) {
-    if (!element) return
-
-    element.removeAttribute(attribute)
-  }
-
   function hasOwnProperty (target: HTMLElement | object, property: PropertyKey): boolean {
     return target.hasOwnProperty(property)
-  }
-
-  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
-    if (!element) return
-
-    element.classList.add(...className)
-  }
-
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
-    if (!element) return
-
-    element.classList.remove(...className)
-  }
-
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
   }
 
   function handleMessages (form: HTMLFormElement, response: Awaited<ReturnType<typeof postPersonalData>>) {
@@ -132,13 +54,7 @@ import {
 
     const textElement = errorMessage && querySelector('div', errorMessage)
 
-    if (!textElement) return
-
-    textElement.textContent = response.message
-  }
-
-  function shouldAuthenticate () {
-    window.location.href = `/acessos/entrar?redirect_to=${encodeURIComponent(location.pathname)}`
+    changeTextContent(textElement, response.message)
   }
 
   function renderSinglePersonalData (where: ReturnType<typeof querySelector>, value: string | null) {
@@ -249,7 +165,7 @@ import {
 
   const form = querySelector<'form'>('#wf-form-update-user-data') as HTMLFormElement
 
-  attachEvent(form, 'submit', async (e) => {
+  attachEvent(form, 'submit', async (e: SubmitEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -552,7 +468,7 @@ import {
 
       splitText(cpf, '')
         .splice(0, j)
-        .forEach(function(e, i){
+        .forEach(function(e: string, i: number){
           soma += parseInt(e) * ((j + 2) - (i + 1))
         })
 
@@ -573,9 +489,8 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/edit`, {
-        method: 'PUT',
-        headers: HEADERS,
-        body: JSON.stringify(payload)
+        ...buildRequestOptions([], 'PUT'),
+        body: stringify<Omit<ICurrentUserData, 'id' | 'email' | 'points'>>(payload)
       })
   
       if (!response.ok) {
@@ -585,12 +500,12 @@ import {
           shouldAuthenticate()
         }
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
 
-      return postSuccessResponse(personalData)
+      return postSuccessResponse.call(response.headers, personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -601,7 +516,7 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/get`, {
-        headers: HEADERS
+        ...buildRequestOptions()
       })
 
       if (!response.ok) {
@@ -611,12 +526,12 @@ import {
           shouldAuthenticate()
         }
 
-        return postErrorResponse(error?.message?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message?? defaultErrorMessage)
       }
 
       const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
 
-      return postSuccessResponse(personalData)
+      return postSuccessResponse.call(response.headers, personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }

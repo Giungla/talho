@@ -1,20 +1,27 @@
 
-import {
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
-  ISplitCookieObject,
-  ResponsePattern
+import type {
+  ResponsePattern,
 } from '../global'
-import {ReviewAction, ReviewParams, ReviewResponse} from "../types/review-approve";
+
+import type {
+  ReviewAction,
+  ReviewParams,
+  ReviewResponse
+} from '../types/review-approve'
+
+import {
+  XANO_BASE_URL,
+  AUTH_COOKIE_NAME,
+  getCookie,
+  stringify,
+  querySelector,
+  changeTextContent,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+} from '../utils'
 
 (function () {
-  const NULL_VALUE = null
-  const COOKIE_SEPARATOR = '; '
-  const DISABLED_ATTR = 'disabled'
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
-
   const searchParams = new URLSearchParams(location.search)
 
   const action = searchParams.get('action')
@@ -25,104 +32,34 @@ import {ReviewAction, ReviewParams, ReviewResponse} from "../types/review-approv
   const errorMessageElement = querySelector('[data-wtf-error-review]')
   const successMessageElement = querySelector('[data-wtf-approve-review]')
 
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
-  }
-
   function removeElementFromDOM (node: ReturnType<typeof querySelector>): void {
     if (!node) return
 
     return node.remove()
   }
 
-  function changeTextContent (element: ReturnType<typeof querySelector>, textContent: string | number | boolean): void {
-    if (!element) return
-
-    element.textContent = typeof textContent === 'string'
-      ? textContent
-      : textContent.toString()
-  }
-
-  function querySelector <
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  > (
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return NULL_VALUE as T
-
-    return node.querySelector(selector as string) as T
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  function stringify <T extends object> (value: T): string {
-    return JSON.stringify(value)
-  }
-
-  function splitText (value: string, separator: string | RegExp, limit?: number): string[] {
-    return value.split(separator, limit)
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = splitText(document.cookie, COOKIE_SEPARATOR).find(cookie => {
-      const { name: cookieName } = splitCookie(cookie)
-
-      return cookieName === name
-    })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = splitText(cookie, '=')
-
-    return {
-      name,
-      value
-    }
-  }
-
   async function changeReviewStatus ({ review_id, action }: ReviewParams): Promise<ResponsePattern<ReviewResponse>> {
     const defaultMessage = 'Não foi possível alterar a situação da avaliação'
 
     try {
+      const additionalHeaders = [
+        [ 'Authorization', getCookie(AUTH_COOKIE_NAME) || '' ]
+      ]
+
       const response = await fetch(`${XANO_BASE_URL}/api:9ixgU7Er/ratings/${review_id}/${action}`, {
-        method: 'PATCH',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': getCookie(COOKIE_NAME) || '',
-        },
+        ...buildRequestOptions(additionalHeaders, 'PATCH'),
         body: stringify<object>({})
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
       }
 
       const data = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }

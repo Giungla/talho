@@ -1,86 +1,39 @@
 
-import {
+import type {
   FunctionErrorPattern,
-  FunctionSucceededPattern, ICurrentUserData, INewsletterSuccessfulResponse,
+  FunctionSucceededPattern,
+  INewsletterSuccessfulResponse,
   IPasswordPayload,
-  ISplitCookieObject, ValidatorScheme
-} from '../global';
+  ValidatorScheme
+} from '../global'
+
+import {
+  XANO_BASE_URL,
+  GENERAL_HIDDEN_CLASS,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+  querySelector,
+  attachEvent,
+  isPageLoading,
+  isAuthenticated,
+  toggleClass,
+  addClass,
+  changeTextContent,
+  stringify,
+  removeAttribute,
+  removeClass,
+  objectSize,
+  focusInput, addAttribute,
+} from '../utils'
 
 (function () {
-  const COOKIE_SEPARATOR = '; '
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
   const DISABLED_ATTR = 'disabled'
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
   const WRAPPER_SELECTOR = '[data-wtf-wrapper]'
 
   const FOCUS_OPTIONS: FocusOptions = {
     preventScroll: false
-  }
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return null as T
-
-    return node.querySelector(selector as string) as T;
-  }
-
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
-  > (
-    node: T | null,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction | void {
-    if (!node) return
-
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value
-    }
-  }
-
-  function isPageLoading (status: boolean) {
-    toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
-  }
-
-  function isAuthenticated (): boolean {
-    return getCookie(COOKIE_NAME) !== false
   }
 
   if (!isAuthenticated()) {
@@ -91,56 +44,8 @@ import {
     return
   }
 
-  function addAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string, value: string) {
-    if (!element) return
-
-    element.setAttribute(qualifiedName, value)
-  }
-
-  function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string) {
-    if (!element) return
-
-    element.removeAttribute(qualifiedName)
-  }
-
-  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.add(...className)
-  }
-
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.remove(...className)
-  }
-
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
-  }
-
   function camelToKebabCase (str: string) {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
-  }
-
-  function objectSize (value: string | Array<any>): number {
-    return value.length
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
   }
 
   function handleMessages (form: ReturnType<typeof querySelector<'form'>>, response: Awaited<ReturnType<typeof updatePassword>>): void {
@@ -151,8 +56,8 @@ import {
     const errorMessage = querySelector('[data-wtf-error-update-password]', form)
     const successMessage = querySelector('[data-wtf-success-update-password]', form)
 
-    errorMessage && toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
-    successMessage && toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
+    toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
+    toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
 
     if (!isError) {
       successMessage && setTimeout(() => addClass(successMessage, GENERAL_HIDDEN_CLASS), 8000)
@@ -162,9 +67,7 @@ import {
 
     const textElement = errorMessage && querySelector('div', errorMessage)
 
-    if (!textElement) return
-
-    textElement.textContent = response.message
+    changeTextContent(textElement, response.message)
   }
 
   function validatorResponse (datasetName: string) {
@@ -176,13 +79,7 @@ import {
   function applyWrapperError (element: Exclude<ReturnType<typeof querySelector>, null>, isValid: boolean) {
     const wrapperElement = element.closest(WRAPPER_SELECTOR)
 
-    wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid)
-  }
-
-  function focusInput (input: ReturnType<typeof querySelector<'input'>>, options?: FocusOptions) {
-    if (!input) return
-
-    input.focus(options)
+    toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid)
   }
 
   async function updatePassword (payload: IPasswordPayload): Promise<FunctionSucceededPattern<INewsletterSuccessfulResponse> | FunctionErrorPattern> {
@@ -190,23 +87,19 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/change-password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: getCookie(COOKIE_NAME) as string,
-        },
-        body: JSON.stringify(payload),
+        ...buildRequestOptions([], 'PUT'),
+        body: stringify<IPasswordPayload>(payload),
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const data: INewsletterSuccessfulResponse = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -291,9 +184,7 @@ import {
 
     const messageArea = querySelector<'div'>('[data-wtf-field-error] div', field.closest(WRAPPER_SELECTOR) as HTMLElement)
 
-    if (!messageArea) return
-
-    messageArea.textContent = message
+    changeTextContent(messageArea, message)
   }
 
   function hasEqualsPasswords <T extends ReturnType<typeof querySelector<'input'>>> (password: T, confirmPassword: T): boolean {
@@ -359,7 +250,7 @@ import {
 
   if (!updatePasswordForm) return
 
-  attachEvent(updatePasswordForm, 'submit', async (e) => {
+  attachEvent(updatePasswordForm, 'submit', async (e: Event) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -404,5 +295,4 @@ import {
   })
 
   isPageLoading(false)
-
 })()

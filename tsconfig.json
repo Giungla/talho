@@ -111,7 +111,7 @@
 
   "include": [
     "src",
-    "types"
+    "types",
   ],
 
   "exclude": [

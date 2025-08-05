@@ -1,72 +1,36 @@
 
-import {
+import type {
   OrderData,
   OrderAddress,
+  ParsedProduct,
   TalhoOrderPageData,
   OrderShippingAddress,
   TalhoOrderPageMethods,
   TalhoOrderPageContext,
-  TalhoOrderPageComputedDefinition, ParsedProduct, DeliveryOrder,
+  TalhoOrderPageComputedDefinition,
 } from '../types/order-page'
 
 import type {
-  FunctionErrorPattern,
-  FunctionSucceededPattern
+  ResponsePattern
 } from '../global'
+
+import {
+  NULL_VALUE,
+  BRLFormatter,
+  XANO_BASE_URL,
+  isPageLoading,
+  querySelector,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+} from '../utils'
 
 (function () {
   const {
-    ref,
     createApp,
   } = window.Vue
 
-  const EMPTY_STRING = ''
-  const NULL_VALUE = null
   const FALLBACK_STRING = '-'
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io/api:5lp3Lw8X'
-
-  const BRLFormatter = new Intl.NumberFormat('pt-BR', {
-    currency: 'BRL',
-    style: 'currency',
-  })
-
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
-  }
-
-  function setPageLoader (status?: boolean): boolean {
-    return toggleClass(querySelector('[data-wtf-loader]'), GENERAL_HIDDEN_CLASS, !status)
-  }
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return NULL_VALUE as T
-
-    return node.querySelector(selector as string) as T
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
 
   const TalhoOrderPage = createApp({
     name: 'TalhoOrderPage',
@@ -100,32 +64,30 @@ import type {
 
       this.order = response.data
 
-      setPageLoader(false)
+      isPageLoading(false)
     },
 
     mounted (): void {
     },
 
     methods: {
-      async getOrder (orderId: string) {
+      async getOrder (orderId: string): Promise<ResponsePattern<OrderData>> {
         const defaultErrorMessage = 'Falha ao capturar o pedido'
 
         try {
-          const response = await fetch(`${XANO_BASE_URL}/order-details/${orderId}`, {
-            headers: {
-              Accept: 'application/json',
-            },
+          const response = await fetch(`${XANO_BASE_URL}/api:5lp3Lw8X/order-details/${orderId}`, {
+            ...buildRequestOptions(),
           })
 
           if (!response.ok) {
             const error = await response.json()
 
-            return postErrorResponse(error?.message ?? defaultErrorMessage)
+            return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
           }
 
           const data: OrderData = await response.json()
 
-          return postSuccessResponse(data)
+          return postSuccessResponse.call(response.headers, data)
         } catch (e) {
           return postErrorResponse(defaultErrorMessage)
         }

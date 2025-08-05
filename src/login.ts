@@ -1,159 +1,42 @@
 import {
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
-  ICookieOptions, IGoogleAuthURLResponse,
+  IGoogleAuthURLResponse,
   ILoginUser,
   ILoginUserPayload,
-  ISplitCookieObject, ResponsePattern
+  ResponsePattern
 } from "../global";
 
+import {
+  XANO_BASE_URL,
+  AUTH_COOKIE_NAME,
+  GENERAL_HIDDEN_CLASS,
+  setCookie,
+  objectSize,
+  addClass,
+  removeClass,
+  toggleClass,
+  attachEvent,
+  removeAttribute,
+  isAuthenticated,
+  focusInput,
+  querySelector,
+  changeTextContent,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+  EMAIL_REGEX_VALIDATION,
+} from '../utils'
+
 (function () {
-  'use strict';
-
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
-
-  const COOKIE_SEPARATOR = '; '
-
   const DISABLED_ATTR = 'disabled'
-  const GENERAL_HIDDEN_CLASS = 'oculto'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
   const ORDERS_PAGE_PATH = '/area-do-usuario/pedidos-de-compra'
 
   const REDIRECT_PARAM_NAME = 'redirect_to'
 
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
-
   const GENERAL_ERROR_MESSAGE_SELECTOR = '[data-wtf-general-error-message]'
-
-  const SCROLL_INTO_VIEW_DEFAULT_ARGS: ScrollIntoViewOptions = {
-    block: 'center',
-    behavior: 'smooth'
-  }
 
   const FOCUS_OPTIONS: FocusOptions = {
     preventScroll: false
-  }
-
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
-  > (
-    node: T | null,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction | void {
-    if (!node) return
-
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return null as T
-
-    return node.querySelector(selector as string) as T;
-  }
-
-  function scrollIntoView (element: HTMLElement, args: ScrollIntoViewOptions) {
-    element.scrollIntoView(args)
-  }
-
-  function setCookie (name: string, value: string | number | boolean, options: ICookieOptions = {}): string {
-    if (name.length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie name")
-    }
-
-    if (!['string', 'number', 'boolean'].includes(typeof value) || value.toString().length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie value")
-    }
-
-    const cookieOptions: string[] = [`${name}=${value}`]
-
-    if (options?.expires && options?.expires instanceof Date) {
-      cookieOptions.push(`expires=` + options.expires.toUTCString())
-    }
-
-    if (options?.sameSite && typeof options?.sameSite === 'string') {
-      cookieOptions.push(`SameSite=${options?.sameSite}`)
-    }
-
-    if (options?.path) {
-      cookieOptions.push(`path=${options?.path}`)
-    }
-
-    if (options?.domain) {
-      cookieOptions.push(`domain=${options?.path}`)
-    }
-
-    if (options?.httpOnly) {
-      cookieOptions.push(`HttpOnly`)
-    }
-
-    if (options?.secure) {
-      cookieOptions.push('Secure')
-    }
-
-    const _buildCookie = cookieOptions.join(COOKIE_SEPARATOR)
-
-    document.cookie = _buildCookie
-
-    return _buildCookie
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value
-    }
-  }
-
-  function isAuthenticated (): boolean {
-    const hasAuth = getCookie(COOKIE_NAME)
-
-    return !!hasAuth
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
   }
 
   async function loginUser (credentials: ILoginUser): Promise<ResponsePattern<ILoginUserPayload>> {
@@ -161,22 +44,19 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:t3reRXiD/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        ...buildRequestOptions([], 'POST'),
         body: JSON.stringify(credentials)
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const data: ILoginUserPayload = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -190,58 +70,26 @@ import {
     url.searchParams.set('redirect_uri', location.origin.concat('/acessos/google-social-login'))
 
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        ...buildRequestOptions(),
+      })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const data: IGoogleAuthURLResponse = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
   }
 
-  function objectSize (value: string | Array<any>): number {
-    return value.length
-  }
-
-  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.add(...className)
-  }
-
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.remove(...className)
-  }
-
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
-  }
-
   function camelToKebabCase (str: string) {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
-  }
-
-  function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string) {
-    if (!element) return
-
-    element.removeAttribute(qualifiedName)
-  }
-
-  function focusInput (input: ReturnType<typeof querySelector<'input'>>, options?: FocusOptions) {
-    if (!input) return
-
-    input.focus(options)
   }
 
   function whereRedirectAfterSuccessfulLogin (): string {
@@ -317,7 +165,7 @@ import {
 
     const wrapperElement = element.closest('[data-wtf-wrapper]')
 
-    wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid)
+    toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid)
   }
 
   function clearMessage (form: ReturnType<typeof querySelector<'form'>>) {
@@ -337,9 +185,7 @@ import {
 
     const textElement = errorMessage && querySelector('div', errorMessage)
 
-    if (!textElement) return
-
-    textElement.textContent = response.message
+    changeTextContent(textElement, response.message)
   }
 
   function validateUserField () {
@@ -347,7 +193,7 @@ import {
 
     if (!userField) return response(false)
 
-    const isFieldValid = /^(([\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+(\.[\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+)*)|("[\p{L}\p{N}\s!#$%&'*+\/=?^_`{|}~.-]+"))@(([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}|(\[(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\]))$/u.test(userField.value)
+    const isFieldValid = EMAIL_REGEX_VALIDATION().test(userField.value)
 
     applyWrapperError(userField, isFieldValid)
 
@@ -366,7 +212,7 @@ import {
     return response(isFieldValid)
   }
 
-  attachEvent(socialLoginGoogleCTA, 'click', function (e) {
+  attachEvent(socialLoginGoogleCTA, 'click', function (e: MouseEvent) {
     e.preventDefault()
 
     getGoogleAuthorizationURL()
@@ -426,7 +272,7 @@ import {
     })
 
     if (response.succeeded) {
-      setCookie(COOKIE_NAME, response.data.authToken, {
+      setCookie(AUTH_COOKIE_NAME, response.data.authToken, {
         path: '/',
         secure: true,
         sameSite: 'Strict',

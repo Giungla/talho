@@ -1,18 +1,27 @@
-import {
-  FunctionErrorPattern, FunctionSucceededPattern,
-  ILoginUserPayload,
+
+import type {
+  ResponsePattern,
+  ValidatorResponse,
   IResetPasswordSuccessResponse,
-  ISplitCookieObject,
-  ResponsePattern, ValidatorResponse
-} from "../global";
+} from '../global'
+
+import {
+  XANO_BASE_URL,
+  AUTH_COOKIE_NAME,
+  getCookie,
+  toggleClass,
+  removeClass,
+  attachEvent,
+  querySelector,
+  removeAttribute,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+  EMAIL_REGEX_VALIDATION,
+  changeTextContent, addAttribute,
+} from '../utils'
 
 (function () {
-  'use strict';
-
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
-
-  const COOKIE_SEPARATOR = '; '
-
   const GENERAL_HIDDEN_CLASS = 'oculto'
 
   const DISABLED_ATTR = 'disabled'
@@ -22,64 +31,8 @@ import {
   const USER_DATA_PATH = '/area-do-usuario/pedidos-de-compra'
   const formSelector = '#wf-form-recover-password'
 
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
-  > (
-    node: T | null,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction | void {
-    if (!node) return
-
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return null as T
-
-    return node.querySelector(selector as string) as T;
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value
-    }
-  }
-
   function isAuthenticated (): boolean {
-    const hasAuth = getCookie(COOKIE_NAME)
+    const hasAuth = getCookie(AUTH_COOKIE_NAME)
 
     return !!hasAuth
   }
@@ -93,41 +46,7 @@ import {
   function applyWrapperError (element: ReturnType<typeof querySelector>, isValid: boolean) {
     if (!element) return
 
-    const wrapperElement = element.closest(WRAPPER_SELECTOR)
-
-    wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, !isValid)
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
-
-  function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string) {
-    if (!element) return
-
-    element.removeAttribute(qualifiedName)
-  }
-
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.remove(...className)
-  }
-
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
+    toggleClass(element.closest(WRAPPER_SELECTOR), ERROR_MESSAGE_CLASS, !isValid)
   }
 
   function handleMessages (form: ReturnType<typeof querySelector<'form'>>, response: Awaited<ReturnType<typeof sendMagicLink>>) {
@@ -143,34 +62,30 @@ import {
 
     if (!isError) return
 
-    const textElement = errorMessage && querySelector('div', errorMessage)
-
-    if (!textElement) return
-
-    textElement.textContent = response.message
+    changeTextContent(
+      errorMessage && querySelector('div', errorMessage),
+      response.message,
+    )
   }
 
   async function sendMagicLink (email: string): Promise<ResponsePattern<IResetPasswordSuccessResponse>> {
     const defaultErrorMessage = 'Houve uma falha ao enviar o token. Por favor, tente novamente mais tarde.'
 
     try {
-      const response = await fetch('https://xef5-44zo-gegm.b2.xano.io/api:uImEuFxO/auth/magic-link', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+      const response = await fetch(`${XANO_BASE_URL}/api:uImEuFxO/auth/magic-link`, {
+        ...buildRequestOptions([], 'POST'),
         body: JSON.stringify({ email }),
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const data: IResetPasswordSuccessResponse = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -221,7 +136,7 @@ import {
 
     if (!mailField) return response(false)
 
-    const isFieldValid = /^(([\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+(\.[\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+)*)|("[\p{L}\p{N}\s!#$%&'*+\/=?^_`{|}~.-]+"))@(([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}|(\[(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\]))$/u.test(mailField.value)
+    const isFieldValid = EMAIL_REGEX_VALIDATION().test(mailField.value)
 
     applyWrapperError(mailField, isFieldValid)
 
@@ -231,11 +146,11 @@ import {
   attachEvent(mailField, 'blur', validateMailField)
   attachEvent(mailField, 'input', () => applyWrapperError(mailField, true))
 
-  attachEvent(resetForm, 'submit', function (e) {
+  attachEvent(resetForm, 'submit', function (e: SubmitEvent) {
     e.preventDefault()
     e.stopPropagation()
 
-    formSubmit?.setAttribute(DISABLED_ATTR, DISABLED_ATTR)
+    addAttribute(formSubmit, DISABLED_ATTR, DISABLED_ATTR)
 
     const [ , isFieldValid ] = validateMailField()
 
@@ -245,13 +160,14 @@ import {
       return removeAttribute(formSubmit, DISABLED_ATTR)
     }
 
-    sendMagicLink(mailField?.value ?? '').then(response => {
-      handleMessages(resetForm, response)
+    sendMagicLink(mailField?.value ?? '')
+      .then(response => {
+        handleMessages(resetForm, response)
 
-      removeAttribute(formSubmit, DISABLED_ATTR)
+        removeAttribute(formSubmit, DISABLED_ATTR)
 
-      response.succeeded && resetForm?.reset()
-    })
+        response.succeeded && resetForm?.reset()
+      })
   }, false)
 
 })()

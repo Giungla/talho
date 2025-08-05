@@ -1,82 +1,22 @@
 import {
   FunctionErrorPattern,
-  FunctionSucceededPattern, GoogleContinueOAuthResponse,
-  ICookieOptions,
-  ISplitCookieObject
+  FunctionSucceededPattern,
+  GoogleContinueOAuthResponse,
 } from "../global";
+
+import {
+  setCookie,
+  getCookie,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+} from '../utils'
 
 (function () {
   'use strict';
 
   const COOKIE_NAME = '__Host-Talho-AuthToken'
-
-  const COOKIE_SEPARATOR = '; '
   const USER_DATA_PATH = '/area-do-usuario/pedidos-de-compra'
-
-  function setCookie (name: string, value: string | number | boolean, options: ICookieOptions = {}): string {
-    if (name.length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie name")
-    }
-
-    if (!['string', 'number', 'boolean'].includes(typeof value) || value.toString().length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie value")
-    }
-
-    const cookieOptions: string[] = [`${name}=${value}`]
-
-    if (options?.expires && options?.expires instanceof Date) {
-      cookieOptions.push(`expires=` + options.expires.toUTCString())
-    }
-
-    if (options?.sameSite && typeof options?.sameSite === 'string') {
-      cookieOptions.push(`SameSite=${options?.sameSite}`)
-    }
-
-    if (options?.path) {
-      cookieOptions.push(`path=${options?.path}`)
-    }
-
-    if (options?.domain) {
-      cookieOptions.push(`domain=${options?.path}`)
-    }
-
-    if (options?.httpOnly) {
-      cookieOptions.push(`HttpOnly`)
-    }
-
-    if (options?.secure) {
-      cookieOptions.push('Secure')
-    }
-
-    const _buildCookie = cookieOptions.join(COOKIE_SEPARATOR)
-
-    document.cookie = _buildCookie
-
-    return _buildCookie
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value
-    }
-  }
 
   function isAuthenticated (): boolean {
     const hasAuth = getCookie(COOKIE_NAME)
@@ -88,20 +28,6 @@ import {
     location.href = USER_DATA_PATH
 
     return
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
   }
 
   async function GoogleContinueOAuth (code: string | false): Promise<FunctionSucceededPattern<GoogleContinueOAuthResponse> | FunctionErrorPattern> {
@@ -133,17 +59,19 @@ import {
     history.replaceState(null, '', currentURL.toString())
 
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        ...buildRequestOptions()
+      })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const data: GoogleContinueOAuthResponse = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }

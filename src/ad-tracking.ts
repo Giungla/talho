@@ -4,8 +4,12 @@ import type {
   ISplitCookieObject
 } from '../global'
 
+import {
+  getCookie,
+  setCookie,
+} from '../utils'
+
 (function () {
-  const COOKIE_SEPARATOR = '; '
   const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names')
   // const PARAM_NAMES = 'gclid|gbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
 
@@ -38,67 +42,6 @@ import type {
       setCookie(param, URLSearch.get(param) ?? '', {
         expires: new Date(Date.now() + DAY_IN_MILISECONDS * 90)
       })
-    }
-  }
-
-  function setCookie (name: string, value: string | number | boolean, options: ICookieOptions = {}): string {
-    if (name.length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie name")
-    }
-
-    const cookieOptions: string[] = [`${name}=${value}`]
-
-    if (options.expires) {
-      cookieOptions.push(`expires=` + options.expires.toUTCString())
-    }
-
-    if (options.sameSite) {
-      cookieOptions.push(`SameSite=${options?.sameSite}`)
-    }
-
-    if (options.path) {
-      cookieOptions.push(`path=${options?.path}`)
-    }
-
-    if (options.domain) {
-      cookieOptions.push(`domain=${options?.domain}`)
-    }
-
-    if (options.httpOnly) {
-      cookieOptions.push(`HttpOnly`)
-    }
-
-    if (options.secure) {
-      cookieOptions.push('Secure')
-    }
-
-    const _buildCookie = cookieOptions.join(COOKIE_SEPARATOR)
-
-    document.cookie = _buildCookie
-
-    return _buildCookie
-  }
-
-  function getCookie <T extends string> (name: string): T | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie<T>(selectedCookie).value
-      : false
-  }
-
-  function splitCookie <T extends string> (cookie: string): ISplitCookieObject<T> {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value: value as T
     }
   }
 

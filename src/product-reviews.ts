@@ -1,74 +1,33 @@
 
-import {
-  FunctionErrorPattern,
-  FunctionSucceededPattern, type IPaginateSchema,
-  ResponsePattern
-} from "../global"
-import {
+import type {
+  ResponsePattern,
+} from '../global'
+
+import type {
   Review,
-  ReviewGetters,
-  ReviewProperties,
   ReviewProxy,
+  ReviewGetters,
   ReviewResponse,
-  SingleReview
-} from "../types/product-reviews";
+  ReviewProperties,
+} from '../types/product-reviews'
+
+import {
+  NULL_VALUE,
+  XANO_BASE_URL,
+  GENERAL_HIDDEN_CLASS,
+  toggleClass,
+  querySelector,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+  changeTextContent,
+} from '../utils'
 
 (function () {
-  const NULL_VALUE = null
-  const COOKIE_SEPARATOR = '; '
-  const DISABLED_ATTR = 'disabled'
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
-
-  function objectSize <T extends string | any[]> (value: T): number {
-    return value.length
-  }
-
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
-  }
-
   function removeElementFromDOM (node: ReturnType<typeof querySelector>): void {
     if (!node) return
 
     return node.remove()
-  }
-
-  function changeTextContent (element: ReturnType<typeof querySelector>, textContent: string | number | boolean) {
-    if (!element) return
-
-    element.textContent = typeof textContent === 'string'
-      ? textContent
-      : textContent.toString()
-  }
-
-  function querySelector <
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  > (
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return NULL_VALUE as T
-
-    return node.querySelector(selector as string) as T
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
   }
 
   async function readReviews (reference_id: string): Promise<ResponsePattern<ReviewResponse>> {
@@ -76,20 +35,18 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:9ixgU7Er/ratings/${reference_id}/list`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        ...buildRequestOptions()
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
       }
 
       const data: ReviewResponse = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }

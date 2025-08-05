@@ -1,99 +1,26 @@
-import {
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
-  ICookieOptions,
+
+import type {
   ILoginUserPayload,
-  ISplitCookieObject,
   ResponsePattern
-} from "../global";
+} from "../global"
+
+import {
+  AUTH_COOKIE_NAME,
+  GENERAL_HIDDEN_CLASS,
+  getCookie,
+  setCookie,
+  postErrorResponse,
+  postSuccessResponse,
+  querySelector,
+  removeClass,
+  changeTextContent, buildRequestOptions,
+} from '../utils'
 
 (function () {
-  'use strict';
-
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
   const USER_DATA_PATH = '/area-do-usuario/pedidos-de-compra'
 
-  const COOKIE_SEPARATOR = '; '
-
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document = document
-  ): T {
-    return node.querySelector(selector as string) as T;
-  }
-
-  function setCookie (name: string, value: string | number | boolean, options: ICookieOptions = {}): string {
-    if (name.length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie name")
-    }
-
-    if (!['string', 'number', 'boolean'].includes(typeof value) || value.toString().length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie value")
-    }
-
-    const cookieOptions: string[] = [`${name}=${value}`]
-
-    if (options?.expires && options?.expires instanceof Date) {
-      cookieOptions.push(`expires=` + options.expires.toUTCString())
-    }
-
-    if (options?.sameSite && typeof options?.sameSite === 'string') {
-      cookieOptions.push(`SameSite=${options?.sameSite}`)
-    }
-
-    if (options?.path) {
-      cookieOptions.push(`path=${options?.path}`)
-    }
-
-    if (options?.domain) {
-      cookieOptions.push(`domain=${options?.path}`)
-    }
-
-    if (options?.httpOnly) {
-      cookieOptions.push(`HttpOnly`)
-    }
-
-    if (options?.secure) {
-      cookieOptions.push('Secure')
-    }
-
-    const _buildCookie = cookieOptions.join(COOKIE_SEPARATOR)
-
-    document.cookie = _buildCookie
-
-    return _buildCookie
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value
-    }
-  }
-
   function isAuthenticated (): boolean {
-    const hasAuth = getCookie(COOKIE_NAME)
+    const hasAuth = getCookie(AUTH_COOKIE_NAME)
 
     return !!hasAuth
   }
@@ -104,35 +31,12 @@ import {
     return
   }
 
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.remove(...className)
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
-
   async function validateMagicLink (magic_token: string): Promise<ResponsePattern<ILoginUserPayload>> {
     const defaultErrorMessage = 'Houve uma falha ao validar o token. Por favor, tente novamente mais tarde.'
 
     try {
       const response = await fetch(`https://xef5-44zo-gegm.b2.xano.io/api:uImEuFxO/auth/magic-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        ...buildRequestOptions([], 'POST'),
         body: JSON.stringify({
           magic_token
         })
@@ -141,12 +45,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const token: ILoginUserPayload = await response.json()
 
-      return postSuccessResponse(token)
+      return postSuccessResponse.call(response.headers, token)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -167,12 +71,10 @@ import {
 
       removeClass(errorMessage, GENERAL_HIDDEN_CLASS)
 
-      if (textErrorMessage) textErrorMessage.textContent = response.message
-
-      return
+      return changeTextContent(textErrorMessage, response.message)
     }
 
-    setCookie(COOKIE_NAME, response.data.authToken, {
+    setCookie(AUTH_COOKIE_NAME, response.data.authToken, {
       path: '/',
       secure: true,
       sameSite: 'Strict',

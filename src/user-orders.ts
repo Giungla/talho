@@ -1,8 +1,6 @@
 
 import type {
   Nullable,
-  CartResponse,
-  CartOperation,
   ResponsePattern,
   CreateCartProduct,
   ISplitCookieObject,
@@ -24,28 +22,25 @@ import type {
   AddToCartParams
 } from '../types/single-page-product'
 
+import {
+  NULL_VALUE,
+  BRLFormatter,
+  XANO_BASE_URL,
+  stringify,
+  getCookie,
+} from '../utils'
+
 (function () {
-  const NULL_VALUE = null
   const COOKIE_SEPARATOR = '; '
   const DISABLED_ATTR = 'disabled'
   const GENERAL_HIDDEN_CLASS = 'oculto'
   const STORAGE_KEY_NAME = 'talho_cart_items'
   const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
   const COOKIE_NAME = '__Host-Talho-AuthToken'
-  const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
 
   const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 
-  const BRLFormatter = new Intl.NumberFormat('pt-BR', {
-    currency: 'BRL',
-    style: 'currency',
-  })
-
   const acquiring = new Set<string>()
-
-  function stringify <T extends object> (value: T): string {
-    return JSON.stringify(value)
-  }
 
   function splitText (value: string, separator: string | RegExp, limit?: number): string[] {
     return value.split(separator, limit)
@@ -53,27 +48,6 @@ import type {
 
   function max (...n: number[]): number {
     return Math.max(...n)
-  }
-
-  function getCookie (name: string): string | false {
-    const selectedCookie = splitText(document.cookie, COOKIE_SEPARATOR).find(cookie => {
-      const { name: cookieName } = splitCookie(cookie)
-
-      return cookieName === name
-    })
-
-    return selectedCookie
-      ? splitCookie(selectedCookie).value
-      : false
-  }
-
-  function splitCookie (cookie: string): ISplitCookieObject {
-    const [name, value] = splitText(cookie, '=')
-
-    return {
-      name,
-      value
-    }
   }
 
   const authCookie = getCookie(COOKIE_NAME)

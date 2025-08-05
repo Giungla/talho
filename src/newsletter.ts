@@ -2,55 +2,26 @@ import {
   FunctionErrorPattern,
   FunctionSucceededPattern,
   INewsletterParams,
-  INewsletterSuccessfulResponse
+  INewsletterSuccessfulResponse, ResponsePattern
 } from "../global";
+
+import {
+  addClass,
+  toggleClass,
+  removeClass,
+  attachEvent,
+  querySelector,
+  changeTextContent,
+  postErrorResponse,
+  postSuccessResponse,
+  buildRequestOptions,
+} from '../utils'
 
 (function () {
   'use strict';
 
   const GENERAL_HIDDEN_CLASS = 'oculto'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document = document
-  ): T {
-    return node.querySelector(selector as string) as T;
-  }
-
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
-  > (
-    node: T,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction {
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function addClass (element: Element, ...className: string[]) {
-    element.classList.add(...className)
-  }
-
-  function removeClass (element: Element, ...className: string[]) {
-    element.classList.remove(...className)
-  }
-
-  function toggleClass (element: Element, className: string, force?: boolean) {
-    element.classList.toggle(className, force)
-  }
 
   async function handleNewsletterFormSubmit (event: SubmitEvent): Promise<void> {
     event.preventDefault()
@@ -87,9 +58,7 @@ import {
 
     target.reset()
 
-    const checked = querySelector('.w--redirected-checked', target)
-
-    checked && removeClass(checked, 'w--redirected-checked')
+    removeClass(querySelector('.w--redirected-checked', target), 'w--redirected-checked')
   }
 
   function handleMessages (form: HTMLFormElement, response: Awaited<ReturnType<typeof postNewsletter>>) {
@@ -98,15 +67,11 @@ import {
     const errorMessage = querySelector('[data-wtf-error-optin-email]', form)
     const successMessage = querySelector('[data-wtf-success-optin-email]', form)
 
-    errorMessage && toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
-    successMessage && toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
+    toggleClass(errorMessage, GENERAL_HIDDEN_CLASS, !isError)
+    toggleClass(successMessage, GENERAL_HIDDEN_CLASS, isError)
 
     if (isError) {
-      const textElement = errorMessage && querySelector('div', errorMessage)
-
-      if (textElement) textElement.textContent = response.message
-
-      return
+      return changeTextContent(errorMessage && querySelector('div', errorMessage), response.message)
     }
 
     const textElement = successMessage && querySelector('div', successMessage)
@@ -114,44 +79,29 @@ import {
     if (textElement) textElement.textContent = response.data.message
 
     setTimeout(() => {
-      errorMessage && addClass(errorMessage, GENERAL_HIDDEN_CLASS)
-      successMessage && addClass(successMessage, GENERAL_HIDDEN_CLASS)
+      addClass(errorMessage, GENERAL_HIDDEN_CLASS)
+      addClass(successMessage, GENERAL_HIDDEN_CLASS)
     }, 8000)
   }
 
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
-  async function postNewsletter (payload: INewsletterParams): Promise<FunctionSucceededPattern<INewsletterSuccessfulResponse> | FunctionErrorPattern> {
+  async function postNewsletter (payload: INewsletterParams): Promise<ResponsePattern<INewsletterSuccessfulResponse>> {
     const defaultErrorMessage = 'Houve uma falha ao enviar o e-mail, tente novamente em breve!'
 
     try {
       const response = await fetch('https://xef5-44zo-gegm.b2.xano.io/api:KAULUI1C/newsletter', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        ...buildRequestOptions([], 'POST'),
         body: JSON.stringify(payload)
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const data: INewsletterSuccessfulResponse = await response.json()
 
-      return {
-        succeeded: true,
-        data: {
-          message: data.message
-        }
-      }
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -163,14 +113,14 @@ import {
     }
   }
 
-  function camelToKebabCase (str: string) {
+  function camelToKebabCase (str: string): string {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
   }
 
   function applyWrapperError (element: Exclude<ReturnType<typeof querySelector>, null>, isValid: boolean) {
     const wrapperElement = element.closest('[data-wtf-wrapper]')
 
-    wrapperElement && toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, isValid)
+    toggleClass(wrapperElement, ERROR_MESSAGE_CLASS, isValid)
   }
 
   function validateMailField (formElement: ReturnType<typeof querySelector<'form'>>) {
@@ -245,17 +195,19 @@ import {
     }
   }
 
-  document.querySelectorAll('form [data-wtf-email]').forEach(field => {
-    attachEvent(field as HTMLInputElement, 'blur', () => validateMailField(field.closest('form')), false)
+  document
+    .querySelectorAll('form [data-wtf-email]')
+    .forEach(field => {
+      attachEvent(field as HTMLInputElement, 'blur', () => validateMailField(field.closest('form')), false)
 
-    attachEvent(field as HTMLInputElement, 'input', function () {
-      const fieldWrapper = field.closest('[data-wtf-wrapper]')
+      attachEvent(field as HTMLInputElement, 'input', () => {
+        removeClass(field.closest('[data-wtf-wrapper]'), ERROR_MESSAGE_CLASS)
+      }, false)
+    })
 
-      fieldWrapper && removeClass(fieldWrapper, ERROR_MESSAGE_CLASS)
-    }, false)
-  })
-
-  document.querySelectorAll('form [data-wtf-consent]').forEach(field => {
-    attachEvent(field as HTMLInputElement, 'input', () => validateConsentField(field.closest('form')), false)
-  })
+  document
+    .querySelectorAll('form [data-wtf-consent]')
+    .forEach(field => {
+      attachEvent(field as HTMLInputElement, 'input', () => validateConsentField(field.closest('form')), false)
+    })
 })()

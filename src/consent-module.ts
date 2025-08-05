@@ -4,6 +4,11 @@ import {
   ISplitCookieObject
 } from '../global'
 
+import {
+  getCookie,
+  setCookie,
+} from '../utils'
+
 (function() {
   const COOKIE_SEPARATOR = '; '
   const GENERAL_HIDDEN_CLASS = 'oculto'
@@ -62,71 +67,6 @@ import {
     if (!element) return
 
     element.classList.remove(...className)
-  }
-
-  function setCookie (name: string, value: string | number | boolean, options: ICookieOptions = {}): string {
-    if (name.length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie name")
-    }
-
-    if (!['string', 'number', 'boolean'].includes(typeof value) || value.toString().length === 0) {
-      throw new Error("'setCookie' should receive a valid cookie value")
-    }
-
-    const cookieOptions: string[] = [`${name}=${value}`]
-
-    if (options.expires) {
-      cookieOptions.push(`expires=` + options.expires.toUTCString())
-    }
-
-    if (options.sameSite) {
-      cookieOptions.push(`SameSite=${options?.sameSite}`)
-    }
-
-    if (options.path) {
-      cookieOptions.push(`path=${options?.path}`)
-    }
-
-    if (options.domain) {
-      cookieOptions.push(`domain=${options?.domain}`)
-    }
-
-    if (options.httpOnly) {
-      cookieOptions.push(`HttpOnly`)
-    }
-
-    if (options.secure) {
-      cookieOptions.push('Secure')
-    }
-
-    const _buildCookie = cookieOptions.join(COOKIE_SEPARATOR)
-
-    document.cookie = _buildCookie
-
-    return _buildCookie
-  }
-
-  function getCookie <T extends string> (name: string): T | false {
-    const selectedCookie = document.cookie
-      .split(COOKIE_SEPARATOR)
-      .find(cookie => {
-        const { name: cookieName } = splitCookie(cookie)
-
-        return cookieName === name
-      })
-
-    return selectedCookie
-      ? splitCookie<T>(selectedCookie).value
-      : false
-  }
-
-  function splitCookie <T extends string> (cookie: string): ISplitCookieObject<T> {
-    const [name, value] = cookie.split('=')
-
-    return {
-      name,
-      value: value as T
-    }
   }
 
   const consentModule = querySelector('[data-wtf-consent-module]')

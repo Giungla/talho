@@ -74,6 +74,7 @@ export interface ICookieOptions {
     | 'Lax'
     | 'Strict';
   httpOnly?: boolean;
+  maxAge?: number;
 }
 
 export interface ISplitCookieObject <T extends string = string> {
