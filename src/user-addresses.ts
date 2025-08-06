@@ -24,7 +24,7 @@ import {
   objectSize,
   removeAttribute,
   removeClass,
-  isPageLoading,
+  isPageLoading, isArray,
 } from '../utils'
 
 (function () {
@@ -259,13 +259,13 @@ import {
   }
 
   function saveCreatedAddress (createdAddress: IUserCreatedAddress | IUserCreatedAddress[]) {
-    if (Array.isArray(createdAddress)) {
-      USER_CREATED_ADDRESSES.push(...createdAddress)
+    if (isArray(createdAddress)) {
+      USER_CREATED_ADDRESSES.push(...(createdAddress as IUserCreatedAddress[]))
 
       return
     }
 
-    USER_CREATED_ADDRESSES.push(createdAddress)
+    USER_CREATED_ADDRESSES.push(createdAddress as IUserCreatedAddress)
   }
 
   function checkInputExistenceAndSetItsValue (field: ReturnType<typeof querySelector<'input'>>, value: any = '') {
