@@ -3,9 +3,6 @@ import type {
   Nullable,
   ResponsePattern,
   CreateCartProduct,
-  ISplitCookieObject,
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
 } from '../global'
 
 import type {
@@ -26,43 +23,37 @@ import {
   NULL_VALUE,
   BRLFormatter,
   XANO_BASE_URL,
+  STORAGE_KEY_NAME,
+  GENERAL_HIDDEN_CLASS,
   stringify,
-  getCookie,
+  isAuthenticated,
+  buildRequestOptions,
+  postErrorResponse,
+  postSuccessResponse,
+  querySelector,
+  addClass,
+  toggleClass,
+  changeTextContent,
+  addAttribute,
+  attachEvent,
+  removeClass,
+  objectSize,
+  removeAttribute,
 } from '../utils'
 
 (function () {
-  const COOKIE_SEPARATOR = '; '
   const DISABLED_ATTR = 'disabled'
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-  const STORAGE_KEY_NAME = 'talho_cart_items'
   const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
 
   const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 
   const acquiring = new Set<string>()
 
-  function splitText (value: string, separator: string | RegExp, limit?: number): string[] {
-    return value.split(separator, limit)
-  }
-
   function max (...n: number[]): number {
     return Math.max(...n)
   }
 
-  const authCookie = getCookie(COOKIE_NAME)
-
-  const HEADERS = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-  }
-
-  const AUTH_HEADERS = {
-    ...HEADERS,
-    'Authorization': authCookie as string,
-  }
-
-  if (!authCookie) {
+  if (!isAuthenticated()) {
     location.href = '/acessos/entrar'
 
     return
@@ -101,114 +92,23 @@ import {
     }
   }) satisfies OrderProxy
 
-  function changeTextContent (element: ReturnType<typeof querySelector>, textContent: string) {
-    if (!element) return
-
-    element.textContent = textContent
-  }
-
-  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
-    if (!element) return
-
-    element.classList.add(...className)
-  }
-
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]): void {
-    if (!element) return
-
-    element.classList.remove(...className)
-  }
-
-  function toggleClass (element: ReturnType<typeof querySelector>, className: string, force?: boolean): boolean {
-    if (!element) return false
-
-    return element.classList.toggle(className, force)
-  }
-
-  function removeAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string) {
-    if (!element) return
-
-    element.removeAttribute(qualifiedName)
-  }
-
-  function setAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string, value: string) {
-    if (!element) return
-
-    element.setAttribute(qualifiedName, value)
-  }
-
-  function isArray <T = any> (arg: any): arg is T[] {
-    return Array.isArray(arg)
-  }
-
-  function querySelector <
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  > (
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return NULL_VALUE as T
-
-    return node.querySelector(selector as string) as T
-  }
-
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-        ? keyof HTMLElementEventMap
-        : keyof DocumentEventMap
-  > (
-    node: T | null,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction | void {
-    if (!node) return
-
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function objectSize <T extends string | any[]> (value: T): number {
-    return value.length
-  }
-
-  function postSuccessResponse <T = void> (response: T): FunctionSucceededPattern<T> {
-    return {
-      data: response,
-      succeeded: true
-    }
-  }
-
-  function postErrorResponse (message: string): FunctionErrorPattern {
-    return {
-      message,
-      succeeded: false
-    }
-  }
-
   async function getOrders (): Promise<ResponsePattern<Order[]>> {
     const defaultMessage = 'Falha ao buscar os pedidos'
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/orders`, {
-        headers: AUTH_HEADERS,
+        ...buildRequestOptions(),
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
       }
 
       const data = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }
@@ -219,8 +119,7 @@ import {
 
     try {
       const response = await fetch(`${XANO_BASE_URL}/api:9ixgU7Er/ratings/${product_id}/create`, {
-        method: 'POST',
-        headers: AUTH_HEADERS,
+        ...buildRequestOptions([], 'POST'),
         body: stringify<ProductReview>({
           rating,
           comment,
@@ -230,12 +129,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
       }
 
       const data = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }
@@ -246,9 +145,7 @@ import {
 
     try {
       const response = await fetch(`${CART_BASE_URL}/cart/handle`, {
-        method: 'POST',
-        headers: HEADERS,
-        credentials: 'include',
+        ...buildRequestOptions([], 'POST'),
         body: stringify<AddToCartParams>({
           item,
           operation: 'add',
@@ -258,12 +155,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse(error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
       }
 
       const data: CreateCartProduct = await response.json()
 
-      return postSuccessResponse(data)
+      return postSuccessResponse.call(response.headers, data)
     } catch (e) {
       return postErrorResponse(`[CATCH] ${defaultErrorMessage}`)
     }
@@ -355,7 +252,7 @@ import {
         const itemTemplate = orderItem.cloneNode(true) as HTMLElement
         const reviewSection = querySelector('[data-wtf-review-area]', itemTemplate) as HTMLElement
 
-        setAttribute(
+        addAttribute(
           querySelector<'a'>('[data-wtf-product-anchor]', itemTemplate), 'href', `/produtos/${slug}`
         )
 
@@ -470,7 +367,7 @@ import {
 
       if (!event.isTrusted || !event.submitter) return
 
-      setAttribute(event.submitter, DISABLED_ATTR, DISABLED_ATTR)
+      addAttribute(event.submitter, DISABLED_ATTR, DISABLED_ATTR)
 
       const response = await postReview({
         product_id,
