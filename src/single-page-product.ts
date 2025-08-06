@@ -25,6 +25,7 @@ import type {
 import {
   NULL_VALUE,
   BRLFormatter,
+  XANO_BASE_URL,
   GENERAL_HIDDEN_CLASS,
   STORAGE_KEY_NAME,
   attachEvent,
@@ -38,13 +39,14 @@ import {
   changeTextContent,
   toggleClass,
   removeClass,
-  removeAttribute, objectSize, isNull,
+  removeAttribute,
+  objectSize,
+  isNull,
 } from '../utils'
 
 const SELECTED_CLASS = 'selecionado'
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
-const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
 const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 
 const CLICK_EVENT = 'click'
@@ -221,12 +223,12 @@ async function getProduct (pathname: GetProductParams['reference_id']): Promise<
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
     }
 
     const data: GetProductResponse = await response.json()
 
-    return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<GetProductResponse>
+    return postSuccessResponse.call(response, data) as FunctionSucceededPattern<GetProductResponse>
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -296,12 +298,12 @@ async function addProductToCart (item: CreateCartProduct): Promise<ResponsePatte
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
     }
 
     const data: CreateCartProduct = await response.json()
 
-    return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<CreateCartProduct>
+    return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CreateCartProduct>
   } catch (e) {
     return postErrorResponse(`[CATCH] ${defaultErrorMessage}`)
   }
@@ -513,12 +515,12 @@ async function deliveryQuotation (payload: DeliveryQuotationBody): Promise<Respo
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
     }
 
     const data: LocationResponse | QuotationPrice = await response.json()
 
-    return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<LocationResponse | QuotationPrice>
+    return postSuccessResponse.call(response, data) as FunctionSucceededPattern<LocationResponse | QuotationPrice>
   } catch (error) {
     return postErrorResponse(defaultErrorMessage)
   }

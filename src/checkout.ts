@@ -357,12 +357,12 @@ async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Pro
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
     }
 
     const address: VIACEPFromXano = await response.json()
 
-    return postSuccessResponse.call(response.headers, address) as FunctionSucceededPattern<VIACEPFromXano>
+    return postSuccessResponse.call(response, address) as FunctionSucceededPattern<VIACEPFromXano>
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -598,12 +598,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const data: CartResponse = await response.json()
 
-        return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<CartResponse>
+        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CartResponse>
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -645,12 +645,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const data = await response.json()
 
-        return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<InstallmentItem[]>
+        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<InstallmentItem[]>
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -772,12 +772,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const data = await response.json()
 
-        return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<PaymentResponseMap[T]>
+        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<PaymentResponseMap[T]>
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -963,12 +963,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const data = await response.json()
 
-        return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<ISingleOrderCoupon>
+        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<ISingleOrderCoupon>
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1038,12 +1038,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const data: CheckoutDeliveryResponse = await response.json()
 
-        return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<CheckoutDeliveryResponse>
+        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CheckoutDeliveryResponse>
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1098,12 +1098,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const data: CheckoutDeliveryPriceResponse = await response.json()
 
-        return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<CheckoutDeliveryPriceResponse>
+        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CheckoutDeliveryPriceResponse>
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1132,12 +1132,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const data: SubsidyResponse = await response.json()
 
-        return postSuccessResponse.call(response.headers, data) as FunctionSucceededPattern<SubsidyResponse>
+        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<SubsidyResponse>
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }

@@ -6,26 +6,43 @@ import type {
 } from "../global"
 
 import {
+  buildURL,
   getCookie,
   setCookie,
   timestampDays
 } from "./index"
 
+export const UNAUTHENTICATED_RESPONSE_STATUS = 401
+
 export const AUTH_COOKIE_NAME = '__Host-Talho-AuthToken'
 export const TALHO_SESSION_COOKIE_NAME = '__Host-Talho-Session-Cookie'
 export const TALHO_SESSION_HEADER_NAME = 'X-Talho-Session'
 
-export function postErrorResponse (this: Headers | void, message: string): FunctionErrorPattern {
-  const session = this?.get(TALHO_SESSION_HEADER_NAME)
+function handleResponseStatus (response?: Response): void {
+  if (!response || response.status !== UNAUTHENTICATED_RESPONSE_STATUS) return
 
-  if (session) {
-    setCookie(TALHO_SESSION_COOKIE_NAME, session, {
-      path: '/',
-      secure: true,
-      sameSite: 'Strict',
-      expires: new Date(Date.now() + timestampDays(90)),
-    })
-  }
+  location.href = buildURL('/acessos/entrar', {
+    redirect_to: encodeURIComponent(location.pathname)
+  })
+}
+
+export function handleSession (response?: Response): void {
+  const session = response?.headers.get(TALHO_SESSION_HEADER_NAME)
+
+  if (!session) return
+
+  setCookie(TALHO_SESSION_COOKIE_NAME, session, {
+    path: '/',
+    secure: true,
+    sameSite: 'Strict',
+    expires: new Date(Date.now() + timestampDays(90)),
+  })
+}
+
+export function postErrorResponse (this: Response | undefined, message: string): FunctionErrorPattern {
+  handleSession(this)
+
+  handleResponseStatus(this)
 
   return {
     message,
@@ -33,17 +50,8 @@ export function postErrorResponse (this: Headers | void, message: string): Funct
   }
 }
 
-export function postSuccessResponse <T> (this: Headers | void, response: T): FunctionSucceededPattern<T> {
-  const session = this?.get(TALHO_SESSION_HEADER_NAME)
-
-  if (session) {
-    setCookie(TALHO_SESSION_COOKIE_NAME, session, {
-      path: '/',
-      secure: true,
-      sameSite: 'Strict',
-      expires: new Date(Date.now() + timestampDays(90)),
-    })
-  }
+export function postSuccessResponse <T> (this: Response | undefined, response: T): FunctionSucceededPattern<T> {
+  handleSession(this)
 
   return {
     data: response,

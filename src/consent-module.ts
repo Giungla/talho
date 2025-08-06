@@ -1,19 +1,21 @@
-import {
+
+import type {
   Binary,
-  ICookieOptions,
-  ISplitCookieObject
 } from '../global'
 
 import {
+  COOKIE_CONSENT_NAME,
+  GENERAL_HIDDEN_CLASS,
   getCookie,
   setCookie,
+  addClass,
+  removeClass,
+  attachEvent,
+  querySelector,
 } from '../utils'
 
 (function() {
-  const COOKIE_SEPARATOR = '; '
-  const GENERAL_HIDDEN_CLASS = 'oculto'
   const CLICK_EVENT = 'click'
-  const COOKIE_CONSENT_NAME = 'editora-contra-corrente-consent'
   const GTM_CODE = document.currentScript?.getAttribute('data-gtm-code')
 
   // @ts-ignore
@@ -22,51 +24,6 @@ import {
   function gtag (){
     // @ts-ignore
     dataLayer.push(arguments)
-  }
-
-  function attachEvent <
-    T extends HTMLElement | Document,
-    K extends T extends HTMLElement
-      ? keyof HTMLElementEventMap
-      : keyof DocumentEventMap
-  > (
-    node: T | null,
-    eventName: K,
-    callback: (event: T extends HTMLElement
-      ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-      : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
-    ) => void,
-    options?: boolean | AddEventListenerOptions
-  ): VoidFunction | void {
-    if (!node) return
-
-    node.addEventListener(eventName, callback as EventListener, options)
-
-    return () => node.removeEventListener(eventName, callback as EventListener, options)
-  }
-
-  function querySelector<
-    K extends keyof HTMLElementTagNameMap,
-    T extends HTMLElementTagNameMap[K] | Element | null = HTMLElementTagNameMap[K] | null
-  >(
-    selector: K | string,
-    node: HTMLElement | Document | null = document
-  ): T {
-    if (!node) return null as T
-
-    return node.querySelector(selector as string) as T
-  }
-
-  function addClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.add(...className)
-  }
-
-  function removeClass (element: ReturnType<typeof querySelector>, ...className: string[]) {
-    if (!element) return
-
-    element.classList.remove(...className)
   }
 
   const consentModule = querySelector('[data-wtf-consent-module]')
@@ -98,7 +55,7 @@ import {
   function startConsentModule () {
     removeClass(consentModule, GENERAL_HIDDEN_CLASS)
 
-    attachEvent(querySelector('[data-wtf-consent-module-accept]'), CLICK_EVENT, function (e) {
+    attachEvent(querySelector('[data-wtf-consent-module-accept]'), CLICK_EVENT, function (e: MouseEvent) {
       cancelEventPropagation(e)
 
       applyGTM()
@@ -108,7 +65,7 @@ import {
       addClass(consentModule, GENERAL_HIDDEN_CLASS)
     })
 
-    attachEvent(querySelector('[data-wtf-consent-module-reject]'), CLICK_EVENT, function (e) {
+    attachEvent(querySelector('[data-wtf-consent-module-reject]'), CLICK_EVENT, function (e: MouseEvent) {
       cancelEventPropagation(e)
 
       removeNoScript()
@@ -156,7 +113,7 @@ import {
     })(window,document,'script','dataLayer',GTMCode);
   }
 
-  attachEvent(querySelector('[data-wtf-consent-open]'), CLICK_EVENT, function (e) {
+  attachEvent(querySelector('[data-wtf-consent-open]'), CLICK_EVENT, function (e: MouseEvent) {
     cancelEventPropagation(e)
 
     setConsentCookie('0', new Date(Date.now() - 1))

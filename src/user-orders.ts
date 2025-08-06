@@ -103,12 +103,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultMessage)
       }
 
       const data = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }
@@ -129,12 +129,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultMessage)
       }
 
       const data = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }
@@ -155,12 +155,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const data: CreateCartProduct = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(`[CATCH] ${defaultErrorMessage}`)
     }

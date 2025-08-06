@@ -52,12 +52,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const data: ILoginUserPayload = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -78,12 +78,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const data: IGoogleAuthURLResponse = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }

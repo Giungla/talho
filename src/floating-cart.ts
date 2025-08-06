@@ -165,12 +165,12 @@ async function getCartProducts (): Promise<ResponsePattern<CartResponse>> {
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
     }
 
     const data: CartResponse = await response.json()
 
-    return postSuccessResponse.call(response.headers, data)
+    return postSuccessResponse.call(response, data)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -191,12 +191,12 @@ async function updateCartProducts (item: CreateCartProduct, operation: CartOpera
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
     }
 
     const data: CartResponse = await response.json()
 
-    return postSuccessResponse.call(response.headers, data)
+    return postSuccessResponse.call(response, data)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }

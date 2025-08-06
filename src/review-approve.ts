@@ -11,8 +11,6 @@ import type {
 
 import {
   XANO_BASE_URL,
-  AUTH_COOKIE_NAME,
-  getCookie,
   stringify,
   querySelector,
   changeTextContent,
@@ -42,24 +40,20 @@ import {
     const defaultMessage = 'Não foi possível alterar a situação da avaliação'
 
     try {
-      const additionalHeaders = [
-        [ 'Authorization', getCookie(AUTH_COOKIE_NAME) || '' ]
-      ]
-
       const response = await fetch(`${XANO_BASE_URL}/api:9ixgU7Er/ratings/${review_id}/${action}`, {
-        ...buildRequestOptions(additionalHeaders, 'PATCH'),
+        ...buildRequestOptions([], 'PATCH'),
         body: stringify<object>({})
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultMessage)
       }
 
       const data = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }

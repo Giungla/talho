@@ -117,12 +117,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const address: VIACEPFromXano = await response.json()
 
-      return postSuccessResponse.call(response.headers, address)
+      return postSuccessResponse.call(response, address)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -139,12 +139,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const addresses: IUserCreatedAddress[] = await response.json()
 
-      return postSuccessResponse.call(response.headers, addresses)
+      return postSuccessResponse.call(response, addresses)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -161,10 +161,10 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
-      return postSuccessResponse.call(response.headers, null)
+      return postSuccessResponse.call(response, null)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -182,12 +182,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const createdAddress: IAddress = await response.json()
 
-      return postSuccessResponse.call(response.headers, createdAddress)
+      return postSuccessResponse.call(response, createdAddress)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }

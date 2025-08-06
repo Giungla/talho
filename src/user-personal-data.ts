@@ -8,8 +8,8 @@ import type {
 
 import {
   XANO_BASE_URL,
+  GENERAL_HIDDEN_CLASS,
   addClass,
-  getCookie,
   toggleClass,
   querySelector,
   changeTextContent,
@@ -18,15 +18,14 @@ import {
   attachEvent,
   splitText,
   stringify,
-  shouldAuthenticate,
   buildRequestOptions,
   postErrorResponse,
   postSuccessResponse,
+  numberOnly,
+  objectSize,
 } from '../utils'
 
 (function () {
-  const GENERAL_HIDDEN_CLASS = 'oculto'
-  const COOKIE_NAME = '__Host-Talho-AuthToken'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
 
   function camelToKebabCase (str: string): string {
@@ -58,11 +57,9 @@ import {
   }
 
   function renderSinglePersonalData (where: ReturnType<typeof querySelector>, value: string | null) {
-    if (!where) return
-
     toggleClass(where, GENERAL_HIDDEN_CLASS, !value)
 
-    where.textContent = value ?? ''
+    changeTextContent(where, value ?? '')
   }
 
   function syncState (state: Omit<ICurrentUserData, 'id'>) {
@@ -124,14 +121,6 @@ import {
       return response
     }
   })
-
-  const authCookie = getCookie(COOKIE_NAME)
-
-  const HEADERS = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    ...(authCookie && { Authorization: authCookie })
-  }
 
   const removeAttributes = [
     'name',
@@ -355,15 +344,9 @@ import {
   }
 
   function removeDuplicatedSpaces (value: string): string {
-    return value.trim().replace(/\s+/g, ' ')
-  }
-
-  function objectSize (value: string | Array<any>): number {
-    return value.length
-  }
-
-  function numberOnly (value: string): string {
-    return value.replace(/\D/g, '')
+    return value
+      .trim()
+      .replace(/\s+/g, ' ')
   }
 
   function validatorResponse (datasetName: string) {
@@ -496,16 +479,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        if (response.status === 401) {
-          shouldAuthenticate()
-        }
-
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
 
-      return postSuccessResponse.call(response.headers, personalData)
+      return postSuccessResponse.call(response, personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -522,16 +501,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        if (response.status === 401) {
-          shouldAuthenticate()
-        }
-
-        return postErrorResponse.call(response.headers, error?.message?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message?? defaultErrorMessage)
       }
 
       const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
 
-      return postSuccessResponse.call(response.headers, personalData)
+      return postSuccessResponse.call(response, personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }

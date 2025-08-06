@@ -1,12 +1,8 @@
 
-import type {
-  ICookieOptions,
-  ISplitCookieObject
-} from '../global'
-
 import {
   getCookie,
   setCookie,
+  timestampDays,
 } from '../utils'
 
 (function () {
@@ -29,8 +25,6 @@ import {
 
   if (URLSearch.size === 0) return
 
-  const DAY_IN_MILISECONDS = 86400 * 1000
-
   const hasTrackingParameterInURL = searchParams.some(param => URLSearch.has(param))
 
   if (hasTrackingParameterInURL) {
@@ -40,7 +34,7 @@ import {
       if (!URLSearch.has(param)) continue
 
       setCookie(param, URLSearch.get(param) ?? '', {
-        expires: new Date(Date.now() + DAY_IN_MILISECONDS * 90)
+        expires: new Date(Date.now() + timestampDays(90))
       })
     }
   }
@@ -48,7 +42,7 @@ import {
   function clearTrackingCookies (params: string[] = searchParams): void {
     for (let index = 0; index < searchParamsSize; index++) {
       setCookie(params[index], '', {
-        expires: new Date(Date.now() - DAY_IN_MILISECONDS)
+        expires: new Date(Date.now() - timestampDays(1))
       })
     }
   }

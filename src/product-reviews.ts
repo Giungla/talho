@@ -41,12 +41,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultMessage)
       }
 
       const data: ReviewResponse = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultMessage)
     }

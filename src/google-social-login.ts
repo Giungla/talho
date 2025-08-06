@@ -1,8 +1,9 @@
-import {
+
+import type {
   FunctionErrorPattern,
   FunctionSucceededPattern,
   GoogleContinueOAuthResponse,
-} from "../global";
+} from '../global'
 
 import {
   XANO_BASE_URL,
@@ -59,12 +60,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const data: GoogleContinueOAuthResponse = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }

@@ -54,7 +54,6 @@ export {
   focusInput,
   isNull,
   isAuthenticated,
-  shouldAuthenticate,
   EMAIL_REGEX_VALIDATION,
 } from './dom'
 
@@ -68,5 +67,6 @@ export {
   statesValues,
   statesAcronym,
   STORAGE_KEY_NAME,
+  COOKIE_CONSENT_NAME,
   FREE_SHIPPING_MIN_CART_PRICE,
 } from './consts'

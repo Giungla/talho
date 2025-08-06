@@ -7,9 +7,7 @@ import type {
 
 import {
   XANO_BASE_URL,
-  AUTH_COOKIE_NAME,
   GENERAL_HIDDEN_CLASS,
-  getCookie,
   toggleClass,
   removeClass,
   attachEvent,
@@ -75,12 +73,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const data: IResetPasswordSuccessResponse = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }

@@ -178,10 +178,6 @@ export function splitText (value: string, separator: string | RegExp, limit?: nu
   return value.split(separator, limit)
 }
 
-export function shouldAuthenticate () {
-  location.href = `/acessos/entrar?redirect_to=${encodeURIComponent(location.pathname)}`
-}
-
 export function isNull <T> (v: any): v is null {
   return v === NULL_VALUE
 }

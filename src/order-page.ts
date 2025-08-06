@@ -18,6 +18,7 @@ import {
   NULL_VALUE,
   BRLFormatter,
   XANO_BASE_URL,
+  isNull,
   isPageLoading,
   querySelector,
   postErrorResponse,
@@ -82,12 +83,12 @@ import {
           if (!response.ok) {
             const error = await response.json()
 
-            return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+            return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
           }
 
           const data: OrderData = await response.json()
 
-          return postSuccessResponse.call(response.headers, data)
+          return postSuccessResponse.call(response, data)
         } catch (e) {
           return postErrorResponse(defaultErrorMessage)
         }
@@ -158,7 +159,7 @@ import {
       },
 
       hasOrderDiscount (): boolean {
-        return this.order?.discount_code !== NULL_VALUE
+        return !isNull(this.order?.discount_code)
       },
 
       getOrderSubtotalPriceFormatted (): string {

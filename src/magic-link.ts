@@ -2,9 +2,10 @@
 import type {
   ILoginUserPayload,
   ResponsePattern
-} from "../global"
+} from '../global'
 
 import {
+  XANO_BASE_URL,
   AUTH_COOKIE_NAME,
   GENERAL_HIDDEN_CLASS,
   setCookie,
@@ -31,7 +32,7 @@ import {
     const defaultErrorMessage = 'Houve uma falha ao validar o token. Por favor, tente novamente mais tarde.'
 
     try {
-      const response = await fetch(`https://xef5-44zo-gegm.b2.xano.io/api:uImEuFxO/auth/magic-login`, {
+      const response = await fetch(`${XANO_BASE_URL}/api:uImEuFxO/auth/magic-login`, {
         ...buildRequestOptions([], 'POST'),
         body: stringify({
           magic_token
@@ -41,12 +42,12 @@ import {
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const token: ILoginUserPayload = await response.json()
 
-      return postSuccessResponse.call(response.headers, token)
+      return postSuccessResponse.call(response, token)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }

@@ -1,26 +1,27 @@
-import {
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
+
+import type {
+  ResponsePattern,
   INewsletterParams,
-  INewsletterSuccessfulResponse, ResponsePattern
-} from "../global";
+  INewsletterSuccessfulResponse,
+} from '../global'
 
 import {
+  GENERAL_HIDDEN_CLASS,
   addClass,
   toggleClass,
   removeClass,
   attachEvent,
+  focusInput,
   querySelector,
   changeTextContent,
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
+  stringify,
+  EMAIL_REGEX_VALIDATION,
 } from '../utils'
 
 (function () {
-  'use strict';
-
-  const GENERAL_HIDDEN_CLASS = 'oculto'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
 
   async function handleNewsletterFormSubmit (event: SubmitEvent): Promise<void> {
@@ -42,8 +43,8 @@ import {
 
       const attributeName = `[data-${camelToKebabCase(name as string)}]`
 
-      querySelector(attributeName, target)?.focus({
-        preventScroll: false
+      focusInput(querySelector(attributeName, target), {
+        preventScroll: false,
       })
 
       return
@@ -90,18 +91,18 @@ import {
     try {
       const response = await fetch('https://xef5-44zo-gegm.b2.xano.io/api:KAULUI1C/newsletter', {
         ...buildRequestOptions([], 'POST'),
-        body: JSON.stringify(payload)
+        body: stringify<INewsletterParams>(payload)
       })
 
       if (!response.ok) {
         const error = await response.json()
 
-        return postErrorResponse.call(response.headers, error?.message ?? defaultErrorMessage)
+        return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
       const data: INewsletterSuccessfulResponse = await response.json()
 
-      return postSuccessResponse.call(response.headers, data)
+      return postSuccessResponse.call(response, data)
     } catch (e) {
       return postErrorResponse(defaultErrorMessage)
     }
@@ -132,7 +133,7 @@ import {
 
     if (!mailField) return response(false)
 
-    const isFieldValid = /^(([\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+(\.[\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+)*)|("[\p{L}\p{N}\s!#$%&'*+\/=?^_`{|}~.-]+"))@(([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}|(\[(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\]))$/u.test(mailField.value)
+    const isFieldValid = EMAIL_REGEX_VALIDATION().test(mailField.value)
 
     applyWrapperError(mailField, !isFieldValid)
 

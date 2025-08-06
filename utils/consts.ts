@@ -40,3 +40,5 @@ export const statesMap = {
 export const statesAcronym = Object.keys(statesMap) as IStateAcronym[]
 
 export const statesValues = Object.values(statesMap)
+
+export const COOKIE_CONSENT_NAME = 'talho-carnes-consent'
