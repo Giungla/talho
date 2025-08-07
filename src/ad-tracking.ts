@@ -1,6 +1,7 @@
 
 import {
   getCookie,
+  objectSize,
   setCookie,
   timestampDays,
 } from '../utils'
@@ -10,14 +11,14 @@ import {
   // const PARAM_NAMES = 'gclid|gbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
 
   if (!PARAM_NAMES) {
-    throw new Error(`You must provide a the 'data-parameter-names' parameter`)
+    throw new Error(`You must provide a 'data-parameter-names' parameter`)
   }
 
   const searchParams = PARAM_NAMES
     .replace(/[^a-z|_]+/g, '')
     .split('|')
 
-  const searchParamsSize = searchParams.length
+  const searchParamsSize = objectSize(searchParams)
 
   if (searchParamsSize === 0) return
 

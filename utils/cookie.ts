@@ -1,8 +1,12 @@
 
-import {
+import type {
   ICookieOptions,
   ISplitCookieObject
-} from "../global"
+} from '../global'
+
+import {
+  objectSize
+} from './dom'
 
 export const COOKIE_SEPARATOR = '; '
 
@@ -30,11 +34,11 @@ export function splitCookie (cookie: string): ISplitCookieObject {
 }
 
 export function setCookie (name: string, value: string | number | boolean, options: ICookieOptions = {}): string {
-  if (name.length === 0) {
+  if (objectSize(name) === 0) {
     throw new Error("'setCookie' should receive a valid cookie name")
   }
 
-  if (!['string', 'number', 'boolean'].includes(typeof value) || value.toString().length === 0) {
+  if (!['string', 'number', 'boolean'].includes(typeof value) || objectSize(value.toString()) === 0) {
     throw new Error("'setCookie' should receive a valid cookie value")
   }
 

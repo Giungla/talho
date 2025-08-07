@@ -500,7 +500,7 @@ function drawQuotation (quotation: QuotationPayload): void {
 }
 
 function drawLocations (locations: LocationList[]): void {
-  console.log(locations.length, ' localizações recebidas')
+  console.log(objectSize(locations), ' localizações recebidas')
 }
 
 async function deliveryQuotation (payload: DeliveryQuotationBody): Promise<ResponsePattern<LocationResponse | QuotationPrice>> {

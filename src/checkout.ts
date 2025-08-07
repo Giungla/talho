@@ -130,7 +130,7 @@ function scrollIntoView (element: HTMLElement, args: boolean | ScrollIntoViewOpt
 function isExpireDateValid (expireDate: string): boolean {
   const tokens = expireDate.split(SLASH_STRING)
 
-  if (tokens.length !== 2) return false
+  if (objectSize(tokens) !== 2) return false
 
   const [monthStr, yearStr] = tokens
 
@@ -163,7 +163,7 @@ function maskPhoneNumber (value: string): string {
     return response.join(EMPTY_STRING)
   }
 
-  if (value.length < 11) {
+  if (objectSize(value) < 11) {
     return value.replace(/^(\d{0,2})(\d{0,4})(\d{0,4})/, replacer)
   }
 
@@ -320,7 +320,7 @@ function isDateValid (date: string): boolean {
 function isCPFValid (cpf: string): boolean {
   cpf = numberOnly(cpf)
 
-  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false
+  if (objectSize(cpf) !== 11 || /^(\d)\1{10}$/.test(cpf)) return false
 
   const verifiers = CPF_VERIFIERS_INDEXES.map((verifierDigit, verifierIndex) => {
     const lastIndex = verifierIndex ? 10 : 9;
@@ -344,7 +344,7 @@ async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Pro
 
   cep = numberOnly(cep)
 
-  if (cep.length !== CEP_LENGTH) return postErrorResponse(defaultErrorMessage)
+  if (objectSize(cep) !== CEP_LENGTH) return postErrorResponse(defaultErrorMessage)
 
   try {
     const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}/checkout`, {
@@ -616,7 +616,7 @@ const TalhoCheckoutApp = createApp({
         .then(cartData => {
           if (!cartData.succeeded) return
 
-          if (cartData.data.items.length === 0) {
+          if (objectSize(cartData.data.items) === 0) {
             location.href = buildURL('/', {
               reason: 'empty_cart'
             })
