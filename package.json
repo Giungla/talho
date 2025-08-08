@@ -8,79 +8,79 @@
   "scripts": {
     "build-all": "yarn tsup-spp-both && yarn tsup-floating-cart-both && yarn tsup-consent-module-both && yarn tsup-checkout-both && yarn tsup-ad-tracking-both && yarn tsup-pix-page-both&&yarn tsup-user-orders-both&&yarn tsup-read-reviews-both&&yarn tsup-review-approve-both&&yarn tsup-user-personal-data-both&&yarn tsup-order-page-both&&yarn tsup-change-password-both&&yarn tsup-google-social-login-both&&yarn tsup-login-both&&yarn tsup-magic-link-both&&yarn tsup-newsletter-both&&yarn tsup-recover-access-both&&yarn tsup-signup-both&&yarn tsup-user-addresses-both",
 
-    "tsup-spp": "tsup src/single-page-product.ts --format iife --minify --out-dir dev",
+    "tsup-spp": "tsup src/single-page-product.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-spp-prod": "node build-commands/build-for-production.js --name=single-page-product",
     "tsup-spp-both": "yarn tsup-spp && yarn tsup-spp-prod",
 
-    "tsup-floating-cart": "tsup src/floating-cart.ts --format iife --minify --out-dir dev",
+    "tsup-floating-cart": "tsup src/floating-cart.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-floating-cart-prod": "node build-commands/build-for-production.js --name=floating-cart",
     "tsup-floating-cart-both": "yarn tsup-floating-cart && yarn tsup-floating-cart-prod",
 
-    "tsup-consent-module": "tsup src/consent-module.ts --format iife --minify --out-dir dev",
+    "tsup-consent-module": "tsup src/consent-module.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-consent-module-prod": "node build-commands/build-for-production.js --name=consent-module",
     "tsup-consent-module-both": "yarn tsup-consent-module && yarn tsup-consent-module-prod",
 
-    "tsup-checkout": "tsup src/checkout.ts --format iife --minify --out-dir dev",
+    "tsup-checkout": "tsup src/checkout.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-checkout-prod": "node build-commands/build-for-production.js --name=checkout",
     "tsup-checkout-both": "yarn tsup-checkout && yarn tsup-checkout-prod",
 
-    "tsup-ad-tracking": "tsup src/ad-tracking.ts --format iife --minify --out-dir dev",
+    "tsup-ad-tracking": "tsup src/ad-tracking.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-ad-tracking-prod": "node build-commands/build-for-production.js --name=ad-tracking",
     "tsup-ad-tracking-both": "yarn tsup-ad-tracking && yarn tsup-ad-tracking-prod",
 
-    "tsup-pix-page": "tsup src/pix-process.ts --format iife --minify --out-dir dev",
+    "tsup-pix-page": "tsup src/pix-process.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-pix-page-prod": "node build-commands/build-for-production.js --name=pix-process",
     "tsup-pix-page-both": "yarn tsup-pix-page && yarn tsup-pix-page-prod",
 
-    "tsup-user-orders": "tsup src/user-orders.ts --format iife --minify --out-dir dev",
+    "tsup-user-orders": "tsup src/user-orders.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-user-orders-prod": "node build-commands/build-for-production.js --name=user-orders",
     "tsup-user-orders-both": "yarn tsup-user-orders && yarn tsup-user-orders-prod",
 
-    "tsup-read-reviews": "tsup src/product-reviews.ts --format iife --minify --out-dir dev",
+    "tsup-read-reviews": "tsup src/product-reviews.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-read-reviews-prod": "node build-commands/build-for-production.js --name=product-reviews",
     "tsup-read-reviews-both": "yarn tsup-read-reviews && yarn tsup-read-reviews-prod",
 
-    "tsup-review-approve": "tsup src/review-approve.ts --format iife --minify --out-dir dev",
+    "tsup-review-approve": "tsup src/review-approve.ts --watch --format iife --minify --treeshake --out-dir dev",
     "tsup-review-approve-prod": "node build-commands/build-for-production.js --name=review-approve",
     "tsup-review-approve-both": "yarn tsup-review-approve && yarn tsup-review-approve-prod",
 
-    "tsup-user-personal-data": "tsup src/user-personal-data.ts --format iife --minify --out-dir dev",
+    "tsup-user-personal-data": "tsup src/user-personal-data.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-user-personal-data-prod": "node build-commands/build-for-production.js --name=user-personal-data",
     "tsup-user-personal-data-both": "yarn tsup-user-personal-data && yarn tsup-user-personal-data-prod",
 
-    "tsup-order-page": "tsup src/order-page.ts --format iife --minify --out-dir dev",
+    "tsup-order-page": "tsup src/order-page.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-order-page-prod": "node build-commands/build-for-production.js --name=order-page",
     "tsup-order-page-both": "yarn tsup-order-page && yarn tsup-order-page-prod",
 
-    "tsup-change-password": "tsup src/change-password.ts --format iife --minify --out-dir dev",
+    "tsup-change-password": "tsup src/change-password.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-change-password-prod": "node build-commands/build-for-production.js --name=change-password",
     "tsup-change-password-both": "yarn tsup-change-password && yarn tsup-change-password-prod",
 
-    "tsup-google-social-login": "tsup src/google-social-login.ts --format iife --minify --out-dir dev",
+    "tsup-google-social-login": "tsup src/google-social-login.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-google-social-login-prod": "node build-commands/build-for-production.js --name=google-social-login",
     "tsup-google-social-login-both": "yarn tsup-google-social-login && yarn tsup-google-social-login-prod",
 
-    "tsup-login": "tsup src/login.ts --format iife --minify --out-dir dev",
+    "tsup-login": "tsup src/login.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-login-prod": "node build-commands/build-for-production.js --name=login",
     "tsup-login-both": "yarn tsup-login && yarn tsup-login-prod",
 
-    "tsup-magic-link": "tsup src/magic-link.ts --format iife --minify --out-dir dev",
+    "tsup-magic-link": "tsup src/magic-link.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-magic-link-prod": "node build-commands/build-for-production.js --name=magic-link",
     "tsup-magic-link-both": "yarn tsup-magic-link && yarn tsup-magic-link-prod",
 
-    "tsup-newsletter": "tsup src/newsletter.ts --format iife --minify --out-dir dev",
+    "tsup-newsletter": "tsup src/newsletter.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-newsletter-prod": "node build-commands/build-for-production.js --name=newsletter",
     "tsup-newsletter-both": "yarn tsup-newsletter && yarn tsup-newsletter-prod",
 
-    "tsup-recover-access": "tsup src/recover-access.ts --format iife --minify --out-dir dev",
+    "tsup-recover-access": "tsup src/recover-access.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-recover-access-prod": "node build-commands/build-for-production.js --name=recover-access",
     "tsup-recover-access-both": "yarn tsup-recover-access && yarn tsup-recover-access-prod",
 
-    "tsup-signup": "tsup src/signup.ts --format iife --minify --out-dir dev",
+    "tsup-signup": "tsup src/signup.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-signup-prod": "node build-commands/build-for-production.js --name=signup",
     "tsup-signup-both": "yarn tsup-signup && yarn tsup-signup-prod",
 
-    "tsup-user-addresses": "tsup src/user-addresses.ts --format iife --minify --out-dir dev",
+    "tsup-user-addresses": "tsup src/user-addresses.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-user-addresses-prod": "node build-commands/build-for-production.js --name=user-addresses",
     "tsup-user-addresses-both": "yarn tsup-user-addresses && yarn tsup-user-addresses-prod"
   }

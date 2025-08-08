@@ -53,9 +53,14 @@ await build({
   format: ['iife'],
   minify: true,
   outDir: 'dist',
+  treeshake: true,
   outExtension: () => ({
-    js: `.${hash}.js`
-  })
+    js: `.${hash}.js`,
+  }),
+  drop: [
+    'console',
+    'debugger',
+  ],
 });
 
 console.log(`Generated file: dist/${filename}`);
