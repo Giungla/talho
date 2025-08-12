@@ -91,7 +91,7 @@ const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 const PAYMENT_BASE_URL = `${XANO_BASE_URL}/api:5lp3Lw8X`
 const DELIVERY_BASE_URL = `${XANO_BASE_URL}/api:24B7O9Aj`
 
-const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key') || 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxPIKWT6ettkFKqSyfoUpH/550Q8YQtRf7ZYJJbV3U7/4HBtamJT9If4wiLs2YlEfwTPWlB5Cl0jGmkBSQkjIDF+QTOSJviZYKgiuR7Bnavgt+idkcZsd5hM1I6u1uwOJJE3wSSXg+Nw70GZCeg7A6bmq9tOu1827En/ZFKWBXqv9Upc7q/Y6N0XMzZ3CL1j6ZlhnCalQzzaV9whijxK22lIL78gLEUcnmEO7CUX6DyfcdlA13MM4X538k2eYUosdnKafCEDNVcT+PPUeUdJZ0CpBWA9c/XtO0BIbTXHTsDuDlX0r7BF0vMFJMi0D9lkFCavY/kjZEQYhnXMtrWlUWwIDAQAB'
+const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key')
 
 if (!PAGSEGURO_PUBLIC_KEY) {
   throw new Error('public key must be provided')
