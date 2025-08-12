@@ -22,7 +22,7 @@ function handleResponseStatus (response?: Response): void {
   if (!response || response.status !== UNAUTHENTICATED_RESPONSE_STATUS) return
 
   location.href = buildURL('/acessos/entrar', {
-    redirect_to: encodeURIComponent(location.pathname)
+    redirect_to: encodeURIComponent(location.pathname + location.search),
   })
 }
 
