@@ -94,7 +94,7 @@ const DELIVERY_BASE_URL = `${XANO_BASE_URL}/api:24B7O9Aj`
 const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key')
 
 if (!PAGSEGURO_PUBLIC_KEY) {
-  throw new Error('public key must be provided')
+  console.warn('[Checkout] public key must be provided as a parameter to this file')
 }
 
 const MIN_AVAILABLE_INSTALLMENT_COUNT = 1
@@ -1834,7 +1834,7 @@ const TalhoCheckoutApp = createApp({
 
       const discountPIX = this.deliveryOptions?.pix_discount ?? 0
 
-      return discountPIX / 100 * -this.getOrderSubtotal
+      return decimalRound(discountPIX / 100 * -this.getOrderSubtotal, 2)
     },
 
     PIXDiscountPriceFormatted (): string {
