@@ -120,6 +120,10 @@ export interface CheckoutDeliveryOption {
 
 export interface CheckoutDeliveryResponse {
   /**
+   * Retorna o valor percentual de desconto fornecido para pagamentos PIX
+   */
+  pix_discount: number;
+  /**
    * Informa qual taxa de prioridade será aplicada
    */
   priority_fee: number;

@@ -91,6 +91,12 @@ const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 const PAYMENT_BASE_URL = `${XANO_BASE_URL}/api:5lp3Lw8X`
 const DELIVERY_BASE_URL = `${XANO_BASE_URL}/api:24B7O9Aj`
 
+const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key') || 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxPIKWT6ettkFKqSyfoUpH/550Q8YQtRf7ZYJJbV3U7/4HBtamJT9If4wiLs2YlEfwTPWlB5Cl0jGmkBSQkjIDF+QTOSJviZYKgiuR7Bnavgt+idkcZsd5hM1I6u1uwOJJE3wSSXg+Nw70GZCeg7A6bmq9tOu1827En/ZFKWBXqv9Upc7q/Y6N0XMzZ3CL1j6ZlhnCalQzzaV9whijxK22lIL78gLEUcnmEO7CUX6DyfcdlA13MM4X538k2eYUosdnKafCEDNVcT+PPUeUdJZ0CpBWA9c/XtO0BIbTXHTsDuDlX0r7BF0vMFJMi0D9lkFCavY/kjZEQYhnXMtrWlUWwIDAQAB'
+
+if (!PAGSEGURO_PUBLIC_KEY) {
+  throw new Error('public key must be provided')
+}
+
 const MIN_AVAILABLE_INSTALLMENT_COUNT = 1
 const MAX_AVAILABLE_INSTALLMENT_COUNT = 2
 
@@ -1168,9 +1174,14 @@ const TalhoCheckoutApp = createApp({
         this.priorityFee,
         this.subsidyDiscountPrice,
         this.getCouponDiscountPrice,
-      ].reduce((accPrice, price) => accPrice + price, 0)
+      ]
 
-      return decimalRound(finalPrice, 2)
+      pushIf(this.hasPIXDiscount, finalPrice, this.PIXDiscountPrice)
+
+      return decimalRound(
+        finalPrice.reduce((accPrice, price) => accPrice + price, 0),
+        2
+      )
     },
 
     getOrderPriceFormatted (): string {
@@ -1686,7 +1697,7 @@ const TalhoCheckoutApp = createApp({
         holder: this.customerCreditCardHolder,
         securityCode: this.customerCreditCardCVV,
         number: numberOnly(this.customerCreditCardNumber),
-        publicKey: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxPIKWT6ettkFKqSyfoUpH/550Q8YQtRf7ZYJJbV3U7/4HBtamJT9If4wiLs2YlEfwTPWlB5Cl0jGmkBSQkjIDF+QTOSJviZYKgiuR7Bnavgt+idkcZsd5hM1I6u1uwOJJE3wSSXg+Nw70GZCeg7A6bmq9tOu1827En/ZFKWBXqv9Upc7q/Y6N0XMzZ3CL1j6ZlhnCalQzzaV9whijxK22lIL78gLEUcnmEO7CUX6DyfcdlA13MM4X538k2eYUosdnKafCEDNVcT+PPUeUdJZ0CpBWA9c/XtO0BIbTXHTsDuDlX0r7BF0vMFJMi0D9lkFCavY/kjZEQYhnXMtrWlUWwIDAQAB',
+        publicKey: PAGSEGURO_PUBLIC_KEY,
       })
     },
 
@@ -1812,6 +1823,22 @@ const TalhoCheckoutApp = createApp({
             ?.installment_value ?? 0
         }
       }
+    },
+
+    hasPIXDiscount (): boolean {
+      return this.selectedPayment === PIX_PAYMENT && (this.deliveryOptions?.pix_discount ?? 0) > 0
+    },
+
+    PIXDiscountPrice (): number {
+      if (!this.hasPIXDiscount) return 0
+
+      const discountPIX = this.deliveryOptions?.pix_discount ?? 0
+
+      return discountPIX / 100 * -this.getOrderSubtotal
+    },
+
+    PIXDiscountPriceFormatted (): string {
+      return BRLFormatter.format(this.PIXDiscountPrice)
     },
   },
 

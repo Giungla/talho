@@ -1003,6 +1003,19 @@ export interface TalhoCheckoutAppComputedDefinition {
   hasFreeShippingByCartPrice: () => boolean;
 
   creditCardAdditionalInfo: () => CreditCardPostAdditional;
+
+  /**
+   * Indica se o desconto por pagamento PIX é aplicável
+   */
+  hasPIXDiscount: () => boolean;
+  /**
+   * Indica o valor de desconto aplicado para pagamentos via PIX (quando disponível)
+   */
+  PIXDiscountPrice: () => number;
+  /**
+   * Retorna o valor de `PIXDiscountPrice` formatado em BRL
+   */
+  PIXDiscountPriceFormatted: () => string;
 }
 
 export type TalhoCheckoutAppComputed = ComputedReturnValues<TalhoCheckoutAppComputedDefinition>;
