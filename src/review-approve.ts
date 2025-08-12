@@ -129,23 +129,24 @@ import {
 
   const parsedReviewId = parseInt(reviewId)
 
-  getReview(parsedReviewId).then(response => {
-    if (!response.succeeded) {
-      for (const element of [approveButton, reproveButton, successMessageElement]) {
-        removeElementFromDOM(element)
+  getReview(parsedReviewId)
+    .then(response => {
+      if (!response.succeeded) {
+        for (const element of [approveButton, reproveButton, successMessageElement]) {
+          removeElementFromDOM(element)
+        }
+
+        removeClass(errorMessageElement, GENERAL_HIDDEN_CLASS)
+
+        return changeMessageText(errorMessageElement, response.message)
       }
 
-      removeClass(errorMessageElement, GENERAL_HIDDEN_CLASS)
+      changeTextContent(querySelector('[data-wtf-provided-review]'), response.data.text)
 
-      return changeMessageText(errorMessageElement, response.message)
-    }
+      if (response.data.is_approved) {
+        return attachAction(approveButton, reproveButton, 'reject')
+      }
 
-    changeTextContent(querySelector('[data-wtf-provided-review]'), response.data.text)
-
-    if (response.data.is_approved) {
-      return attachAction(approveButton, reproveButton, 'reject')
-    }
-
-    attachAction(reproveButton, approveButton, 'approve')
-  })
+      attachAction(reproveButton, approveButton, 'approve')
+    })
 })()

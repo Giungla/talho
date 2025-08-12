@@ -40,7 +40,7 @@
     "tsup-read-reviews-prod": "node build-commands/build-for-production.js --name=product-reviews",
     "tsup-read-reviews-both": "yarn tsup-read-reviews && yarn tsup-read-reviews-prod",
 
-    "tsup-review-approve": "tsup src/review-approve.ts --watch --format iife --minify --treeshake --out-dir dev",
+    "tsup-review-approve": "tsup src/review-approve.ts --format iife --minify --treeshake --out-dir dev",
     "tsup-review-approve-prod": "node build-commands/build-for-production.js --name=review-approve",
     "tsup-review-approve-both": "yarn tsup-review-approve && yarn tsup-review-approve-prod",
 
