@@ -1963,3 +1963,7 @@ const TalhoCheckoutApp = createApp({
 } & ThisType<TalhoCheckoutContext>))
 
 TalhoCheckoutApp.mount('#fechamentodopedido')
+
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) window.location.reload()
+})
