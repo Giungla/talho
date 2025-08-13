@@ -40,6 +40,8 @@ const DEFAULT_TIME = '00:00:00'
 
 const PROCESS_PAYMENT_URL = `${XANO_BASE_URL}/api:5lp3Lw8X`
 
+const ORDER_CONFIRM_URL = '/pagamento/confirmacao-do-pedido'
+
 const TalhoOrderPage = createApp({
   name: 'PIXProcessPage',
 
@@ -54,6 +56,7 @@ const TalhoOrderPage = createApp({
   data () {
     return {
       now: Date.now(),
+      isLoading: true,
       hasCopied: false,
       order: NULL_VALUE,
       nowInterval: NULL_VALUE,
@@ -68,7 +71,7 @@ const TalhoOrderPage = createApp({
     const transactionId = searchParams.get('order')
 
     if (!transactionId) {
-      location.href = '/'
+      location.href = buildURL('/')
 
       return
     }
@@ -81,13 +84,15 @@ const TalhoOrderPage = createApp({
       return
     }
 
+    this.isLoading = false
+
     this.order = response.data
 
     this.setQRImage()
 
     if (response.data.pago) {
       setTimeout(() => {
-        location.href = buildURL('/pagamento/confirmacao-do-pedido', {
+        location.href = buildURL(ORDER_CONFIRM_URL, {
           order: transactionId
         })
       }, 5000)
@@ -127,7 +132,7 @@ const TalhoOrderPage = createApp({
         if (!this.hasPaid) return
 
         setTimeout(() => {
-          location.href = buildURL('/pagamento/confirmacao-do-pedido', {
+          location.href = buildURL(ORDER_CONFIRM_URL, {
             order: orderId
           })
         }, 5000)
@@ -252,7 +257,7 @@ const TalhoOrderPage = createApp({
 
     getQRCode (): string {
       return this.order?.qrcode_text ?? EMPTY_STRING
-    }
+    },
   },
 
   watch: {

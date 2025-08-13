@@ -20,6 +20,10 @@ export interface TalhoPixProcessData {
    */
   order: Nullable<PixOrderData>;
   /**
+   * Indica se os dados do pedido ainda estão sendo capturados
+   */
+  isLoading: boolean;
+  /**
    * Indica se o código PIX foi copiado recentemente
    */
   hasCopied: boolean;
