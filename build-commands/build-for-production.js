@@ -85,7 +85,9 @@ await build({
     },
     output: {
       comments: false            // remove comentários
-    }
+    },
+    safari10: true,
+
   },
 });
 
