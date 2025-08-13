@@ -88,7 +88,7 @@ const TalhoOrderPage = createApp({
 
     this.order = response.data
 
-    this.setQRImage()
+    Vue.nextTick(() => this.setQRImage())
 
     if (response.data.pago) {
       setTimeout(() => {
