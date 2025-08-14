@@ -17,6 +17,18 @@ export interface TalhoOrderPageMethods {
 // como os dados computados serão declarados
 export interface TalhoOrderPageComputedDefinition {
   /**
+   * Indica se o método de pagamento selecionado neste pedido foi PIX
+   */
+  isPIXPayment: () => boolean;
+  /**
+   * Indica se o pedido realizado possui desconto pelo método de pagamento PIX
+   */
+  hasPIXDiscount: () => boolean;
+  /**
+   * Retorna o valor de desconto PIX se existir
+   */
+  getDiscountPIXPrice: () => string;
+  /**
    * Nome do usuário que gerou o pedido
    */
   name: () => string;
@@ -253,4 +265,16 @@ export interface OrderData {
    * Dados de entrega do pedido
    */
   delivery: DeliveryOrder;
+  /**
+   * Indica o percentual de desconto fornecido sobre o subtotal para pagamentos via PIX
+   */
+  pix_discount_percentual: Nullable<number>;
+  /**
+   * Indica o valor do desconto fornecido para o pagamento quando este foi realizado via PIX
+   */
+  pix_discount_price: Nullable<number>;
+  /**
+   * Retorna o valor do subtotal do pedido (considera somente os produtos no cálculo)
+   */
+  subtotal: number;
 }

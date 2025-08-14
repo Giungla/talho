@@ -178,6 +178,6 @@ export function splitText (value: string, separator: string | RegExp, limit?: nu
   return value.split(separator, limit)
 }
 
-export function isNull <T> (v: any): v is null {
+export function isNull (v: any): v is null {
   return v === NULL_VALUE
 }
