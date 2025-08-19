@@ -396,6 +396,10 @@ export interface SubsidyResponse {
 
 export interface TalhoCheckoutAppData {
   /**
+   * Registra a mensagem do erro que aconteceu ao fechar o pedido
+   */
+  errorMessage: Nullable<string>;
+  /**
    * Indica se existe alguma execução de pagamento em andamento
    */
   hasPendingPayment: boolean;
