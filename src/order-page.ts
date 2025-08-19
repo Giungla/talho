@@ -259,3 +259,7 @@ const TalhoOrderPage = createApp({
 } & ThisType<TalhoOrderPageContext>)
 
 TalhoOrderPage.mount(querySelector('#orderapp'))
+
+window.addEventListener('pageshow', (e: PageTransitionEvent) => {
+  if (e.persisted) window.location.reload()
+})

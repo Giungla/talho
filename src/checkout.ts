@@ -537,6 +537,7 @@ const TalhoCheckoutApp = createApp({
 
   data () {
     return {
+      errorMessage: NULL_VALUE,
       hasPendingPayment: false,
       isSubmitted: false,
       productlist: NULL_VALUE,
@@ -742,9 +743,11 @@ const TalhoCheckoutApp = createApp({
       const response = await this.handlePostPayment(this.selectedPayment as 'pix')
 
       if (!response.succeeded) {
+        this.errorMessage = response.message
+
         this.hasPendingPayment = !isPageLoading(false)
 
-        return alert(response.message)
+        return
       }
 
       const redirectURL = {
@@ -1697,7 +1700,7 @@ const TalhoCheckoutApp = createApp({
         holder: this.customerCreditCardHolder,
         securityCode: this.customerCreditCardCVV,
         number: numberOnly(this.customerCreditCardNumber),
-        publicKey: PAGSEGURO_PUBLIC_KEY,
+        publicKey: PAGSEGURO_PUBLIC_KEY as string,
       })
     },
 
@@ -1964,6 +1967,6 @@ const TalhoCheckoutApp = createApp({
 
 TalhoCheckoutApp.mount('#fechamentodopedido')
 
-window.addEventListener('pageshow', (e) => {
+window.addEventListener('pageshow', (e: PageTransitionEvent) => {
   if (e.persisted) window.location.reload()
 })

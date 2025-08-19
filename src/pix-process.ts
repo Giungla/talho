@@ -282,3 +282,7 @@ const TalhoOrderPage = createApp({
 } & ThisType<TalhoPixProcessContext>)
 
 TalhoOrderPage.mount(querySelector('#pixProcess'))
+
+window.addEventListener('pageshow', (e: PageTransitionEvent) => {
+  if (e.persisted) window.location.reload()
+})
