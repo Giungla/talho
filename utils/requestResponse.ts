@@ -35,7 +35,7 @@ export function handleSession (response?: Response): void {
     path: '/',
     secure: true,
     sameSite: 'Strict',
-    expires: new Date(Date.now() + timestampDays(90)),
+    expires: new Date(Date.now() + timestampDays(14)),
   })
 }
 
