@@ -154,7 +154,7 @@ const state = new Proxy<SingleProductPageState>(_state, {
         Reflect.set(state, 'quantity' satisfies SingleProductPageStateKeys, 1)
         break
       case 'stockCount':
-        renderStockElements()
+        // renderStockElements()
         changeProductQuantity(0)
         break
       case 'product':
@@ -237,9 +237,9 @@ async function getProduct (pathname: GetProductParams['reference_id']): Promise<
 function changeProductQuantity (increment: number): void {
   const newQuantity = increment + state.quantity
 
-  const maxProductQuantityFromStock = Math.min(state.stockCount, MAX_PRODUCT_QUANTITY)
+  // const maxProductQuantityFromStock = Math.min(state.stockCount, MAX_PRODUCT_QUANTITY)
 
-  const clampedQuantity = clamp(MIN_PRODUCT_QUANTITY, maxProductQuantityFromStock, newQuantity)
+  const clampedQuantity = clamp(MIN_PRODUCT_QUANTITY, MAX_PRODUCT_QUANTITY, newQuantity)
 
   if (clampedQuantity === state.quantity) return
 
@@ -263,7 +263,8 @@ async function buyProduct (event: MouseEvent): Promise<void> {
     selectedVariation
   } = state
 
-  if (!selectedVariation || !product || state.stockCount === 0) return
+  // if (!selectedVariation || !product || state.stockCount === 0) return
+  if (!selectedVariation || !product) return
 
   const response = await addProductToCart({
     quantity,
@@ -375,10 +376,11 @@ function renderStockElements () {
 
   const hastStock = stockCount < 1
 
-  toggleClass(querySelector('[data-wtf-shipping]'), GENERAL_HIDDEN_CLASS, hastStock)
-  toggleClass(querySelector('[data-wtf-quantity-selector]'), GENERAL_HIDDEN_CLASS, hastStock)
-  toggleClass(buyButton, GENERAL_HIDDEN_CLASS, hastStock)
-  toggleClass(outtaStockElement, GENERAL_HIDDEN_CLASS, stockCount > 0)
+  // toggleClass(querySelector('[data-wtf-shipping]'), GENERAL_HIDDEN_CLASS, hastStock)
+  // toggleClass(querySelector('[data-wtf-quantity-selector]'), GENERAL_HIDDEN_CLASS, hastStock)
+  // botão de compra não será mais removido devido ao baixo estoque
+  // toggleClass(buyButton, GENERAL_HIDDEN_CLASS, hastStock)
+  // toggleClass(outtaStockElement, GENERAL_HIDDEN_CLASS, stockCount > 0)
 
   const hideAvailableMessage = toggleClass(maxAvailableProductsElement, GENERAL_HIDDEN_CLASS, stockCount > 10 || hastStock)
 

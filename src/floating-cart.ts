@@ -1,11 +1,11 @@
 
-import {
+import type {
   CartOperation,
   CartResponse,
   CartResponseItem,
   CreateCartProduct,
   FloatingCartState,
-  GroupFloatingCartState, Nullable,
+  GroupFloatingCartState,
   ResponsePattern,
   TypeMap,
   TypeofResult,
@@ -28,12 +28,14 @@ import {
   postErrorResponse,
   changeTextContent,
   postSuccessResponse,
-  buildRequestOptions, stringify,
+  buildRequestOptions, stringify, addClass,
 } from '../utils'
 
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
 const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
+
+const MAX_PRODUCT_QUANTITY = 10
 
 const _state: FloatingCartState = {
   cart: NULL_VALUE,
@@ -266,7 +268,15 @@ function renderCart () {
     ]
 
     for (const [ operation, elementTrigger ] of productEventMap) {
-      attachEvent(querySelector(`[${elementTrigger}]`, template), 'click', (e: MouseEvent) => execCartAction.call(e, operation, changeCartPayload))
+      const triggerElement = querySelector(`[${elementTrigger}]`, template)
+
+      if (operation === 'increase' && quantity >= MAX_PRODUCT_QUANTITY) {
+        addClass(triggerElement, 'onedge')
+
+        continue
+      }
+
+      attachEvent(triggerElement, 'click', (e: MouseEvent) => execCartAction.call(e, operation, changeCartPayload))
     }
 
     cartFragment.appendChild(template)

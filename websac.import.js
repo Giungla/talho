@@ -120,7 +120,7 @@ if not peso_variavel:
   atualiza produto
   return
 else:
-  if has_many_fractions and xano_has_many_fractions:
+  if websac_has_many_fractions and xano_has_many_fractions:
     if weights_match:
       atualiza skus
       atualiza produto
