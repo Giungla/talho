@@ -85,12 +85,12 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse(error?.message ?? defaultErrorMessage)
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
         const order: Order = await response.json()
 
-        return postSuccessResponse(order)
+        return postSuccessResponse.call(response, order)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
