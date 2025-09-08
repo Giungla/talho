@@ -10,6 +10,12 @@ export {
 } from './cookie'
 
 export {
+  GET,
+  PUT,
+  HEAD,
+  POST,
+  PATCH,
+  DELETE,
   AUTH_COOKIE_NAME,
   TALHO_SESSION_COOKIE_NAME,
   TALHO_SESSION_HEADER_NAME,

@@ -9,7 +9,9 @@ import {
   CheckoutDeliveryRequestBody,
   CheckoutDeliveryPriceResponse,
   CheckoutDeliveryOption,
-  ComputedDeliveryDates, CheckoutDeliveryResponse, CheckoutDeliveryHour,
+  ComputedDeliveryDates,
+  CheckoutDeliveryResponse,
+  CheckoutDeliveryHour,
 } from './types/checkout'
 
 export type TypeofResult =
@@ -46,7 +48,13 @@ export interface ILoginUser {
   password: string;
 }
 
-export type HttpMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type HttpMethod =
+  | 'GET'
+  | 'HEAD'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE';
 
 export interface ILoginUserPayload {
   /**

@@ -18,6 +18,13 @@ export const AUTH_COOKIE_NAME = '__Host-Talho-AuthToken'
 export const TALHO_SESSION_COOKIE_NAME = '__Host-Talho-Session-Cookie'
 export const TALHO_SESSION_HEADER_NAME = 'X-Talho-Session'
 
+export const GET = 'GET'
+export const HEAD = 'HEAD'
+export const POST = 'POST'
+export const PUT = 'PUT'
+export const PATCH = 'PATCH'
+export const DELETE = 'DELETE'
+
 function handleResponseStatus (response?: Response): void {
   if (!response || response.status !== UNAUTHENTICATED_RESPONSE_STATUS) return
 
@@ -59,10 +66,12 @@ export function postSuccessResponse <T> (this: Response | undefined, response: T
   }
 }
 
-export function buildRequestOptions (headers: [string, string][] = [], method: HttpMethod = 'GET'): Pick<RequestInit, 'method' | 'headers'> {
+export function buildRequestOptions (headers: [string, string][] = [], method: HttpMethod = GET): Pick<RequestInit, 'method' | 'headers'> {
+  const applicationJson = 'application/json'
+
   const _headers = new Headers({
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
+    'Accept': applicationJson,
+    'Content-Type': applicationJson,
   })
 
   for (const [header, value] of headers) {

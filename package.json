@@ -72,6 +72,9 @@
     "tsup-user-addresses-both": "yarn tsup-user-addresses && yarn tsup-user-addresses-prod",
     "tsup-footer-scripts": "tsup src/footer-scripts.ts --format iife --minify terser --treeshake --out-dir dev",
     "tsup-footer-scripts-prod": "node build-commands/build-for-production.js --name=footer-scripts",
-    "tsup-footer-scripts-both": "yarn tsup-footer-scripts && yarn tsup-footer-scripts-prod"
+    "tsup-footer-scripts-both": "yarn tsup-footer-scripts && yarn tsup-footer-scripts-prod",
+    "tsup-order-note-scripts": "tsup src/order-note.ts --format iife --minify terser --treeshake --out-dir dev",
+    "tsup-order-note-scripts-prod": "node build-commands/build-for-production.js --name=order-note",
+    "tsup-order-note-scripts-both": "yarn tsup-order-note-scripts && yarn tsup-order-note-scripts-prod"
   }
 }
