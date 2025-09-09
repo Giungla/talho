@@ -1056,6 +1056,7 @@ export interface ParsedProductList {
   price: string;
   quantity: number;
   finalPrice: string;
+  imageStyle: string;
 }
 
 export interface ISingleValidateCheckout <T = Ref<HTMLElement> | HTMLElement> {

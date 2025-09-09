@@ -1255,6 +1255,7 @@ const TalhoCheckoutApp = createApp({
         quantity: quantity,
         price: BRLFormatter.format(price),
         finalPrice: BRLFormatter.format(price * quantity),
+        imageStyle: `background-image: url('${imageUrl}')`,
       }))
     },
 
