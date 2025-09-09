@@ -91,6 +91,14 @@ const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
 const PAYMENT_BASE_URL = `${XANO_BASE_URL}/api:5lp3Lw8X`
 const DELIVERY_BASE_URL = `${XANO_BASE_URL}/api:24B7O9Aj`
 
+const ERROR_CODE_NOT_FOUND = 'ERROR_CODE_NOT_FOUND'
+const ERROR_CODE_BAD_REQUEST = 'ERROR_CODE_BAD_REQUEST'
+
+const CEP_MESSAGES: Record<string, string> = {
+  [ERROR_CODE_NOT_FOUND]: 'O CEP indicado não foi localizado',
+  [ERROR_CODE_BAD_REQUEST]: 'Não realizamos entregas na sua região',
+}
+
 const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key')
 
 if (!PAGSEGURO_PUBLIC_KEY) {
@@ -363,7 +371,7 @@ async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Pro
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call(response, error?.code ?? defaultErrorMessage)
     }
 
     const address: VIACEPFromXano = await response.json()
@@ -905,7 +913,7 @@ const TalhoCheckoutApp = createApp({
         }).then(address => {
           if (address.succeeded) return
 
-          this.deliveryPlaceAddressErrorMessage = address.message
+          this.deliveryPlaceAddressErrorMessage = CEP_MESSAGES?.[address.message] ?? address.message
         })
       } else {
         this.deliveryPlaceAddressErrorMessage = NULL_VALUE
@@ -925,6 +933,8 @@ const TalhoCheckoutApp = createApp({
       })
 
       if (!address.succeeded) {
+        const { message } = address
+
         this[fieldKey] = EMPTY_STRING
 
         this.setVisitedField(fieldKey)
@@ -933,16 +943,16 @@ const TalhoCheckoutApp = createApp({
         //   this.deliveryShippingAddressErrorMessage = address.message
         // }
 
-        this.deliveryShippingAddressErrorMessage = addressType === SHIPPING_NAME_TOKEN
-          ? address.message
-          : null
+        this.deliveryShippingAddressErrorMessage = addressType === SHIPPING_NAME_TOKEN && message !== ERROR_CODE_NOT_FOUND
+          ? (CEP_MESSAGES?.[message] ?? CEP_MESSAGES[ERROR_CODE_BAD_REQUEST])
+          : NULL_VALUE
 
         // if (addressType === BILLING_NAME_TOKEN) {
         //   this.deliveryBillingAddressErrorMessage = address.message
         // }
-        this.deliveryBillingAddressErrorMessage = addressType === BILLING_NAME_TOKEN
-          ? address.message
-          : null
+        this.deliveryBillingAddressErrorMessage = addressType === BILLING_NAME_TOKEN && message !== ERROR_CODE_NOT_FOUND
+          ? (CEP_MESSAGES?.[message] ?? CEP_MESSAGES[ERROR_CODE_BAD_REQUEST])
+          : NULL_VALUE
 
         return false
       }
