@@ -929,13 +929,20 @@ const TalhoCheckoutApp = createApp({
 
         this.setVisitedField(fieldKey)
 
-        if (addressType === SHIPPING_NAME_TOKEN) {
-          this.deliveryShippingAddressErrorMessage = address.message
-        }
+        // if (addressType === SHIPPING_NAME_TOKEN) {
+        //   this.deliveryShippingAddressErrorMessage = address.message
+        // }
 
-        if (addressType === BILLING_NAME_TOKEN) {
-          this.deliveryBillingAddressErrorMessage = address.message
-        }
+        this.deliveryShippingAddressErrorMessage = addressType === SHIPPING_NAME_TOKEN
+          ? address.message
+          : null
+
+        // if (addressType === BILLING_NAME_TOKEN) {
+        //   this.deliveryBillingAddressErrorMessage = address.message
+        // }
+        this.deliveryBillingAddressErrorMessage = addressType === BILLING_NAME_TOKEN
+          ? address.message
+          : null
 
         return false
       }
