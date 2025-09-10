@@ -22,11 +22,12 @@ const {
 
 import {
   NULL_VALUE,
+  EMPTY_STRING,
   XANO_BASE_URL,
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  objectSize, EMPTY_STRING,
+  objectSize,
 } from '../utils'
 
 const ORDER_IDENTIFIER = 'transactionid'
@@ -78,7 +79,7 @@ const TalhoCheckoutApp = createApp({
       const defaultErrorMessage = 'Não foi possível encontrar o pedido'
 
       try {
-        const response = await fetch(`${XANO_BASE_URL}/api:jiIoKYhH/order/delivery-prepare?${ORDER_IDENTIFIER}=${transactionid}`, {
+        const response = await fetch(`${XANO_BASE_URL}/api:YomXpzWs/order/delivery-prepare?${ORDER_IDENTIFIER}=${transactionid}`, {
           ...buildRequestOptions()
         })
 
