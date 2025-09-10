@@ -39,6 +39,7 @@ export interface OrderDetails {
   has_free_shipping: boolean;
   delivery_hour: string;
   delivery_date: string;
+  prepare_status: OrderPrepareStatus;
 }
 
 export type OrderPayment = (
@@ -68,6 +69,12 @@ export interface PixDiscount {
   discountPrice: string;
 }
 
+enum OrderPrepareStatus {
+  PREPARING     = 'PREPARING',
+  PREPARED      = 'PREPARED',
+  DELIVERYREADY = 'DELIVERYREADY',
+}
+
 export type FinalOrder = OrderDetails & OrderSubsidy & OrderPriority & OrderPayment;
 
 export type FinalCOrder = Pick<FinalOrder, 'number' | 'date' | 'time' | 'change_for' | 'shipping' | 'notes_short' | 'observations' | 'subtotal' | 'discounts' | 'total'> & {
@@ -83,10 +90,15 @@ export interface Order {
 
 export interface OrderNoteData {
   order: Nullable<Order>;
+  prepare_status: Nullable<OrderPrepareStatus>;
+  prepareMessage: Nullable<string>;
 }
 
 export interface OrderNoteMethods {
-  getOrder: (transactionid: string) => Promise<ResponsePattern<Order>>
+  getOrder: (transactionid: string) => Promise<ResponsePattern<Order>>;
+  handleOrderStatus: () => Promise<void>;
+  setOrderStatus: (order_id: number, status: OrderPrepareStatus) => Promise<ResponsePattern<PatchPrepareStatusParams>>;
+  printPage: () => void;
 }
 
 export interface OrderNoteComputedDefinition {
@@ -106,3 +118,8 @@ export interface OrderNoteComputedDefinition {
 export type OrderNoteComputed = ComputedReturnValues<OrderNoteComputedDefinition>;
 
 export type OrderNoteContext = OrderNoteData & OrderNoteMethods & OrderNoteComputed;
+
+export interface PatchPrepareStatusParams {
+  order_id: number;
+  prepare_status: OrderPrepareStatus;
+}

@@ -8,7 +8,10 @@ import {
   OrderCompany,
   OrderCustomer,
   OrderItem,
-  FinalCOrder, PixDiscount,
+  FinalCOrder,
+  PixDiscount,
+  PatchPrepareStatusParams,
+  OrderPrepareStatus,
 } from '../types/order-note'
 
 import type {
@@ -28,6 +31,7 @@ import {
   postSuccessResponse,
   buildRequestOptions,
   objectSize,
+  stringify,
 } from '../utils'
 
 const ORDER_IDENTIFIER = 'transactionid'
@@ -40,6 +44,8 @@ const paymentLabelMap = {
   [CREDITCARD_PAYMENT_METHOD]: 'Cartão de crédito',
 }
 
+const XANO_ORDER_NOTE_BASE_PATH = `${XANO_BASE_URL}/api:YomXpzWs`
+
 const TalhoCheckoutApp = createApp({
   name: 'TalhoOrderNoteApp',
 
@@ -48,9 +54,11 @@ const TalhoCheckoutApp = createApp({
     }
   },
 
-  data () {
+  data (): OrderNoteData {
     return {
       order: NULL_VALUE,
+      prepare_status: NULL_VALUE,
+      prepareMessage: NULL_VALUE,
     }
   },
 
@@ -72,6 +80,7 @@ const TalhoCheckoutApp = createApp({
     }
 
     this.order = response.data
+    this.prepare_status = response.data.order.prepare_status
   },
 
   methods: {
@@ -79,7 +88,7 @@ const TalhoCheckoutApp = createApp({
       const defaultErrorMessage = 'Não foi possível encontrar o pedido'
 
       try {
-        const response = await fetch(`${XANO_BASE_URL}/api:YomXpzWs/order/delivery-prepare?${ORDER_IDENTIFIER}=${transactionid}`, {
+        const response = await fetch(`${XANO_ORDER_NOTE_BASE_PATH}/order/delivery-prepare?${ORDER_IDENTIFIER}=${transactionid}`, {
           ...buildRequestOptions()
         })
 
@@ -95,6 +104,48 @@ const TalhoCheckoutApp = createApp({
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
+    },
+
+    async handleOrderStatus (): Promise<void> {
+      const order = this.order
+
+      if (!order) return
+
+      const response = await this.setOrderStatus(order.order.number, this.prepare_status)
+
+      this.prepareMessage = response.succeeded
+        ? 'Modificado com sucesso'
+        : response.message
+    },
+
+    async setOrderStatus (order_id: number, prepare_status: OrderPrepareStatus): Promise<ResponsePattern<PatchPrepareStatusParams>> {
+      const defaultErrorMessage = 'Não foi possível alterar o status de preparação'
+
+      try {
+        const response = await fetch(`${XANO_ORDER_NOTE_BASE_PATH}/order/delivery-status`, {
+          ...buildRequestOptions([], 'PATCH'),
+          body: stringify<PatchPrepareStatusParams>({
+            order_id,
+            prepare_status,
+          })
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+        }
+
+        const order: PatchPrepareStatusParams = await response.json()
+
+        return postSuccessResponse.call(response, order)
+      } catch (e) {
+        return postErrorResponse(defaultErrorMessage)
+      }
+    },
+
+    printPage (): void {
+      window.print()
     },
   },
 
