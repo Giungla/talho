@@ -95,8 +95,8 @@ const ERROR_CODE_NOT_FOUND = 'ERROR_CODE_NOT_FOUND'
 const ERROR_CODE_BAD_REQUEST = 'ERROR_CODE_BAD_REQUEST'
 
 const CEP_MESSAGES: Record<string, string> = {
-  [ERROR_CODE_NOT_FOUND]: 'O CEP indicado não foi localizado',
-  [ERROR_CODE_BAD_REQUEST]: 'Não realizamos entregas na sua região',
+  [ERROR_CODE_NOT_FOUND]: 'O CEP indicado não foi localizado.',
+  [ERROR_CODE_BAD_REQUEST]: 'Não realizamos entregas na sua região.',
 }
 
 const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key')
