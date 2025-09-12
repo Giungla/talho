@@ -46,10 +46,12 @@ export function handleSession (response?: Response): void {
   })
 }
 
-export function postErrorResponse (this: Response | undefined, message: string): FunctionErrorPattern {
+export function postErrorResponse (this: Response | undefined, message: string, skipRedirectIfUnauthenticated: boolean = false): FunctionErrorPattern {
   handleSession(this)
 
-  handleResponseStatus(this)
+  if (skipRedirectIfUnauthenticated) {
+    handleResponseStatus(this)
+  }
 
   return {
     message,
