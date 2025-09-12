@@ -402,7 +402,20 @@ export interface SubsidyResponse {
   value: number;
 }
 
+export interface UserPartialCheckout {
+  name: string;
+  last_name: string;
+  cpf: string;
+  telephone: string;
+  email: string;
+  birthday: string;
+}
+
 export interface TalhoCheckoutAppData {
+  /**
+   * Armazena os dados do usuário, caso esteja logado no site
+   */
+  user: Nullable<UserPartialCheckout>,
   /**
    * Registra a mensagem do erro que aconteceu ao fechar o pedido
    */
@@ -650,6 +663,10 @@ export type PaymentResponseMap = {
 }
 
 export interface TalhoCheckoutAppMethods {
+  /**
+   * Captura os dados do usuário logado, caso exista
+   */
+  getLoggedInUser: () => Promise<ResponsePattern<UserPartialCheckout>>;
   getCart: () => Promise<ResponsePattern<CartResponse>>;
   refreshCart: () => Promise<void>;
   getInstallments: () => Promise<ResponsePattern<InstallmentItem[]>>;
@@ -1039,6 +1056,7 @@ export interface TalhoCheckoutAppWatch {
   getCreditCardToken: WatchCallback<TalhoCheckoutContext['getCreditCardToken'], TalhoCheckoutContext['getCreditCardToken']>;
   quotationPayload: WatchCallback<false | CheckoutDeliveryRequestBody, false | CheckoutDeliveryRequestBody>;
   getParsedAddresses: WatchCallback<IParsedAddressContent, IParsedAddressContent>;
+  user: WatchCallback<Nullable<UserPartialCheckout>, Nullable<UserPartialCheckout>>;
 }
 
 export type TalhoCheckoutContext = TalhoCheckoutAppData & TalhoCheckoutAppSetup & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;

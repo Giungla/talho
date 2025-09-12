@@ -34,7 +34,7 @@ import type {
   PostOrderDelivery,
   PostOrderDeliveryGroup,
   CreditCardPostAdditional,
-  PaymentResponseMap,
+  PaymentResponseMap, UserPartialCheckout,
 } from '../global'
 
 // @ts-expect-error
@@ -545,6 +545,7 @@ const TalhoCheckoutApp = createApp({
 
   data () {
     return {
+      user: NULL_VALUE,
       errorMessage: NULL_VALUE,
       hasPendingPayment: false,
       isSubmitted: false,
@@ -592,7 +593,14 @@ const TalhoCheckoutApp = createApp({
   },
 
   created (): void {
-    this.refreshCart().then(() => isPageLoading(false))
+    Promise.allSettled([
+      this.getLoggedInUser().then(response => {
+        if (!response.succeeded) return
+
+        this.user = response.data
+      }),
+      this.refreshCart().then(() => isPageLoading(false))
+    ])
 
     window.addEventListener('storage', (e) => {
       if (e.key !== STORAGE_KEY_NAME) return
@@ -602,6 +610,28 @@ const TalhoCheckoutApp = createApp({
   },
 
   methods: {
+    async getLoggedInUser (): Promise<ResponsePattern<UserPartialCheckout>> {
+      const defaultErrorMessage = 'Falha na captura do usuário'
+
+      try {
+        const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/checkout`, {
+          ...buildRequestOptions([]),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage, true)
+        }
+
+        const user: UserPartialCheckout = await response.json()
+
+        return postSuccessResponse.call(response, user)
+      } catch (e) {
+        return postErrorResponse(defaultErrorMessage)
+      }
+    },
+
     async getCart (): Promise<ResponsePattern<CartResponse>> {
       const defaultErrorMessage = 'Falha ao capturar os produtos'
 
@@ -1936,7 +1966,19 @@ const TalhoCheckoutApp = createApp({
       if (this.isCreditCard && isNull(this.deliveryPlace)) return
 
       this.handleSubsidy()
-    }
+    },
+
+    user (user: Nullable<UserPartialCheckout>): void {
+      if (!user) return
+
+      this.customerPhone     = user.telephone ?? ''
+      this.customerCPF       = user.cpf ?? ''
+      this.customerBirthdate = user.birthday
+        ?.split('-')
+        .reverse()
+        .join('/') ?? ''
+      this.customerMail      = user.email ?? ''
+    },
   },
 
   directives: {
