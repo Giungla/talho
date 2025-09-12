@@ -208,7 +208,8 @@ const TalhoOrderPage = createApp({
         order_items = []
       } = this.order ?? {}
 
-      return order_items.map(({ name, product_id, unit_price, quantity  }) => ({
+      return order_items.map(({ name, product_id, unit_price, quantity, image  }) => ({
+        imageStyle: `background-image: url('${image}');`,
         quantity,
         title: name,
         key: product_id,

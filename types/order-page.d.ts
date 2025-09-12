@@ -146,6 +146,10 @@ export interface OrderProduct {
    * Indica quantas unidades deste item foram adquiridas neste pedido
    */
   quantity: number;
+  /**
+   * Retorna a URL da imagem do produto
+   */
+  image: Nullable<string>;
 }
 
 export interface ParsedProduct {
@@ -169,6 +173,10 @@ export interface ParsedProduct {
    * Preço final deste produto (`unit_amount` * `quantity`) representado em BRL
    */
   final_price: string;
+  /**
+   * Retorna o estilo para ser aplicado no elemento de imagem
+   */
+  imageStyle: string;
 }
 
 export interface OrderPriority <T, K> {
