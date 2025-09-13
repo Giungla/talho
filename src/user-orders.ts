@@ -256,6 +256,10 @@ import {
           querySelector<'a'>('[data-wtf-product-anchor]', itemTemplate), 'href', `/produtos/${slug}`
         )
 
+        addAttribute(
+          querySelector<'div'>('[data-wtf-order-item-image]', itemTemplate), 'style', `background-image: url(${image})`,
+        )
+
         const addToCartCTA = querySelector<'img'>('[data-wtf-buy-again-cta]', itemTemplate)
 
         if (has_stock) {
