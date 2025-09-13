@@ -8,7 +8,8 @@ import type {
   ResponsePattern,
   SingleProductPageProduct,
   SingleProductPageState,
-  SingleProductPageStateHandler, SingleProductPageStateKeys,
+  SingleProductPageStateHandler,
+  SingleProductPageStateKeys,
 } from '../global'
 
 import type {
@@ -321,11 +322,12 @@ function renderProductVariations (): void {
 
   const UNSUFFICIENT_VARIATIONS = state.variationsCount < 2
 
-  if (UNSUFFICIENT_VARIATIONS) {
-    return weightSelector?.remove()
-  }
+  // if (UNSUFFICIENT_VARIATIONS) {
+  //   return weightSelector?.remove()
+  // }
 
-  toggleClass(weightSelector, GENERAL_HIDDEN_CLASS, UNSUFFICIENT_VARIATIONS)
+  // toggleClass(weightSelector, GENERAL_HIDDEN_CLASS, UNSUFFICIENT_VARIATIONS)
+  toggleClass(weightSelector, GENERAL_HIDDEN_CLASS, false)
 
   for (const variation of product?.variations) {
     const variationElement = document.createElement('div')
