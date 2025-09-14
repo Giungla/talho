@@ -589,6 +589,9 @@ const TalhoCheckoutApp = createApp({
       priorityTax: NULL_VALUE,
 
       subsidy: NULL_VALUE,
+
+      selectedBillingAddressId: NULL_VALUE,
+      selectedShippingAddressId: NULL_VALUE,
     }
   },
 
@@ -616,6 +619,7 @@ const TalhoCheckoutApp = createApp({
       if (!selectedAddress) return
 
       const {
+        id,
         cep,
         address,
         number,
@@ -632,6 +636,16 @@ const TalhoCheckoutApp = createApp({
       this[`${addressType}City`] = city
       this[`${addressType}State`] = state
       this[`${addressType}Neighborhood`] = neighborhood
+
+      if (addressType === SHIPPING_NAME_TOKEN) {
+        this.selectedShippingAddressId = id
+
+        return
+      }
+
+      if (addressType === BILLING_NAME_TOKEN) {
+        this.selectedBillingAddressId = id
+      }
     },
 
     async getLoggedInUser (): Promise<ResponsePattern<UserPartialCheckout>> {

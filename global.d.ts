@@ -514,6 +514,15 @@ export interface TalhoCheckoutAppData {
    * Indica se o frete indicado para realização da entrega possui subsídio e qual o valor
    */
   subsidy: Nullable<SubsidyResponse>;
+
+  /**
+   * ID do endereço de cobrança selecionado
+   */
+  selectedBillingAddressId: Nullable<number>;
+  /**
+   * ID do endereço de envio do pedido
+   */
+  selectedShippingAddressId: Nullable<number>;
 }
 
 export interface TalhoCheckoutAppSetup {
