@@ -34,7 +34,7 @@ import type {
   PostOrderDelivery,
   PostOrderDeliveryGroup,
   CreditCardPostAdditional,
-  PaymentResponseMap, UserPartialCheckout,
+  PaymentResponseMap, UserPartialCheckout, UserAddressCheckout,
 } from '../global'
 
 // @ts-expect-error
@@ -610,6 +610,30 @@ const TalhoCheckoutApp = createApp({
   },
 
   methods: {
+    setPreviousAddress (addressId: number, addressType: IOrderAddressType): void {
+      const selectedAddress = this.user?.address_list.find(address => address.id === addressId)
+
+      if (!selectedAddress) return
+
+      const {
+        cep,
+        address,
+        number,
+        city,
+        complement,
+        state,
+        neighborhood,
+      } = selectedAddress
+
+      this[`${addressType}CEP`] = cep
+      this[`${addressType}Address`] = address
+      this[`${addressType}Number`] = number
+      this[`${addressType}Complement`] = complement
+      this[`${addressType}City`] = city
+      this[`${addressType}State`] = state
+      this[`${addressType}Neighborhood`] = neighborhood
+    },
+
     async getLoggedInUser (): Promise<ResponsePattern<UserPartialCheckout>> {
       const defaultErrorMessage = 'Falha na captura do usuário'
 
@@ -1890,6 +1914,14 @@ const TalhoCheckoutApp = createApp({
 
     PIXDiscountPriceFormatted (): string {
       return BRLFormatter.format(this.PIXDiscountPrice)
+    },
+
+    userAddresses (): UserAddressCheckout[] {
+      const user = this.user
+
+      if (!user || objectSize(user.address_list) === 0) return []
+
+      return user.address_list
     },
   },
 

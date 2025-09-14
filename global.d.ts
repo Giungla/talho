@@ -402,6 +402,18 @@ export interface SubsidyResponse {
   value: number;
 }
 
+export interface UserAddressCheckout {
+  id: number;
+  nick: string;
+  cep: string;
+  address: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: IStateAcronym;
+}
+
 export interface UserPartialCheckout {
   name: string;
   last_name: string;
@@ -409,6 +421,7 @@ export interface UserPartialCheckout {
   telephone: string;
   email: string;
   birthday: string;
+  address_list: UserAddressCheckout[];
 }
 
 export interface TalhoCheckoutAppData {
@@ -663,6 +676,10 @@ export type PaymentResponseMap = {
 }
 
 export interface TalhoCheckoutAppMethods {
+  /**
+   * Permite a seleção de um endereço prviamente criado
+   */
+  setPreviousAddress: (addressId: number, addressType: IOrderAddressType) => void;
   /**
    * Captura os dados do usuário logado, caso exista
    */
@@ -1045,6 +1062,10 @@ export interface TalhoCheckoutAppComputedDefinition {
    * Retorna o valor de `PIXDiscountPrice` formatado em BRL
    */
   PIXDiscountPriceFormatted: () => string;
+  /**
+   * Retorna a lista de endereços salvos por este usuário
+   */
+  userAddresses: () => UserAddressCheckout[];
 }
 
 export type TalhoCheckoutAppComputed = ComputedReturnValues<TalhoCheckoutAppComputedDefinition>;
