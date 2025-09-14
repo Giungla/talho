@@ -1921,7 +1921,13 @@ const TalhoCheckoutApp = createApp({
 
       if (!user || objectSize(user.address_list) === 0) return []
 
-      return user.address_list
+      return user.address_list.map(({ address, number, cep, ...rest }) => ({
+        ...rest,
+        address,
+        number,
+        cep,
+        complete: `${address}, ${number} ${cep}`
+      }))
     },
   },
 
