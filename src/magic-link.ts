@@ -20,7 +20,7 @@ import {
 } from '../utils'
 
 (function () {
-  const USER_DATA_PATH = '/area-do-usuario/pedidos-de-compra'
+  const USER_DATA_PATH = '/area-do-usuario/troca-de-senha'
 
   if (isAuthenticated()) {
     location.href = USER_DATA_PATH
