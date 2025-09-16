@@ -1418,7 +1418,7 @@ const TalhoCheckoutApp = createApp({
     customerCreditCardCVVValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerCreditCardCVVElement,
-        !this.hasVisitRegistry('customerCreditCardCVV') || regexTest(/^\d{3}$/, this.customerCreditCardCVV),
+        !this.hasVisitRegistry('customerCreditCardCVV') || regexTest(/^\d{3,4}$/, this.customerCreditCardCVV),
         !this.isCreditCard
       )
     },
