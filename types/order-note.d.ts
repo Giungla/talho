@@ -77,7 +77,7 @@ enum OrderPrepareStatus {
 
 export type FinalOrder = OrderDetails & OrderSubsidy & OrderPriority & OrderPayment;
 
-export type FinalCOrder = Pick<FinalOrder, 'number' | 'date' | 'time' | 'change_for' | 'shipping' | 'notes_short' | 'observations' | 'subtotal' | 'discounts' | 'total'> & {
+export type FinalCOrder = Pick<FinalOrder, 'number' | 'date' | 'time' | 'change_for' | 'shipping' | 'notes_short' | 'observations' | 'subtotal' | 'discounts' | 'total' | 'has_free_shipping'> & {
   payment_method: string;
 };
 

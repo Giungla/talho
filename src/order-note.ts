@@ -177,6 +177,7 @@ const TalhoCheckoutApp = createApp({
         notes_short,
         observations,
         payment_method,
+        has_free_shipping,
       } = this.order.order
 
       return {
@@ -190,6 +191,7 @@ const TalhoCheckoutApp = createApp({
         change_for,
         notes_short,
         observations,
+        has_free_shipping,
         payment_method: paymentLabelMap?.[payment_method],
       }
     },
