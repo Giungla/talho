@@ -33,6 +33,8 @@ const {
 
 const FALLBACK_STRING = '-'
 
+const REASON_PARAM = 'reason'
+
 const TalhoOrderPage = createApp({
   name: 'TalhoOrderPage',
 
@@ -48,7 +50,9 @@ const TalhoOrderPage = createApp({
     const transactionId = searchParams.get('order')
 
     if (!transactionId) {
-      location.href = buildURL('/')
+      location.href = buildURL('/', {
+        [REASON_PARAM]: 'trasactionid_not_found',
+      })
 
       return
     }
@@ -56,7 +60,9 @@ const TalhoOrderPage = createApp({
     const response = await this.getOrder(transactionId)
 
     if (!response.succeeded) {
-      location.href = buildURL('/')
+      location.href = buildURL('/', {
+        [REASON_PARAM]: 'order_not_found',
+      })
 
       return
     }
@@ -247,6 +253,10 @@ const TalhoOrderPage = createApp({
 
     getDeliverySubsidyPriceFormatted (): string {
       return BRLFormatter.format(this.getDeliverySubsidy)
+    },
+
+    hasFreeShippingByCartPrice (): boolean {
+      return this.order?.delivery.has_freeship_by_cart_price ?? false
     },
   },
 } satisfies {

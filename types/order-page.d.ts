@@ -104,6 +104,10 @@ export interface TalhoOrderPageComputedDefinition {
    * Retorna o valor de `getDeliverySubsidy` formatado em BRL
    */
   getDeliverySubsidyPriceFormatted: () => string;
+  /**
+   * Indica se o pedido possui frete grátis fornecido pelo valor do subtotal
+   */
+  hasFreeShippingByCartPrice: () => boolean;
 }
 
 // como os dados computados serão capturados no contexto this
@@ -196,6 +200,7 @@ export interface BaseOrderDelivery {
   delivered: boolean;
   status: null;
   address: OrderShippingAddress;
+  has_freeship_by_cart_price: boolean;
 }
 
 export type DeliveryOrder =
