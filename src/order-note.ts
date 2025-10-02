@@ -25,7 +25,6 @@ const {
 
 import {
   NULL_VALUE,
-  EMPTY_STRING,
   XANO_BASE_URL,
   postErrorResponse,
   postSuccessResponse,
@@ -48,11 +47,6 @@ const XANO_ORDER_NOTE_BASE_PATH = `${XANO_BASE_URL}/api:YomXpzWs`
 
 const TalhoCheckoutApp = createApp({
   name: 'TalhoOrderNoteApp',
-
-  setup () {
-    return {
-    }
-  },
 
   data (): OrderNoteData {
     return {
@@ -109,9 +103,11 @@ const TalhoCheckoutApp = createApp({
     async handleOrderStatus (): Promise<void> {
       const order = this.order
 
-      if (!order) return
+      const { prepare_status } = this
 
-      const response = await this.setOrderStatus(order.order.number, this.prepare_status)
+      if (!order || !prepare_status) return
+
+      const response = await this.setOrderStatus(order.order.number, prepare_status)
 
       this.prepareMessage = response.succeeded
         ? 'Modificado com sucesso'
@@ -246,11 +242,11 @@ const TalhoCheckoutApp = createApp({
     },
   },
 
-  watch: {
-  },
-
-  directives: {
-  },
+  // watch: {
+  // },
+  //
+  // directives: {
+  // },
 } satisfies ({
   name: string;
   created: () => Promise<void>;
