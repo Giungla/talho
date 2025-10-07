@@ -195,6 +195,11 @@ const buyButton = querySelector<'a'>('[data-wtf-comprar]')
 
 const quotationErrorMessage = querySelector('[data-wtf-error-message-shipping]')
 
+/**
+ * Label que aparece junto aos seletores de peso/quantidade
+ */
+const variationLabel = querySelector<'div'>('[data-product-sku-label]')
+
 function replaceText (value: string, search: string | RegExp, replacer: string): string {
   return value.replace(search, replacer)
 }
@@ -346,6 +351,10 @@ function renderProductVariations (): void {
 
     variationsFragment.appendChild(variationElement)
   }
+
+  const allVariationsIsUnity = product?.variations.every(({ variation_type }) => variation_type === 'UN')
+
+  if (allVariationsIsUnity) changeTextContent(variationLabel, 'Unidades')
 
   skuList.replaceChildren(variationsFragment)
 }
