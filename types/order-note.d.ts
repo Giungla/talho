@@ -15,6 +15,7 @@ export interface OrderCompany {
 export interface OrderCustomer {
   name: string;
   phone: string;
+  email: string;
   zip: string;
   address: string;
   complement: string;
