@@ -2,17 +2,17 @@
 import type {
   Nullable,
   ResponsePattern,
-  CreateCartProduct,
+  CreateCartProduct, CartResponse,
 } from '../global'
 
-import type {
+import {
   Order,
   Orders,
   OrderProxy,
   OrderGetters,
   ProductReview,
   OrdersProperties,
-  CreateProductReview, OrderItem,
+  CreateProductReview, OrderItem, BulkProductInsertResponse,
 } from '../types/user-orders'
 
 import type {
@@ -46,6 +46,13 @@ import {
   const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
   const CART_BASE_URL = `${XANO_BASE_URL}/api:79PnTkh_`
+
+  const cart = querySelector<'div'>('#carrinho-flutuante')
+
+  /**
+   * Indica se uma operação de recompra está em andamento
+   */
+  let isRepurchasing: boolean = false
 
   const acquiring = new Set<string>()
 
@@ -217,11 +224,53 @@ import {
       return
     }
 
-    addClass(querySelector('#carrinho-flutuante'), CART_SWITCH_CLASS)
+    addClass(cart, CART_SWITCH_CLASS)
 
     localStorage.setItem(STORAGE_KEY_NAME, stringify<CreateCartProduct>(response.data))
 
     acquiring.delete(slug)
+  }
+
+  async function repurchase (transaction_id: string): Promise<ResponsePattern<BulkProductInsertResponse>> {
+    const defaultErrorMessage = 'Não foi possível completar o pedido'
+
+    try {
+      const response = await fetch(`${CART_BASE_URL}/cart/repurchase/${transaction_id}`, {
+        ...buildRequestOptions([], 'POST'),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+
+        return postErrorResponse(error?.message ?? defaultErrorMessage)
+      }
+
+      const data = await response.json()
+
+      return postSuccessResponse(data)
+    } catch (e) {
+      return postErrorResponse(defaultErrorMessage)
+    }
+  }
+
+  async function handleRepurchase (transaction_id: string): Promise<void> {
+    if (isRepurchasing) return
+
+    isRepurchasing = true
+
+    repurchase(transaction_id)
+      .then(response => {
+        if (!response.succeeded) return
+
+        toggleClass(querySelector('[data-wtf-repurchase-message]', cart), GENERAL_HIDDEN_CLASS, !response.data.has_removals)
+
+        addClass(cart, CART_SWITCH_CLASS)
+
+        localStorage.setItem(STORAGE_KEY_NAME, stringify<CartResponse>(response.data.items))
+      })
+      .finally(() => {
+        isRepurchasing = false
+      })
   }
 
   function renderOrders (): void {
@@ -245,6 +294,8 @@ import {
       changeTextContent(querySelector('[data-wtf-created-at]', template), order.created_at)
       changeTextContent(querySelector('[data-wtf-payment-method]', template), order.payment_method)
       changeTextContent(querySelector('[data-wtf-transaction-id]', template), order.transaction_id)
+
+      attachEvent(querySelector<'a'>('[data-wtf-repurchase]', template), 'click', () => handleRepurchase(order.transaction_id))
 
       const orderItemsContainer = querySelector<'div'>('[data-wtf-product-list]', template) as HTMLElement
 

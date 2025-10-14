@@ -1,4 +1,7 @@
-import {Nullable} from "../global";
+
+import type {
+  CartResponse,
+} from "../global"
 
 export interface Orders {
   list: Order[];
@@ -121,3 +124,14 @@ export interface ProductReview {
 }
 
 export type CreateProductReview = Pick<OrderItem, 'product_id'> & ProductReview;
+
+export interface BulkProductInsertResponse {
+  /**
+   * Indica se existe algum produto que foi ignorado na adição em massa
+   */
+  has_removals: boolean;
+  /**
+   * Valor atualizado do carrinho mais resultado do merge dos produtos
+   */
+  items: CartResponse[];
+}
