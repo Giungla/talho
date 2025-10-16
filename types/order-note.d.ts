@@ -16,6 +16,7 @@ export interface OrderCustomer {
   name: string;
   phone: string;
   email: string;
+  cpf: string;
   zip: string;
   address: string;
   complement: string;
