@@ -76,3 +76,8 @@ export {
   COOKIE_CONSENT_NAME,
   FREE_SHIPPING_MIN_CART_PRICE,
 } from './consts'
+
+export {
+  sendBeacon,
+  hasBeaconAPI,
+} from './beaconAPI'

@@ -15,6 +15,8 @@ import type {
 } from '../global'
 
 import {
+  sendBeacon,
+  hasBeaconAPI,
   NULL_VALUE,
   BRLFormatter,
   XANO_BASE_URL,
@@ -24,8 +26,9 @@ import {
   querySelector,
   postErrorResponse,
   postSuccessResponse,
-  buildRequestOptions,
+  buildRequestOptions, stringify,
 } from '../utils'
+import {PurchaseTrackingParams} from "../types/tracking";
 
 const {
   createApp,
@@ -70,6 +73,8 @@ const TalhoOrderPage = createApp({
     this.order = response.data
 
     isPageLoading(false)
+
+    this.logPurchase(transactionId, 3)
   },
 
   methods: {
@@ -94,6 +99,30 @@ const TalhoOrderPage = createApp({
         return postErrorResponse(defaultErrorMessage)
       }
     },
+
+    async logPurchase (orderId: string, retry: number = 0): Promise<void> {
+      const defaultErrorMessage = 'Falha ao registrar log do pedido'
+
+      try {
+        const response = await fetch(`${XANO_BASE_URL}/api:uMv7xbDN/log/purchase`, {
+          ...buildRequestOptions([], 'POST'),
+          keepalive: true,
+          body: stringify<PurchaseTrackingParams>({
+            transactionid: orderId,
+          }),
+        })
+
+        if (!response.ok) {
+          return retry > 0
+            ? this.logPurchase(orderId, retry - 1)
+            : console.warn(defaultErrorMessage)
+        }
+
+        response.json().then(() => console.info('Log do pedido finalizado'))
+      } catch (e) {
+        console.warn(defaultErrorMessage)
+      }
+    }
   },
 
   computed: {
