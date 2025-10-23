@@ -10,7 +10,18 @@ import type {
 } from './order-note'
 
 export interface OrderManagementListData {
+  /**
+   * Lista de pedidos recebidos da API
+   */
   orders: Nullable<OrderManagementItem[]>;
+  /**
+   * Registra o nome do filtro ativo
+   */
+  activeFilter: Nullable<AvailablePrepareFilterNames>;
+  /**
+   * Lista de filtros disponíveis para os pedidos
+   */
+  availableFilters: OrderFilter[];
 }
 
 export interface OrderManagementListMethods {
@@ -18,6 +29,14 @@ export interface OrderManagementListMethods {
    * Captura os pedidos que serão exibidos na lista
    */
   getOrders: () => Promise<ResponsePattern<OrderManagementItem[]>>;
+  /**
+   * Aplica um filtro
+   */
+  applyFilter: (name: AvailablePrepareFilterNames) => void;
+  /**
+   * Captura um filtro específico pelo nome do token
+   */
+  getFilterByToken: (token: AvailablePrepareFilterNames) => RenderableOrderFilter | undefined;
 }
 
 export interface OrderManagementListComputedDefinition {
@@ -29,6 +48,14 @@ export interface OrderManagementListComputedDefinition {
    * Captura a lista de pedidos transformada para renderização
    */
   getParsedOrders: () => OrderManagementItemParsed[];
+  /**
+   * Retorna apenas os filtros que podem ser selecionados com base nos pedidos recebidos
+   */
+  getAppliableFilters: () => OrderFilter[];
+  /**
+   * Retorna os status dos pedidos que foram devolvidos pela API
+   */
+  getAvailableStatus: () => AvailablePrepareFilterNames[];
 }
 
 export type OrderManagementListComputed = ComputedReturnValues<OrderManagementListComputedDefinition>
@@ -71,12 +98,36 @@ export interface OrderManagementItem {
   /**
    * Status de preparação do pedido
    */
-  prepare_status: Nullable<OrderPrepareStatus>;
+  prepare_status: Nullable<AvailablePrepareFilterNames>;
 }
 
-export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'created_at' | 'order_items' | 'total' | 'transaction_id'> {
+export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'created_at' | 'order_items' | 'total' | 'transaction_id' | 'prepare_status'> {
   url: string;
   price: string;
   items_count: number;
   created_date: string;
+  delivery_status?: OrderFilter;
+}
+
+export type AvailablePrepareFilterNames =
+  | OrderPrepareStatus.PREPARED
+  | OrderPrepareStatus.PREPARING
+  | OrderPrepareStatus.DELIVERYREADY
+
+export interface OrderFilter {
+  /**
+   * Nome do filtro (exibido no frontend)
+   */
+  label: string;
+  /**
+   * Token do filtro (usado para comparação com os status de pedido)
+   */
+  name: AvailablePrepareFilterNames;
+}
+
+export type RenderableOrderFilter = OrderFilter & {
+  /**
+   * Nome da classe gerada com base no token do filtro
+   */
+  className: string;
 }

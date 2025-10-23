@@ -9,6 +9,8 @@ import {
   OrderManagementItemParsed,
   OrderManagementListMethods,
   OrderManagementListContext,
+  AvailablePrepareFilterNames,
+  RenderableOrderFilter,
   OrderManagementListComputedDefinition,
 } from '../types/order-management-list'
 
@@ -40,6 +42,23 @@ const OrderManagementApp = createApp({
   data () {
     return {
       orders: NULL_VALUE,
+      activeFilter: NULL_VALUE,
+      availableFilters: [
+        {
+          label: 'Em preparação',
+          name: 'PREPARING',
+        },
+
+        {
+          label: 'Preparado',
+          name: 'PREPARED',
+        },
+
+        {
+          label: 'Pronto para entrega',
+          name: 'DELIVERYREADY',
+        },
+      ],
     }
   },
 
@@ -65,10 +84,20 @@ const OrderManagementApp = createApp({
         return postErrorResponse(defaultErrorMessage)
       }
     },
+
+    applyFilter (name: AvailablePrepareFilterNames): void {
+      if (this.activeFilter === name) return
+
+      this.activeFilter = name
+    },
+
+    getFilterByToken (token: AvailablePrepareFilterNames): RenderableOrderFilter | undefined {
+      return this.getAppliableFilters.find(({ name }) => name === token) as RenderableOrderFilter | undefined
+    },
   },
 
   computed: {
-    hasOrders (): this is { orders: OrderManagementItem[] } {
+    hasOrders (): boolean {
       const { orders } = this
 
       return Array.isArray(orders) && orders.length > 0
@@ -77,16 +106,62 @@ const OrderManagementApp = createApp({
     getParsedOrders (): OrderManagementItemParsed[] {
       if (!this.hasOrders) return []
 
-      return this.orders?.map(({ total, transaction_id, created_at, order_items, ...order }) => {
+      const {
+        orders,
+        activeFilter,
+      } = this
+
+      // @ts-ignore
+      const filteredOrders: OrderManagementItem[] = activeFilter !== null
+        // @ts-ignore
+        ? orders.filter(({ prepare_status }) => prepare_status === activeFilter)
+        : orders
+
+      return filteredOrders.map(({ total, transaction_id, created_at, order_items, prepare_status, ...order }) => {
+        const delivery_status = prepare_status !== null && this.getFilterByToken(prepare_status)
+
         return {
           ...order,
           created_date: timestampDate(created_at),
           items_count: order_items,
           price: BRLFormatter.format(total / 100),
           url: `/adm/ficha-de-pedido?transactionid=${transaction_id}`,
+          ...(delivery_status && {
+            delivery_status,
+          }),
         }
       }) ?? []
-    }
+    },
+
+    getAppliableFilters (): RenderableOrderFilter[] {
+      if (!this.hasOrders) return []
+
+      const { getAvailableStatus } = this
+
+      return this.availableFilters.reduce((filters, filter) => {
+        if (!getAvailableStatus.includes(filter.name)) return filters
+
+        return filters.concat({
+          ...filter,
+          className: filter.name.toLowerCase(),
+        })
+      }, [] as RenderableOrderFilter[])
+    },
+
+    getAvailableStatus (): AvailablePrepareFilterNames[] {
+      if (!this.hasOrders) return []
+
+      const status: AvailablePrepareFilterNames[] = []
+
+      // @ts-ignore
+      for (const { prepare_status } of this.orders) {
+        if (!prepare_status || status.includes(prepare_status)) continue
+
+        status.push(prepare_status)
+      }
+
+      return status
+    },
   },
 } satisfies {
   name: string;
