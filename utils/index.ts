@@ -25,6 +25,7 @@ export {
 } from './requestResponse'
 
 export {
+  timestampDate,
   timestampDays,
   SECONDS_IN_A_DAY,
 } from './dates'

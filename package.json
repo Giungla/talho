@@ -78,6 +78,9 @@
     "tsup-order-note-scripts-both": "yarn tsup-order-note-scripts && yarn tsup-order-note-scripts-prod",
     "tsup-redirect-share-link-scripts": "tsup src/redirect-share-link.ts --format iife --minify terser --treeshake --out-dir dev",
     "tsup-redirect-share-link-scripts-prod": "node build-commands/build-for-production.js --name=redirect-share-link",
-    "tsup-redirect-share-link-scripts-both": "yarn tsup-redirect-share-link-scripts && yarn tsup-redirect-share-link-scripts-prod"
+    "tsup-redirect-share-link-scripts-both": "yarn tsup-redirect-share-link-scripts && yarn tsup-redirect-share-link-scripts-prod",
+    "tsup-order-management-list": "tsup src/order-management-list.ts --format iife --minify terser --treeshake --out-dir dev",
+    "tsup-order-management-list-prod": "node build-commands/build-for-production.js --name=order-management-list",
+    "tsup-order-management-list-both": "yarn tsup-order-management-list && yarn tsup-order-management-list-prod"
   }
 }

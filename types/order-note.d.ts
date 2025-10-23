@@ -1,9 +1,8 @@
 
 import {
-  ComputedReturnValues,
-  ISinglePaymentKey,
   Nullable,
   ResponsePattern,
+  ComputedReturnValues,
 } from '../global'
 
 export interface OrderCompany {
