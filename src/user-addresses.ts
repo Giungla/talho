@@ -11,6 +11,8 @@ import {
   XANO_BASE_URL,
   statesAcronym,
   GENERAL_HIDDEN_CLASS,
+  addAttribute,
+  hasAttribute,
   toggleClass,
   querySelector,
   isAuthenticated,
@@ -24,11 +26,13 @@ import {
   objectSize,
   removeAttribute,
   removeClass,
-  isPageLoading, isArray,
+  isPageLoading,
+  isArray, getAttribute,
 } from '../utils'
 
 (function () {
   const WTF_WRAPPER_SELECTOR = '[data-wtf-wrapper]'
+  const WTF_ERROR_CUSTOM_MESSAGE_ATTRIBUTE = 'data-original-message'
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
 
   const ADDRESS_FORM_ID = '#wf-form-Address-Form'
@@ -219,14 +223,24 @@ import {
     changeTextContent(textElement, response.message)
   }
 
-  function captureFieldWrapper (field: Exclude<ReturnType<typeof querySelector>, null>) {
+  function captureFieldWrapper <T = HTMLElement> (field: Exclude<ReturnType<typeof querySelector>, null>): T {
     return field.closest(WTF_WRAPPER_SELECTOR)
   }
 
-  function toggleFieldWrapperError (field: Exclude<ReturnType<typeof querySelector>, null>, isValid: boolean) {
+  function toggleFieldWrapperError (field: Exclude<ReturnType<typeof querySelector>, null>, isValid: boolean): void {
     const fieldWrapper = captureFieldWrapper(field)
 
     toggleClass(fieldWrapper, ERROR_MESSAGE_CLASS, !isValid)
+
+    if (!isValid) return
+
+    const errorMessage = querySelector('[data-wtf-field-error]', fieldWrapper)
+
+    if (!hasAttribute(errorMessage, WTF_ERROR_CUSTOM_MESSAGE_ATTRIBUTE)) return
+
+    changeTextContent(errorMessage, getAttribute(errorMessage, WTF_ERROR_CUSTOM_MESSAGE_ATTRIBUTE))
+
+    removeAttribute(errorMessage, WTF_ERROR_CUSTOM_MESSAGE_ATTRIBUTE)
   }
 
   function camelToKebabCase (str: string) {
@@ -236,7 +250,7 @@ import {
   function drawFoundedAddress (response: Awaited<ReturnType<typeof searchAddress>>) {
     if (response.succeeded) {
       const {
-        cep: cepValue,
+        // cep: cepValue,
         logradouro,
         localidade,
         complemento,
@@ -244,7 +258,7 @@ import {
         uf,
       } = response.data
 
-      checkInputExistenceAndSetItsValue(cep, cepValue)
+      // checkInputExistenceAndSetItsValue(cep, cepValue)
       checkInputExistenceAndSetItsValue(address, logradouro)
       checkInputExistenceAndSetItsValue(neighborhood, bairro)
       checkInputExistenceAndSetItsValue(city, localidade)
@@ -252,6 +266,14 @@ import {
 
       return
     }
+
+    toggleFieldWrapperError(cep, false)
+
+    const cepErrorMessage = querySelector<'div'>('[data-wtf-field-error]', captureFieldWrapper<HTMLDivElement>(cep))
+
+    addAttribute(cepErrorMessage, WTF_ERROR_CUSTOM_MESSAGE_ATTRIBUTE, cepErrorMessage.textContent.trim())
+
+    changeTextContent(cepErrorMessage, response.message)
 
     for (const field of [address, complement, neighborhood, city, state]) {
       checkInputExistenceAndSetItsValue(field)

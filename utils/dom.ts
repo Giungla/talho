@@ -1,5 +1,6 @@
 
 import type {
+  Nullable,
   IScrollIntoViewArgs,
 } from '../global'
 
@@ -80,6 +81,10 @@ export function getAttribute (element: ReturnType<typeof querySelector>, qualifi
   if (!element) return NULL_VALUE
 
   return element.getAttribute(qualifiedName)
+}
+
+export function hasAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string): boolean {
+  return element?.hasAttribute(qualifiedName) ?? false
 }
 
 export function hasClass (element: ReturnType<typeof querySelector>, className: string): boolean {

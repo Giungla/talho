@@ -45,6 +45,7 @@ export {
   removeClass,
   toggleClass,
   changeTextContent,
+  hasAttribute,
   addAttribute,
   removeAttribute,
   getAttribute,
