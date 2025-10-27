@@ -1,18 +1,21 @@
 
 import type {
   Nullable,
+  CartResponse,
   ResponsePattern,
-  CreateCartProduct, CartResponse,
+  CreateCartProduct,
 } from '../global'
 
 import {
   Order,
   Orders,
+  OrderItem,
   OrderProxy,
   OrderGetters,
   ProductReview,
   OrdersProperties,
-  CreateProductReview, OrderItem, BulkProductInsertResponse,
+  CreateProductReview,
+  BulkProductInsertResponse,
 } from '../types/user-orders'
 
 import type {
@@ -313,11 +316,11 @@ import {
 
         const addToCartCTA = querySelector<'img'>('[data-wtf-buy-again-cta]', itemTemplate)
 
-        if (has_stock) {
-          attachEvent(addToCartCTA, 'click', () => buyAgain({ sku_id, slug }))
-        } else {
-          removeElementFromDOM(addToCartCTA)
-        }
+        attachEvent(addToCartCTA, 'click', () => buyAgain({ sku_id, slug }))
+        // if (has_stock) {
+        // } else {
+        //   removeElementFromDOM(addToCartCTA)
+        // }
 
         changeTextContent(querySelector('[data-wtf-product-name]', itemTemplate), name)
         changeTextContent(querySelector('[data-wtf-product-price]', itemTemplate), BRLFormatter.format(unit_price / 100))
