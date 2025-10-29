@@ -139,6 +139,10 @@ export function stringify <T extends object> (value: T): string {
   return JSON.stringify(value)
 }
 
+export function trim (value: string): string {
+  return value.trim()
+}
+
 export function safeParseJson <T = unknown> (value: string | null | undefined): T | null {
   if (typeof value !== 'string') return null
 
@@ -159,6 +163,10 @@ export function objectSize <T extends string | any[]> (value: T): number {
 
 export function EMAIL_REGEX_VALIDATION (): RegExp {
   return /^(([\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+(\.[\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+)*)|("[\p{L}\p{N}\s!#$%&'*+\/=?^_`{|}~.-]+"))@(([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}|(\[(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\]))$/u
+}
+
+export function regexTest (regex: RegExp, value: string): boolean {
+  return regex.test(value)
 }
 
 export function normalizeText (text: string): string {

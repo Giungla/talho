@@ -32,13 +32,21 @@ export {
 
 export {
   BRLFormatter,
+  maskCEP,
+  maskDate,
+  toUpperCase,
+  maskCPFNumber,
+  maskPhoneNumber,
 } from './mask'
 
 export {
   NULL_VALUE,
   GENERAL_HIDDEN_CLASS,
   SCROLL_INTO_VIEW_DEFAULT_ARGS,
+  EMAIL_REGEX_VALIDATION,
   splitText,
+  trim,
+  regexTest,
   isArray,
   hasClass,
   addClass,
@@ -62,7 +70,6 @@ export {
   focusInput,
   isNull,
   isAuthenticated,
-  EMAIL_REGEX_VALIDATION,
 } from './dom'
 
 export {
@@ -72,6 +79,7 @@ export {
 
 export {
   statesMap,
+  SLASH_STRING,
   statesValues,
   statesAcronym,
   STORAGE_KEY_NAME,
@@ -83,3 +91,27 @@ export {
   sendBeacon,
   hasBeaconAPI,
 } from './beaconAPI'
+
+export {
+  pushIf,
+  includes,
+} from './array'
+
+export {
+  eventMap,
+  cleanupDirective,
+  buildMaskDirective,
+} from './vue'
+
+export {
+  BLUR_EVENT,
+  INPUT_EVENT,
+} from './events'
+
+export {
+  CPF_VERIFIERS_INDEXES,
+  isCPFValid,
+  isDateValid,
+  textTestRegex,
+  validatePasswordParts,
+} from './validation'
