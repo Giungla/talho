@@ -5,8 +5,8 @@ import type {
   ComputedReturnValues,
 } from '../global'
 
-import type {
-  OrderPrepareStatus
+import {
+  OrderPrepareStatus, OrderStatus
 } from './order-note'
 
 export interface OrderManagementListData {
@@ -17,7 +17,7 @@ export interface OrderManagementListData {
   /**
    * Registra o nome do filtro ativo
    */
-  activeFilter: Nullable<AvailablePrepareFilterNames>;
+  activeFilter: Nullable<AvailablePrepareFilterNames | AvailableStatusFilterNames>;
   /**
    * Lista de filtros disponíveis para os pedidos
    */
@@ -36,7 +36,7 @@ export interface OrderManagementListMethods {
   /**
    * Captura um filtro específico pelo nome do token
    */
-  getFilterByToken: (token: AvailablePrepareFilterNames) => RenderableOrderFilter | undefined;
+  getFilterByToken: (token: AvailablePrepareFilterNames | AvailableStatusFilterNames) => RenderableOrderFilter | undefined;
 }
 
 export interface OrderManagementListComputedDefinition {
@@ -55,7 +55,7 @@ export interface OrderManagementListComputedDefinition {
   /**
    * Retorna os status dos pedidos que foram devolvidos pela API
    */
-  getAvailableStatus: () => AvailablePrepareFilterNames[];
+  getAvailableStatus: () => (AvailablePrepareFilterNames | AvailableStatusFilterNames)[];
 }
 
 export type OrderManagementListComputed = ComputedReturnValues<OrderManagementListComputedDefinition>
@@ -99,9 +99,13 @@ export interface OrderManagementItem {
    * Status de preparação do pedido
    */
   prepare_status: Nullable<AvailablePrepareFilterNames>;
+  /**
+   * Status de entrega do pedido
+   */
+  status: Nullable<AvailableStatusFilterNames>;
 }
 
-export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'created_at' | 'order_items' | 'total' | 'transaction_id' | 'prepare_status'> {
+export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'created_at' | 'order_items' | 'total' | 'transaction_id' | 'prepare_status' | 'status'> {
   url: string;
   price: string;
   items_count: number;
@@ -114,6 +118,15 @@ export type AvailablePrepareFilterNames =
   | OrderPrepareStatus.PREPARING
   | OrderPrepareStatus.DELIVERYREADY
 
+export type AvailableStatusFilterNames =
+  | OrderStatus.COMPLETED
+  | OrderStatus.ASSIGNING_DRIVER
+  | OrderStatus.CANCELED
+  | OrderStatus.EXPIRED
+  | OrderStatus.REJECTED
+  | OrderStatus.ON_GOING
+  | OrderStatus.PICKED_UP
+
 export interface OrderFilter {
   /**
    * Nome do filtro (exibido no frontend)
@@ -122,7 +135,7 @@ export interface OrderFilter {
   /**
    * Token do filtro (usado para comparação com os status de pedido)
    */
-  name: AvailablePrepareFilterNames;
+  name: AvailablePrepareFilterNames | AvailableStatusFilterNames;
 }
 
 export type RenderableOrderFilter = OrderFilter & {

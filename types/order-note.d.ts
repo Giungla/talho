@@ -77,7 +77,34 @@ enum OrderPrepareStatus {
 }
 
 enum OrderStatus {
-  COMPLETED = 'COMPLETED',
+  /**
+   * Representa um pedido entregue
+   */
+  COMPLETED        = 'COMPLETED',
+  /**
+   * Representa um pedido que ainda está buscando um motorista
+   */
+  ASSIGNING_DRIVER = 'ASSIGNING_DRIVER',
+  /**
+   * Representa um pedido que já está a caminho do cliente
+   */
+  ON_GOING         = 'ON_GOING',
+  /**
+   * Representa um pedido que foi retirado pelo entregador
+   */
+  PICKED_UP        = 'PICKED_UP',
+  /**
+   * Representa um pedido que teve sua entrega cancelada
+   */
+  CANCELED         = 'CANCELED',
+  /**
+   * Representa um pedido que foi rejeitado, após ser cancelado por 2 vezes
+   */
+  REJECTED         = 'REJECTED',
+  /**
+   * Representa um pedido que expirou, por não encontrar um motorista para a realização da entrega
+   */
+  EXPIRED          = 'EXPIRED',
 }
 
 export type FinalOrder = OrderDetails & OrderSubsidy & OrderPriority & OrderPayment;

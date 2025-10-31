@@ -11,7 +11,7 @@ import {
   OrderManagementListContext,
   AvailablePrepareFilterNames,
   RenderableOrderFilter,
-  OrderManagementListComputedDefinition,
+  OrderManagementListComputedDefinition, AvailableStatusFilterNames,
 } from '../types/order-management-list'
 
 const {
@@ -25,7 +25,7 @@ import {
   timestampDate,
   postErrorResponse,
   postSuccessResponse,
-  buildRequestOptions,
+  buildRequestOptions, pushIf,
 } from '../utils'
 
 const OrderManagementApp = createApp({
@@ -58,6 +58,11 @@ const OrderManagementApp = createApp({
           label: 'Pronto para entrega',
           name: 'DELIVERYREADY',
         },
+
+        {
+          label: 'Entregue',
+          name: 'COMPLETED',
+        }
       ],
     }
   },
@@ -85,13 +90,13 @@ const OrderManagementApp = createApp({
       }
     },
 
-    applyFilter (name: AvailablePrepareFilterNames): void {
+    applyFilter (name: AvailablePrepareFilterNames | AvailableStatusFilterNames): void {
       if (this.activeFilter === name) return
 
       this.activeFilter = name
     },
 
-    getFilterByToken (token: AvailablePrepareFilterNames): RenderableOrderFilter | undefined {
+    getFilterByToken (token: AvailablePrepareFilterNames | AvailableStatusFilterNames): RenderableOrderFilter | undefined {
       return this.getAppliableFilters.find(({ name }) => name === token) as RenderableOrderFilter | undefined
     },
   },
@@ -114,11 +119,11 @@ const OrderManagementApp = createApp({
       // @ts-ignore
       const filteredOrders: OrderManagementItem[] = activeFilter !== null
         // @ts-ignore
-        ? orders.filter(({ prepare_status }) => prepare_status === activeFilter)
+        ? orders.filter(({ prepare_status, status, }) => prepare_status === activeFilter || status === activeFilter)
         : orders
 
-      return filteredOrders.map(({ total, transaction_id, created_at, order_items, prepare_status, ...order }) => {
-        const delivery_status = prepare_status !== null && this.getFilterByToken(prepare_status)
+      return filteredOrders.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
+        const first_valid_status = [status, prepare_status].find(Boolean)
 
         return {
           ...order,
@@ -126,8 +131,8 @@ const OrderManagementApp = createApp({
           items_count: order_items,
           price: BRLFormatter.format(total / 100),
           url: `/adm/ficha-de-pedido?transactionid=${transaction_id}`,
-          ...(delivery_status && {
-            delivery_status,
+          ...(first_valid_status && {
+            delivery_status: this.getFilterByToken(first_valid_status),
           }),
         }
       }) ?? []
@@ -148,19 +153,19 @@ const OrderManagementApp = createApp({
       }, [] as RenderableOrderFilter[])
     },
 
-    getAvailableStatus (): AvailablePrepareFilterNames[] {
+    getAvailableStatus (): (AvailablePrepareFilterNames | AvailableStatusFilterNames)[] {
       if (!this.hasOrders) return []
 
-      const status: AvailablePrepareFilterNames[] = []
+      const statusList: (AvailablePrepareFilterNames | AvailableStatusFilterNames)[] = []
 
       // @ts-ignore
-      for (const { prepare_status } of this.orders) {
-        if (!prepare_status || status.includes(prepare_status)) continue
+      for (const { prepare_status, status } of this.orders) {
+        pushIf(prepare_status && !statusList.includes(prepare_status), statusList, prepare_status)
 
-        status.push(prepare_status)
+        pushIf(status && !statusList.includes(status), statusList, status)
       }
 
-      return status
+      return statusList
     },
   },
 } satisfies {
