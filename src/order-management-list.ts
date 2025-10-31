@@ -123,7 +123,9 @@ const OrderManagementApp = createApp({
         : orders
 
       return filteredOrders.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
-        const first_valid_status = [status, prepare_status].find(Boolean)
+        const filterStatus = status === 'COMPLETED'
+          ? status
+          : prepare_status
 
         return {
           ...order,
@@ -131,8 +133,8 @@ const OrderManagementApp = createApp({
           items_count: order_items,
           price: BRLFormatter.format(total / 100),
           url: `/adm/ficha-de-pedido?transactionid=${transaction_id}`,
-          ...(first_valid_status && {
-            delivery_status: this.getFilterByToken(first_valid_status),
+          ...(filterStatus && {
+            delivery_status: this.getFilterByToken(filterStatus),
           }),
         }
       }) ?? []
