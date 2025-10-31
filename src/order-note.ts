@@ -1,22 +1,23 @@
 
 import {
-  Order,
-  OrderNoteData,
-  OrderNoteContext,
-  OrderNoteMethods,
-  OrderNoteComputedDefinition,
-  OrderCompany,
-  OrderCustomer,
-  OrderItem,
-  FinalCOrder,
-  PixDiscount,
-  PatchPrepareStatusParams,
-  OrderPrepareStatus,
+  type Order,
+  type OrderNoteData,
+  type OrderNoteContext,
+  type OrderNoteMethods,
+  type OrderNoteComputedDefinition,
+  type OrderCompany,
+  type OrderCustomer,
+  type OrderItem,
+  type FinalCOrder,
+  type PixDiscount,
+  type PatchPrepareStatusParams,
+  type OrderPrepareStatus,
+  type OrderStatus,
 } from '../types/order-note'
 
-import type {
-  Nullable,
-  ResponsePattern
+import {
+  type Nullable,
+  type ResponsePattern
 } from '../global'
 
 const {
@@ -114,7 +115,7 @@ const TalhoCheckoutApp = createApp({
         : response.message
     },
 
-    async setOrderStatus (order_id: number, prepare_status: OrderPrepareStatus): Promise<ResponsePattern<PatchPrepareStatusParams>> {
+    async setOrderStatus (order_id: number, prepare_status: OrderPrepareStatus | OrderStatus): Promise<ResponsePattern<PatchPrepareStatusParams>> {
       const defaultErrorMessage = 'Não foi possível alterar o status de preparação'
 
       try {
