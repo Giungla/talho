@@ -1,12 +1,13 @@
 
-import type {
-  ICookieOptions,
-  ISplitCookieObject
+import {
+  type ICookieOptions,
+  type ISplitCookieObject,
 } from '../global'
 
 import {
-  objectSize
-} from './dom'
+  pushIf,
+  objectSize,
+} from './index'
 
 export const COOKIE_SEPARATOR = '; '
 
@@ -44,33 +45,47 @@ export function setCookie (name: string, value: string | number | boolean, optio
 
   const cookieOptions: string[] = [`${name}=${value}`]
 
-  if (options?.expires && options?.expires instanceof Date) {
-    cookieOptions.push(`expires=` + options.expires.toUTCString())
-  }
+  pushIf(
+    options?.expires && options?.expires instanceof Date,
+    cookieOptions,
+    `expires=` + options.expires.toUTCString(),
+  )
 
-  if (options.maxAge) {
-    cookieOptions.push(`maxAge=${options.maxAge}`)
-  }
+  pushIf(
+    options.maxAge,
+    cookieOptions,
+    `maxAge=${options.maxAge}`,
+  )
 
-  if (options?.sameSite && typeof options?.sameSite === 'string') {
-    cookieOptions.push(`SameSite=${options?.sameSite}`)
-  }
+  pushIf(
+    options?.sameSite && typeof options?.sameSite === 'string',
+    cookieOptions,
+    `SameSite=${options?.sameSite}`,
+  )
 
-  if (options?.path) {
-    cookieOptions.push(`path=${options?.path}`)
-  }
+  pushIf(
+    options?.path,
+    cookieOptions,
+    `path=${options?.path}`,
+  )
 
-  if (options?.domain) {
-    cookieOptions.push(`domain=${options?.path}`)
-  }
+  pushIf(
+    options?.domain,
+    cookieOptions,
+    `domain=${options?.domain}`,
+  )
 
-  if (options?.httpOnly) {
-    cookieOptions.push(`HttpOnly`)
-  }
+  pushIf(
+    options?.httpOnly,
+    cookieOptions,
+    'HttpOnly',
+  )
 
-  if (options?.secure) {
-    cookieOptions.push('Secure')
-  }
+  pushIf(
+    options?.secure,
+    cookieOptions,
+    'Secure',
+  )
 
   const _buildCookie = cookieOptions.join(COOKIE_SEPARATOR)
 
