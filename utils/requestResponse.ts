@@ -1,15 +1,17 @@
 
-import type {
-  HttpMethod,
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
+import {
+  type HttpMethod,
+  type ICookieOptions,
+  type FunctionErrorPattern,
+  type ResponsePatternCallback,
+  type FunctionSucceededPattern,
 } from "../global"
 
 import {
   buildURL,
   getCookie,
   setCookie,
-  timestampDays
+  timestampDays,
 } from "./index"
 
 export const UNAUTHENTICATED_RESPONSE_STATUS = 401
@@ -25,12 +27,25 @@ export const PUT = 'PUT'
 export const PATCH = 'PATCH'
 export const DELETE = 'DELETE'
 
+export const BUILD_URL_DEFAULT_OPTION = {
+  redirect_to: encodeURIComponent(location.pathname + location.search),
+}
+
+export const DEFAULT_SESSION_COOKIE_OPTIONS: ICookieOptions = {
+  path: '/',
+  secure: true,
+  sameSite: 'Strict',
+  expires: new Date(Date.now() + timestampDays(14)),
+}
+
 function handleResponseStatus (response?: Response): void {
   if (!response || response.status !== UNAUTHENTICATED_RESPONSE_STATUS) return
 
-  location.href = buildURL('/acessos/entrar', {
-    redirect_to: encodeURIComponent(location.pathname + location.search),
-  })
+  unAuthenticatedRedirect()
+}
+
+export function unAuthenticatedRedirect (path = '/acessos/entrar', redirectOptions: Record<string, string> = BUILD_URL_DEFAULT_OPTION): void {
+  location.href = buildURL(path, redirectOptions)
 }
 
 export function handleSession (response?: Response): void {
@@ -38,20 +53,26 @@ export function handleSession (response?: Response): void {
 
   if (!session) return
 
-  setCookie(TALHO_SESSION_COOKIE_NAME, session, {
-    path: '/',
-    secure: true,
-    sameSite: 'Strict',
-    expires: new Date(Date.now() + timestampDays(14)),
-  })
+  setCookie(
+    TALHO_SESSION_COOKIE_NAME,
+    session,
+    DEFAULT_SESSION_COOKIE_OPTIONS,
+  )
 }
 
-export function postErrorResponse (this: Response | undefined, message: string, skipRedirectIfUnauthenticated: boolean = false): FunctionErrorPattern {
+export function postErrorResponse (
+  this: Response | undefined,
+  message: string,
+  skipRedirectIfUnauthenticated: boolean = false,
+  callback?: ResponsePatternCallback,
+): FunctionErrorPattern {
   handleSession(this)
 
   if (!skipRedirectIfUnauthenticated) {
     handleResponseStatus(this)
   }
+
+  callback?.()
 
   return {
     message,
@@ -59,8 +80,14 @@ export function postErrorResponse (this: Response | undefined, message: string, 
   }
 }
 
-export function postSuccessResponse <T> (this: Response | undefined, response: T): FunctionSucceededPattern<T> {
+export function postSuccessResponse <T> (
+  this: Response | undefined,
+  response: T,
+  callback?: ResponsePatternCallback,
+): FunctionSucceededPattern<T> {
   handleSession(this)
+
+  callback?.()
 
   return {
     data: response,
