@@ -84,6 +84,9 @@
     "tsup-order-management-list-both": "yarn tsup-order-management-list && yarn tsup-order-management-list-prod",
     "tsup-signup-business": "tsup src/signup-business.ts --format iife --minify terser --treeshake --out-dir dev",
     "tsup-signup-business-prod": "node build-commands/build-for-production.js --name=signup-business",
-    "tsup-signup-business-both": "yarn tsup-signup-business && yarn tsup-signup-business-prod"
+    "tsup-signup-business-both": "yarn tsup-signup-business && yarn tsup-signup-business-prod",
+    "tsup-activate-account": "tsup src/activate-account.ts --format iife --minify terser --treeshake --out-dir dev",
+    "tsup-activate-account-prod": "node build-commands/build-for-production.js --name=activate-account",
+    "tsup-activate-account-both": "yarn tsup-activate-account && yarn tsup-activate-account-prod"
   }
 }
