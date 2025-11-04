@@ -34,6 +34,7 @@ import {
   XANO_BASE_URL,
   EMPTY_STRING,
   statesAcronym,
+  isAuthenticated,
   addAttribute,
   attachEvent,
   buildMaskDirective,
@@ -60,7 +61,9 @@ import {
   toUpperCase,
   trim,
   isCPFValid,
-  validatePasswordParts, isDateValid,
+  validatePasswordParts,
+  isDateValid,
+  unAuthenticatedRedirect,
 } from '../utils'
 
 const {
@@ -544,27 +547,31 @@ const signupBusiness = createApp({
   directives: SignUpBusinessDirectives;
 } & ThisType<SignupBusinessContext>)
 
-const businessFormIdentifier = '#business-form'
+if (!isAuthenticated()) {
+  unAuthenticatedRedirect()
+} else {
+  const businessFormIdentifier = '#business-form'
 
-/**
- * Container onde o app Vue será montado
- */
-const businessForm: HTMLDivElement = querySelector(businessFormIdentifier)
-/**
- * Container de formulário padrão do Webflow
- */
-const wForm: HTMLDivElement        = querySelector<'div'>('.formblock', businessForm)
+  /**
+   * Container onde o app Vue será montado
+   */
+  const businessForm: HTMLDivElement = querySelector(businessFormIdentifier)
+  /**
+   * Container de formulário padrão do Webflow
+   */
+  const wForm: HTMLDivElement        = querySelector<'div'>('.formblock', businessForm)
 
-const formRegister: HTMLFormElement = querySelector('#wf-form-register', businessForm)
+  const formRegister: HTMLFormElement = querySelector('#wf-form-register', businessForm)
 
-if (formRegister) {
-  removeClass(wForm, 'w-form')
+  if (formRegister) {
+    removeClass(wForm, 'w-form')
 
-  wForm.innerHTML = formRegister.outerHTML
+    wForm.innerHTML = formRegister.outerHTML
+  }
+
+  signupBusiness.mount(businessFormIdentifier)
+
+  window.addEventListener('pageshow', (e: PageTransitionEvent) => {
+    if (e.persisted) window.location.reload()
+  })
 }
-
-signupBusiness.mount(businessFormIdentifier)
-
-window.addEventListener('pageshow', (e: PageTransitionEvent) => {
-  if (e.persisted) window.location.reload()
-})
