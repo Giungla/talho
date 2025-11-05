@@ -1,8 +1,10 @@
 
-import type {
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
-  GoogleContinueOAuthResponse,
+
+
+import {
+  type FunctionErrorPattern,
+  type FunctionSucceededPattern,
+  type GoogleContinueOAuthResponse,
 } from '../global'
 
 import {
@@ -54,7 +56,9 @@ import {
 
     try {
       const response = await fetch(url, {
-        ...buildRequestOptions()
+        ...buildRequestOptions(),
+        priority: 'high',
+        keepalive: true,
       })
 
       if (!response.ok) {
@@ -85,6 +89,8 @@ import {
       expires: new Date(result.data.maxAge)
     })
 
-    location.href = USER_DATA_PATH
+    location.href = result.data.firstAccess
+      ? '/area-do-usuario/troca-de-senha'
+      : USER_DATA_PATH
   })
 })()
