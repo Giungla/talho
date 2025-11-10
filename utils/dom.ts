@@ -12,7 +12,7 @@ import {
   AUTH_COOKIE_NAME
 } from './requestResponse'
 
-export const NULL_VALUE = null
+export const NULL_VALUE: null = null
 export const GENERAL_HIDDEN_CLASS = 'oculto'
 
 export const SCROLL_INTO_VIEW_DEFAULT_ARGS: ScrollIntoViewOptions = {
