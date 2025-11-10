@@ -1,34 +1,37 @@
 
-import type {
-  OrderData,
-  OrderAddress,
-  ParsedProduct,
-  TalhoOrderPageData,
-  OrderShippingAddress,
-  TalhoOrderPageMethods,
-  TalhoOrderPageContext,
-  TalhoOrderPageComputedDefinition,
+import {
+  type OrderData,
+  type OrderAddress,
+  type ParsedProduct,
+  type TalhoOrderPageData,
+  type OrderShippingAddress,
+  type TalhoOrderPageMethods,
+  type TalhoOrderPageContext,
+  type TalhoOrderPageComputedDefinition,
 } from '../types/order-page'
 
-import type {
-  ResponsePattern
+import {
+  type ResponsePattern,
 } from '../global'
 
 import {
-  sendBeacon,
-  hasBeaconAPI,
+  type PurchaseTrackingParams,
+} from '../types/tracking'
+
+import {
   NULL_VALUE,
   BRLFormatter,
   XANO_BASE_URL,
   isNull,
   buildURL,
+  stringify,
   isPageLoading,
   querySelector,
   postErrorResponse,
   postSuccessResponse,
-  buildRequestOptions, stringify,
+  buildRequestOptions,
+  getTrackingCookies,
 } from '../utils'
-import {PurchaseTrackingParams} from "../types/tracking";
 
 const {
   createApp,
@@ -105,8 +108,9 @@ const TalhoOrderPage = createApp({
 
       try {
         const response = await fetch(`${XANO_BASE_URL}/api:uMv7xbDN/log/purchase`, {
-          ...buildRequestOptions([], 'POST'),
+          ...buildRequestOptions(getTrackingCookies(), 'POST'),
           keepalive: true,
+          priority: 'high',
           body: stringify<PurchaseTrackingParams>({
             transactionid: orderId,
           }),
