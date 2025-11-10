@@ -1,79 +1,69 @@
 
 import {
-  getCookie,
+  PARAM_NAMES,
+  DEFAULT_SESSION_COOKIE_OPTIONS,
+  includes,
+  splitText,
   objectSize,
   setCookie,
-  timestampDays,
+  isStrictEquals,
+  prefixStorageKey,
 } from '../utils'
 
 (function () {
-  const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names')
+  // const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names')
   // const PARAM_NAMES = 'gclid|gbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
 
   if (!PARAM_NAMES) {
     throw new Error(`You must provide a 'data-parameter-names' parameter`)
   }
 
-  const searchParams = PARAM_NAMES
-    .replace(/[^a-z|_]+/g, '')
-    .split('|')
+  const searchParams = splitText(PARAM_NAMES, '|')
 
   const searchParamsSize = objectSize(searchParams)
 
-  if (searchParamsSize === 0) return
+  if (isStrictEquals(searchParamsSize, 0)) return
 
   const URLSearch = new URLSearchParams(location.search)
 
-  if (URLSearch.size === 0) return
-
-  const hasTrackingParameterInURL = searchParams.some(param => URLSearch.has(param))
-
-  if (hasTrackingParameterInURL) {
-    clearTrackingCookies(searchParams)
-
-    for (const param of searchParams) {
-      if (!URLSearch.has(param)) continue
-
-      setCookie(param, URLSearch.get(param) ?? '', {
-        expires: new Date(Date.now() + timestampDays(90))
-      })
+  URLSearch.forEach((value, key) => {
+    if (includes(searchParams, key)) {
+      localStorage.setItem(
+        prefixStorageKey(key),
+        value,
+      )
     }
-  }
+  })
 
   function clearTrackingCookies (params: string[] = searchParams): void {
-    for (let index = 0; index < searchParamsSize; index++) {
-      setCookie(params[index], '', {
-        expires: new Date(Date.now() - timestampDays(1))
-      })
-    }
+    params.forEach((value) => {
+      localStorage.removeItem(prefixStorageKey(value))
+    })
   }
 
   function getAvailableTrackingData (): Record<string, string> {
     const response: Record<string, string> = {}
 
     for (const param of searchParams) {
-      const cookie = getCookie(param)
+      const value = localStorage.getItem(prefixStorageKey(param))
 
-      if (!cookie) continue
+      if (!value) continue
 
-      Object.defineProperty(response, param, {
-        value: cookie,
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      })
+      response[param] = value
     }
 
     return response
   }
 
-  function Giungla (): void {}
+  window.addEventListener('click', () => {
+    for (const param of searchParams) {
+      const key = prefixStorageKey(param)
 
-  Giungla.prototype.setCookie = setCookie
-  Giungla.prototype.getCookie = getCookie
-  Giungla.prototype.clearTrackingCookies = clearTrackingCookies
-  Giungla.prototype.getAvailableTrackingData = getAvailableTrackingData
+      const localStorageValue = localStorage.getItem(key)
 
-  // @ts-ignore
-  window.Giungla = new Giungla()
+      if (!localStorageValue) continue
+
+      setCookie(key, localStorageValue, DEFAULT_SESSION_COOKIE_OPTIONS)
+    }
+  }, { once: true })
 })()
