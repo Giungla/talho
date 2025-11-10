@@ -11,3 +11,11 @@ export function includes <T> (
 ): boolean {
   return source.includes(search as any)
 }
+
+export function isEquals (valueA: unknown, valueB: unknown): boolean {
+  return valueA == valueB
+}
+
+export function isStrictEquals (valueA: unknown, valueB: unknown): boolean {
+  return valueA === valueB
+}
