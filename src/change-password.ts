@@ -25,7 +25,10 @@ import {
   removeClass,
   objectSize,
   focusInput,
-  addAttribute, buildURL,
+  addAttribute,
+  buildURL,
+  validatePasswordParts,
+  isStrictEquals,
 } from '../utils'
 
 (function () {
@@ -135,10 +138,6 @@ import {
   const passwordField = querySelector<'input'>('[data-wtf-password]')
   const confirmPasswordField = querySelector<'input'>('[data-wtf-confirm-password]')
 
-  function textTestRegex (value: string): (value: RegExp) => boolean {
-    return (regex: RegExp) => regex.test(value)
-  }
-
   const validators: ValidatorScheme[] = [
     { field: passwordField,        validator: validatePassword },
     { field: confirmPasswordField, validator: validateConfirmPassword },
@@ -150,18 +149,6 @@ import {
     attachEvent(field, 'blur', validator)
 
     attachEvent(field, 'input', () => applyWrapperError(field, true))
-  }
-
-  function validatePasswordParts (password: string) {
-    const testRegex = textTestRegex(password)
-
-    return {
-      hasNumber: testRegex(/\d/),
-      hasLowercase: testRegex(/[a-z]/),
-      hasUppercase: testRegex(/[A-Z]/),
-      hasMinLength: testRegex(/.{8,}/),
-      hasSpecialChar: testRegex(/[!@#$%^&*()_+{}\[\]:;<>,.?\/~\\-]/),
-    }
   }
 
   function passwordMismatchMessage ({ hasNumber, hasLowercase, hasUppercase, hasMinLength, hasSpecialChar }: ReturnType<typeof validatePasswordParts>): string | false {
@@ -189,7 +176,7 @@ import {
   }
 
   function hasEqualsPasswords <T extends ReturnType<typeof querySelector<'input'>>> (password: T, confirmPassword: T): boolean {
-    return password && confirmPassword && password?.value === confirmPassword?.value
+    return password && confirmPassword && isStrictEquals(password?.value, confirmPassword?.value)
   }
 
   function validatePassword () {
@@ -259,7 +246,7 @@ import {
 
     const failed = validators
       .map(({ validator }) => validator)
-      .find(_validator => _validator().at(1) === false)
+      .find(_validator => isStrictEquals(_validator().at(1), false))
 
     if (failed) {
       const attribute = camelToKebabCase(failed().at(0) as string)

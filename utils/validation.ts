@@ -4,6 +4,7 @@ import {
   EMPTY_STRING,
   numberOnly,
   objectSize,
+  splitText,
 } from './index'
 
 export const CPF_VERIFIERS_INDEXES = [10, 11]
@@ -51,7 +52,7 @@ export function isDateValid (date: string): boolean {
     day,
     month,
     fullYear
-  ] = date.split(SLASH_STRING)
+  ] = splitText(date, SLASH_STRING)
 
   const parsedDate = new Date(`${fullYear}-${month}-${day}T00:00:00`)
 
