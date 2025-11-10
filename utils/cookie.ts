@@ -6,14 +6,14 @@ import {
 
 import {
   pushIf,
+  splitText,
   objectSize,
 } from './index'
 
 export const COOKIE_SEPARATOR = '; '
 
 export function getCookie (name: string): string | false {
-  const selectedCookie = document.cookie
-    .split(COOKIE_SEPARATOR)
+  const selectedCookie = splitText(document.cookie, COOKIE_SEPARATOR)
     .find(cookie => {
       const { name: cookieName } = splitCookie(cookie)
 
@@ -26,7 +26,7 @@ export function getCookie (name: string): string | false {
 }
 
 export function splitCookie (cookie: string): ISplitCookieObject {
-  const [name, value] = cookie.split('=')
+  const [name, value] = splitText(cookie, '=', 2)
 
   return {
     name,
