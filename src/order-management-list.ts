@@ -1,18 +1,24 @@
 
-import type {
-  ResponsePattern
+import {
+  type ResponsePattern,
 } from '../global'
 
 import {
-  OrderManagementItem,
-  OrderManagementListData,
-  OrderManagementItemParsed,
-  OrderManagementListMethods,
-  OrderManagementListContext,
-  AvailablePrepareFilterNames,
-  RenderableOrderFilter,
-  OrderManagementListComputedDefinition, AvailableStatusFilterNames,
+  type OrderManagementItem,
+  type OrderManagementListData,
+  type OrderManagementItemParsed,
+  type OrderManagementListMethods,
+  type OrderManagementListContext,
+  type RenderableOrderFilter,
+  type OrderManagementListComputedDefinition,
 } from '../types/order-management-list'
+
+import {
+  type OrderStatusKeys,
+  type OrderPrepareStatusKeys,
+  OrderStatus,
+  OrderPrepareStatus,
+} from '../types/order'
 
 const {
   createApp,
@@ -22,10 +28,12 @@ import {
   NULL_VALUE,
   BRLFormatter,
   XANO_BASE_URL,
+  pushIf,
+  isStrictEquals,
   timestampDate,
   postErrorResponse,
   postSuccessResponse,
-  buildRequestOptions, pushIf,
+  buildRequestOptions,
 } from '../utils'
 
 const OrderManagementApp = createApp({
@@ -45,23 +53,28 @@ const OrderManagementApp = createApp({
       activeFilter: NULL_VALUE,
       availableFilters: [
         {
+          label: 'Não iniciado',
+          name: OrderPrepareStatus.NOTSTARTED,
+        },
+
+        {
           label: 'Em preparação',
-          name: 'PREPARING',
+          name: OrderPrepareStatus.PREPARING,
         },
 
         {
           label: 'Preparado',
-          name: 'PREPARED',
+          name: OrderPrepareStatus.PREPARED,
         },
 
         {
           label: 'Pronto para entrega',
-          name: 'DELIVERYREADY',
+          name: OrderPrepareStatus.DELIVERYREADY,
         },
 
         {
-          label: 'Entregue',
-          name: 'COMPLETED',
+          label: 'Pedido entregue',
+          name: OrderStatus.COMPLETED,
         }
       ],
     }
@@ -90,14 +103,14 @@ const OrderManagementApp = createApp({
       }
     },
 
-    applyFilter (name: AvailablePrepareFilterNames | AvailableStatusFilterNames): void {
-      if (this.activeFilter === name) return
+    applyFilter (name: OrderStatusKeys | OrderPrepareStatusKeys): void {
+      if (isStrictEquals(this.activeFilter, name)) return
 
       this.activeFilter = name
     },
 
-    getFilterByToken (token: AvailablePrepareFilterNames | AvailableStatusFilterNames): RenderableOrderFilter | undefined {
-      return this.getAppliableFilters.find(({ name }) => name === token) as RenderableOrderFilter | undefined
+    getFilterByToken (token: OrderStatusKeys | OrderPrepareStatusKeys): RenderableOrderFilter | undefined {
+      return this.getAppliableFilters.find(({ name }) => isStrictEquals(name, token)) as RenderableOrderFilter | undefined
     },
   },
 
@@ -119,11 +132,27 @@ const OrderManagementApp = createApp({
       // @ts-ignore
       const filteredOrders: OrderManagementItem[] = activeFilter !== null
         // @ts-ignore
-        ? orders.filter(({ prepare_status, status, }) => prepare_status === activeFilter || status === activeFilter)
+        ? orders.filter(({ prepare_status, status, }) => {
+          switch (activeFilter) {
+            case OrderStatus.ASSIGNING_DRIVER:
+            case OrderStatus.CANCELED:
+            case OrderStatus.ON_GOING:
+            case OrderStatus.PICKED_UP:
+            case OrderStatus.REJECTED:
+            case OrderStatus.EXPIRED:
+            case OrderStatus.COMPLETED:
+              return isStrictEquals(status, activeFilter)
+            case OrderPrepareStatus.NOTSTARTED:
+            case OrderPrepareStatus.PREPARING:
+            case OrderPrepareStatus.PREPARED:
+            case OrderPrepareStatus.DELIVERYREADY:
+              return !isStrictEquals(status, OrderStatus.COMPLETED) && isStrictEquals(prepare_status, activeFilter)
+          }
+        })
         : orders
 
       return filteredOrders.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
-        const filterStatus = status === 'COMPLETED'
+        const filterStatus = status === OrderStatus.COMPLETED
           ? status
           : prepare_status
 
@@ -150,19 +179,21 @@ const OrderManagementApp = createApp({
 
         return filters.concat({
           ...filter,
-          className: filter.name.toLowerCase(),
+          className: filter.name?.toLowerCase(),
+          name: filter.name,
         })
       }, [] as RenderableOrderFilter[])
     },
 
-    getAvailableStatus (): (AvailablePrepareFilterNames | AvailableStatusFilterNames)[] {
+    getAvailableStatus (): (OrderStatusKeys | OrderPrepareStatusKeys)[] {
       if (!this.hasOrders) return []
 
-      const statusList: (AvailablePrepareFilterNames | AvailableStatusFilterNames)[] = []
+      const statusList: (OrderStatusKeys | OrderPrepareStatusKeys)[] = []
 
       // @ts-ignore
       for (const { prepare_status, status } of this.orders) {
-        pushIf(prepare_status && !statusList.includes(prepare_status), statusList, prepare_status)
+        // pushIf(prepare_status && !statusList.includes(prepare_status), statusList, prepare_status)
+        pushIf(!statusList.includes(prepare_status), statusList, prepare_status)
 
         pushIf(status && !statusList.includes(status), statusList, status)
       }

@@ -1,13 +1,15 @@
 
-import type {
-  Nullable,
-  ResponsePattern,
-  ComputedReturnValues,
+import {
+  type Nullable,
+  type ResponsePattern,
+  type ComputedReturnValues,
 } from '../global'
 
 import {
-  OrderPrepareStatus, OrderStatus
-} from './order-note'
+  type OrderStatusKeys,
+  type OrderPrepareStatusKeys,
+  type OrderPrepareNotStarted,
+} from './order'
 
 export interface OrderManagementListData {
   /**
@@ -17,7 +19,7 @@ export interface OrderManagementListData {
   /**
    * Registra o nome do filtro ativo
    */
-  activeFilter: Nullable<AvailablePrepareFilterNames | AvailableStatusFilterNames>;
+  activeFilter: Nullable<OrderStatusKeys | OrderPrepareStatusKeys>;
   /**
    * Lista de filtros disponíveis para os pedidos
    */
@@ -32,11 +34,11 @@ export interface OrderManagementListMethods {
   /**
    * Aplica um filtro
    */
-  applyFilter: (name: AvailablePrepareFilterNames) => void;
+  applyFilter: (name: OrderStatusKeys | OrderPrepareStatusKeys) => void;
   /**
    * Captura um filtro específico pelo nome do token
    */
-  getFilterByToken: (token: AvailablePrepareFilterNames | AvailableStatusFilterNames) => RenderableOrderFilter | undefined;
+  getFilterByToken: (token: OrderStatusKeys | OrderPrepareStatusKeys) => RenderableOrderFilter | undefined;
 }
 
 export interface OrderManagementListComputedDefinition {
@@ -55,7 +57,7 @@ export interface OrderManagementListComputedDefinition {
   /**
    * Retorna os status dos pedidos que foram devolvidos pela API
    */
-  getAvailableStatus: () => (AvailablePrepareFilterNames | AvailableStatusFilterNames)[];
+  getAvailableStatus: () => (OrderStatusKeys | OrderPrepareStatusKeys | OrderPrepareNotStarted)[];
 }
 
 export type OrderManagementListComputed = ComputedReturnValues<OrderManagementListComputedDefinition>
@@ -98,11 +100,11 @@ export interface OrderManagementItem {
   /**
    * Status de preparação do pedido
    */
-  prepare_status: Nullable<AvailablePrepareFilterNames>;
+  prepare_status: OrderPrepareStatusKeys;
   /**
    * Status de entrega do pedido
    */
-  status: Nullable<AvailableStatusFilterNames>;
+  status: Nullable<OrderStatusKeys>;
 }
 
 export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'created_at' | 'order_items' | 'total' | 'transaction_id' | 'prepare_status' | 'status'> {
@@ -113,20 +115,6 @@ export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'cr
   delivery_status?: OrderFilter;
 }
 
-export type AvailablePrepareFilterNames =
-  | OrderPrepareStatus.PREPARED
-  | OrderPrepareStatus.PREPARING
-  | OrderPrepareStatus.DELIVERYREADY
-
-export type AvailableStatusFilterNames =
-  | OrderStatus.COMPLETED
-  | OrderStatus.ASSIGNING_DRIVER
-  | OrderStatus.CANCELED
-  | OrderStatus.EXPIRED
-  | OrderStatus.REJECTED
-  | OrderStatus.ON_GOING
-  | OrderStatus.PICKED_UP
-
 export interface OrderFilter {
   /**
    * Nome do filtro (exibido no frontend)
@@ -135,7 +123,7 @@ export interface OrderFilter {
   /**
    * Token do filtro (usado para comparação com os status de pedido)
    */
-  name: AvailablePrepareFilterNames | AvailableStatusFilterNames;
+  name: OrderStatusKeys | OrderPrepareStatusKeys | OrderPrepareNotStarted;
 }
 
 export type RenderableOrderFilter = OrderFilter & {
