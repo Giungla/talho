@@ -1,9 +1,18 @@
 
 import {
-  Nullable,
-  ResponsePattern,
-  ComputedReturnValues,
+  type Nullable,
+  type ResponsePattern,
+  type ComputedReturnValues,
 } from '../global'
+
+import {
+  type OrderStatusKeys,
+  type OrderPrepareStatusKeys,
+} from './order'
+
+import {
+  type WritableComputedOptions,
+} from 'vue'
 
 export interface OrderCompany {
   name: string;
@@ -40,7 +49,14 @@ export interface OrderDetails {
   has_free_shipping: boolean;
   delivery_hour: string;
   delivery_date: string;
-  prepare_status: OrderPrepareStatus;
+  /**
+   * Status de preparo do pedido
+   */
+  prepare_status: OrderPrepareStatusKeys;
+  /**
+   * Status de entrega do pedido
+   */
+  status: Nullable<OrderStatusKeys>;
 }
 
 export type OrderPayment = (
@@ -70,43 +86,6 @@ export interface PixDiscount {
   discountPrice: string;
 }
 
-enum OrderPrepareStatus {
-  PREPARING     = 'PREPARING',
-  PREPARED      = 'PREPARED',
-  DELIVERYREADY = 'DELIVERYREADY',
-}
-
-enum OrderStatus {
-  /**
-   * Representa um pedido entregue
-   */
-  COMPLETED        = 'COMPLETED',
-  /**
-   * Representa um pedido que ainda está buscando um motorista
-   */
-  ASSIGNING_DRIVER = 'ASSIGNING_DRIVER',
-  /**
-   * Representa um pedido que já está a caminho do cliente
-   */
-  ON_GOING         = 'ON_GOING',
-  /**
-   * Representa um pedido que foi retirado pelo entregador
-   */
-  PICKED_UP        = 'PICKED_UP',
-  /**
-   * Representa um pedido que teve sua entrega cancelada
-   */
-  CANCELED         = 'CANCELED',
-  /**
-   * Representa um pedido que foi rejeitado, após ser cancelado por 2 vezes
-   */
-  REJECTED         = 'REJECTED',
-  /**
-   * Representa um pedido que expirou, por não encontrar um motorista para a realização da entrega
-   */
-  EXPIRED          = 'EXPIRED',
-}
-
 export type FinalOrder = OrderDetails & OrderSubsidy & OrderPriority & OrderPayment;
 
 export type FinalCOrder = Pick<FinalOrder, 'number' | 'date' | 'time' | 'change_for' | 'shipping' | 'notes_short' | 'observations' | 'subtotal' | 'discounts' | 'total' | 'has_free_shipping'> & {
@@ -122,18 +101,19 @@ export interface Order {
 
 export interface OrderNoteData {
   order: Nullable<Order>;
-  prepare_status: Nullable<OrderPrepareStatus>;
   prepareMessage: Nullable<string>;
+  prepare_status: Nullable<OrderPrepareStatusKeys | OrderStatusKeys>;
 }
 
 export interface OrderNoteMethods {
   getOrder: (transactionid: string) => Promise<ResponsePattern<Order>>;
   handleOrderStatus: () => Promise<void>;
-  setOrderStatus: (order_id: number, status: OrderPrepareStatus) => Promise<ResponsePattern<PatchPrepareStatusParams>>;
+  setOrderStatus: (order_id: number, status: OrderPrepareStatusKeys | OrderStatusKeys) => Promise<ResponsePattern<PatchPrepareStatusParams>>;
   printPage: () => void;
 }
 
 export interface OrderNoteComputedDefinition {
+  finalOrderStatus: WritableComputedOptions<OrderPrepareStatusKeys | OrderStatusKeys>;
   company: () => Nullable<OrderCompany>;
   customer: () => Nullable<OrderCustomer>;
   items: () => Nullable<OrderItem[]>;

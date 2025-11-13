@@ -11,14 +11,17 @@ import {
   type FinalCOrder,
   type PixDiscount,
   type PatchPrepareStatusParams,
-  type OrderPrepareStatus,
-  type OrderStatus,
 } from '../types/order-note'
 
 import {
   type Nullable,
-  type ResponsePattern
+  type ResponsePattern,
 } from '../global'
+
+import {
+  type OrderStatusKeys,
+  type OrderPrepareStatusKeys, OrderPrepareStatus, OrderStatus,
+} from '../types/order'
 
 const {
   createApp,
@@ -27,11 +30,11 @@ const {
 import {
   NULL_VALUE,
   XANO_BASE_URL,
+  stringify,
+  objectSize,
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  objectSize,
-  stringify,
 } from '../utils'
 
 const ORDER_IDENTIFIER = 'transactionid'
@@ -115,7 +118,7 @@ const TalhoCheckoutApp = createApp({
         : response.message
     },
 
-    async setOrderStatus (order_id: number, prepare_status: OrderPrepareStatus | OrderStatus): Promise<ResponsePattern<PatchPrepareStatusParams>> {
+    async setOrderStatus (order_id: number, prepare_status: OrderPrepareStatusKeys | OrderStatusKeys): Promise<ResponsePattern<PatchPrepareStatusParams>> {
       const defaultErrorMessage = 'Não foi possível alterar o status de preparação'
 
       try {
@@ -147,6 +150,20 @@ const TalhoCheckoutApp = createApp({
   },
 
   computed: {
+    finalOrderStatus: {
+      get () {
+        if (this.order?.order?.status === OrderStatus.COMPLETED) {
+          return OrderStatus.COMPLETED
+        }
+
+        return this.prepare_status
+      },
+
+      set (prepare_status: OrderPrepareStatusKeys | OrderStatusKeys): void {
+        this.prepare_status = prepare_status
+      }
+    },
+
     company (): Nullable<OrderCompany> {
       return this.order?.company ?? NULL_VALUE
     },
