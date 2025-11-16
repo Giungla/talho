@@ -1,53 +1,65 @@
 
-import type {
-  BRLString,
-  CartResponse,
-  ComputedDeliveryHours,
-  FunctionSucceededPattern,
-  GetCouponRequestBody,
-  GetInstallmentsBody,
-  IAddressType,
-  InstallmentItem,
-  IOrderAddressType,
-  IParsedAddress,
-  IParsedAddressContent,
-  ISingleOrderCoupon,
-  ISingleOrderCouponError,
-  ISinglePaymentKey,
-  ISingleValidateCheckout,
-  IStateAcronym,
-  Nullable,
-  PagSeguroCardEncrypt,
-  ParsedProductList,
-  PostOrder,
-  PostOrderCustomer,
-  ResponsePattern,
-  TalhoCheckoutAppComputedDefinition,
-  TalhoCheckoutAppData,
-  TalhoCheckoutAppMethods,
-  TalhoCheckoutAppSetup,
-  TalhoCheckoutAppWatch,
-  TalhoCheckoutContext,
-  VIACEPFromXano,
-  OnCleanup,
-  SubsidyResponse,
-  PostOrderDelivery,
-  PostOrderDeliveryGroup,
-  CreditCardPostAdditional,
-  PaymentResponseMap, UserPartialCheckout, UserAddressCheckout,
+import {
+  type BRLString,
+  type CartResponse,
+  type ComputedDeliveryHours,
+  type FunctionSucceededPattern,
+  type GetCouponRequestBody,
+  type GetInstallmentsBody,
+  type IAddressType,
+  type InstallmentItem,
+  type IOrderAddressType,
+  type IParsedAddress,
+  type IParsedAddressContent,
+  type ISingleOrderCoupon,
+  type ISingleOrderCouponError,
+  type ISinglePaymentKey,
+  type ISingleValidateCheckout,
+  type IStateAcronym,
+  type Nullable,
+  type PagSeguroCardEncrypt,
+  type ParsedProductList,
+  type PostOrder,
+  type PostOrderCustomer,
+  type ResponsePattern,
+  type TalhoCheckoutAppComputedDefinition,
+  type TalhoCheckoutAppData,
+  type TalhoCheckoutAppMethods,
+  type TalhoCheckoutAppSetup,
+  type TalhoCheckoutAppWatch,
+  type TalhoCheckoutContext,
+  type VIACEPFromXano,
+  type OnCleanup,
+  type SubsidyResponse,
+  type PostOrderDelivery,
+  type PostOrderDeliveryGroup,
+  type CreditCardPostAdditional,
+  type PaymentResponseMap,
+  type UserPartialCheckout,
+  type UserAddressCheckout,
 } from '../global'
 
-// @ts-expect-error
-import type { DirectiveBinding, Ref, ObjectDirective } from 'vue'
-import type {
-  SearchAddressCheckout,
-  CheckoutDeliveryRequestBody,
-  CheckoutDeliveryPriceResponse,
-  CheckoutDeliveryOption,
-  ComputedDeliveryDates,
-  CheckoutDeliveryResponse,
-  CheckoutDeliveryHour,
+import {
+  type Ref,
+  type ObjectDirective,
+  type DirectiveBinding,
+} from 'vue'
+
+import {
+  type SearchAddressCheckout,
+  type CheckoutDeliveryRequestBody,
+  type CheckoutDeliveryPriceResponse,
+  type CheckoutDeliveryOption,
+  type ComputedDeliveryDates,
+  type CheckoutDeliveryResponse,
+  type CheckoutDeliveryHour,
 } from '../types/checkout'
+
+import {
+  AbandonmentFields,
+  AbandonmentFieldsNames,
+  type CartAbandonmentParams,
+} from '../types/abandonment'
 
 const {
   ref,
@@ -55,7 +67,10 @@ const {
 } = Vue
 
 import {
+  eventMap,
+  BLUR_EVENT,
   NULL_VALUE,
+  SLASH_STRING,
   EMPTY_STRING,
   XANO_BASE_URL,
   FREE_SHIPPING_MIN_CART_PRICE,
@@ -63,6 +78,14 @@ import {
   statesMap,
   statesAcronym,
   STORAGE_KEY_NAME,
+  pushIf,
+  regexTest,
+  cleanupDirective,
+  buildMaskDirective,
+  maskDate,
+  maskCPFNumber,
+  maskPhoneNumber,
+  maskCEP,
   buildURL,
   isArray,
   postErrorResponse,
@@ -77,9 +100,21 @@ import {
   normalizeText,
   objectSize,
   attachEvent,
+  toUpperCase,
+  includes,
+  isCPFValid,
+  isDateValid,
+  splitText,
+  trim,
+  EMAIL_REGEX_VALIDATION,
+  DATE_REGEX_VALIDATION,
+  CPF_REGEX_VALIDATION,
+  PHONE_REGEX_VALIDATION,
+  FULLNAME_REGEX_VALIDATION,
+  CEP_REGEX_VALIDATION,
+  replaceDuplicatedSpaces,
 } from '../utils'
 
-const SLASH_STRING = '/'
 const ERROR_KEY = 'error'
 
 const SHIPPING_NAME_TOKEN = 'shipping'
@@ -108,22 +143,16 @@ if (!PAGSEGURO_PUBLIC_KEY) {
 const MIN_AVAILABLE_INSTALLMENT_COUNT = 1
 const MAX_AVAILABLE_INSTALLMENT_COUNT = 2
 
-const CPF_VERIFIERS_INDEXES = [10, 11]
-
-const eventMap: WeakMap<HTMLElement, ReturnType<typeof attachEvent>> = new WeakMap()
-
-const INPUT_EVENT = new Event('input')
-
 const DELIVERY_TYPE_SAME = 'same'
 const DELIVERY_TYPE_DIFF = 'diff'
 
 const PIX_PAYMENT = 'pix'
 const CREDIT_CARD_PAYMENT = 'creditcard'
 
-const ALLOWED_PAYMENT_METHODS = [
-  PIX_PAYMENT,
-  CREDIT_CARD_PAYMENT,
-]
+// const ALLOWED_PAYMENT_METHODS = [
+//   PIX_PAYMENT,
+//   CREDIT_CARD_PAYMENT,
+// ]
 
 function getAbortController () {
   return new AbortController()
@@ -133,16 +162,12 @@ function hasOwn (object: object, key: PropertyKey): boolean {
   return Object.hasOwn(object, key)
 }
 
-function trimText (text: string): string {
-  return text.trim()
-}
-
 function scrollIntoView (element: HTMLElement, args: boolean | ScrollIntoViewOptions) {
   element.scrollIntoView(args)
 }
 
 function isExpireDateValid (expireDate: string): boolean {
-  const tokens = expireDate.split(SLASH_STRING)
+  const tokens = splitText(expireDate, SLASH_STRING)
 
   if (objectSize(tokens) !== 2) return false
 
@@ -159,61 +184,6 @@ function isExpireDateValid (expireDate: string): boolean {
   const expireDateTime = new Date(fullYear, month, 0, 23, 59, 59)
 
   return expireDateTime > currentDate
-}
-
-function maskPhoneNumber (value: string): string {
-  const replacer = (
-    _: string,
-    d1: Nullable<string>,
-    d2: Nullable<string>,
-    d3: Nullable<string>,
-  ) => {
-    const response: string[] = []
-
-    pushIf(d1, response, `(${d1}`)
-    pushIf(d2, response, `) ${d2}`)
-    pushIf(d3, response, `-${d3}`)
-
-    return response.join(EMPTY_STRING)
-  }
-
-  if (objectSize(value) < 11) {
-    return value.replace(/^(\d{0,2})(\d{0,4})(\d{0,4})/, replacer)
-  }
-
-  return value.replace(/^(\d{0,2})(\d{0,5})(\d{0,4})/, replacer)
-}
-
-function maskCPFNumber (value: string): string {
-  return value.replace(/^(\d{0,3})(\d{0,3})(\d{0,3})(\d{0,2})/, (
-    _: string,
-    g1: Nullable<string>,
-    g2: Nullable<string>,
-    g3: Nullable<string>,
-    g4: Nullable<string>,
-  ) => {
-    const response: string[] = []
-
-    pushIf(g1, response, `${g1}`)
-    pushIf(g2, response, `.${g2}`)
-    pushIf(g3, response, `.${g3}`)
-    pushIf(g4, response, `-${g4}`)
-
-    return response.join(EMPTY_STRING)
-  })
-}
-
-function maskDate (value: string): string {
-  return value.replace(/^(\d{0,2})(\d{0,2})(\d{0,4})/, (
-    _: string,
-    d1: Nullable<string>,
-    d2: Nullable<string>,
-    d3: Nullable<string>,
-  ) => {
-    return [d1, d2, d3]
-      .filter(Boolean)
-      .join(SLASH_STRING)
-  })
 }
 
 function maskCardNumber (value: string): string {
@@ -246,65 +216,8 @@ function maskCardDate (value: string): string {
       pushIf(group, response, group)
     }
 
-    return response.join(SLASH_STRING)
+    return response.join()
   })
-}
-
-function maskCEP (value: string): string {
-  return value.replace(/^(\d{0,5})(\d{0,3})/, (
-    _: string,
-    g1: Nullable<string>,
-    g2: Nullable<string>,
-  ) => {
-    const response: string[] = []
-
-    for (const group of [g1, g2]) {
-      pushIf(group, response, group)
-    }
-
-    return response.join('-')
-  })
-}
-
-function toUpperCase (value: string): string {
-  return value.toUpperCase()
-}
-
-function pushIf <T extends any> (condition: any, list: T[], value: T) {
-  if (!condition) return -1
-
-  return list.push(value)
-}
-
-function includes <T> (
-  source: T[] | string,
-  search: T extends string ? string : T
-): boolean {
-  return source.includes(search as any)
-}
-
-function regexTest (regex: RegExp, value: string): boolean {
-  return regex.test(value)
-}
-
-function buildMaskDirective (...mappers: ((value: string) => string)[]) {
-  return {
-    mounted (el: HTMLInputElement) {
-      const remover = attachEvent(el, 'input', (event: InputEvent) => {
-        if (!event.isTrusted) return
-
-        const target = event.target as HTMLInputElement
-
-        target.value = mappers.reduce((value, callbackFn) => callbackFn(value), target.value ?? EMPTY_STRING)
-
-        el.dispatchEvent(INPUT_EVENT)
-      })
-
-      eventMap.set(el, remover)
-    },
-
-    unmounted: cleanupDirective
-  }
 }
 
 function buildFieldValidation (
@@ -317,40 +230,6 @@ function buildFieldValidation (
     valid,
     ...(ignoreIf && ({ ignoreIf }))
   }
-}
-
-function isDateValid (date: string): boolean {
-  const [
-    day,
-    month,
-    fullYear
-  ] = date.split(SLASH_STRING)
-
-  const parsedDate = new Date(`${fullYear}-${month}-${day}T00:00:00`)
-
-  return parsedDate.toString() !== 'Invalid Date'
-}
-
-function isCPFValid (cpf: string): boolean {
-  cpf = numberOnly(cpf)
-
-  if (objectSize(cpf) !== 11 || /^(\d)\1{10}$/.test(cpf)) return false
-
-  const verifiers = CPF_VERIFIERS_INDEXES.map((verifierDigit, verifierIndex) => {
-    const lastIndex = verifierIndex ? 10 : 9;
-
-    const sum = [...cpf.slice(0, lastIndex)]
-      .map(Number)
-      .reduce((acc, cur, index) => acc + cur * (verifierDigit - index), 0)
-
-    const result = 11 - (sum % 11)
-
-    return result > 9
-      ? 0
-      : result
-  })
-
-  return cpf.endsWith(verifiers.join(EMPTY_STRING))
 }
 
 async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Promise<ResponsePattern<VIACEPFromXano>> {
@@ -380,16 +259,6 @@ async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Pro
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
-}
-
-const cleanupDirective = (el: HTMLInputElement) => {
-  const cleanup = eventMap.get(el)
-
-  if (!cleanup) return
-
-  cleanup()
-
-  eventMap.delete(el)
 }
 
 const TalhoCheckoutApp = createApp({
@@ -868,82 +737,11 @@ const TalhoCheckoutApp = createApp({
       }
     },
 
-    /*async handleProcessPIX (): Promise<ResponsePattern<PIXOrderResponse>> {
-      const defaultErrorMessage = 'Falha ao gerar o pedido'
-
-      try {
-        const response = await fetch(`${PAYMENT_BASE_URL}/process_pix`, {
-          ...POST_REQUEST,
-          credentials: 'include',
-          body: stringify<PostOrder>({
-            ...this.getOrderBaseData,
-            customer: {
-              ...this.getParsedCustomer,
-              ...this.getParsedAddresses,
-            },
-          })
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-
-          return postErrorResponse(error?.message ?? defaultErrorMessage)
-        }
-
-        const data = await response.json()
-
-        return postSuccessResponse(data)
-      } catch (e) {
-        return postErrorResponse(defaultErrorMessage)
-      }
-    },
-
-    async handleProcessCreditCard (): Promise<ResponsePattern<CreditCardOrderResponse>> {
-      const defaultErrorMessage = 'Falha ao gerar o pedido'
-
-      try {
-        const selectedInstallment = this.selectedInstallment as number
-
-        const response = await fetch(`${PAYMENT_BASE_URL}/process_creditcard`, {
-          ...POST_REQUEST,
-          credentials: 'include',
-          body: stringify<CreditCardPostOrder>({
-            ...this.getOrderBaseData,
-            customer: {
-              ...this.getParsedCustomer,
-              ...this.getParsedAddresses,
-            },
-            is_same_address: this.isSameAddress,
-            credit_card_info: {
-              holderName: this.customerCreditCardHolder,
-              creditCardToken: this.getCreditCardToken.encryptedCard ?? EMPTY_STRING,
-              numberOfPayments: selectedInstallment,
-              installmentValue: this.installment
-                ?.find(({ installments }) => installments === selectedInstallment)
-                ?.installment_value ?? 0
-            }
-          })
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-
-          return postErrorResponse(error?.message ?? defaultErrorMessage)
-        }
-
-        const data = await response.json()
-
-        return postSuccessResponse(data)
-      } catch (e) {
-        return postErrorResponse(defaultErrorMessage)
-      }
-    },*/
-
     triggerValidations (): void {
       const notIgnoredFields: ISingleValidateCheckout<Nullable<HTMLElement>>[] = this.notIgnoredFields
 
       for (const { field } of notIgnoredFields) {
-        field?.dispatchEvent(new Event('blur'))
+        field?.dispatchEvent(BLUR_EVENT)
       }
     },
 
@@ -974,7 +772,7 @@ const TalhoCheckoutApp = createApp({
     setDeliveryPlace (deliveryPlace: IAddressType): void {
       if (this.deliveryPlace === deliveryPlace) return
 
-      if (deliveryPlace === DELIVERY_TYPE_SAME && /^\d{5}\-\d{3}$/.test(this.billingCEP) && this.isBillingAddressGroupValid) {
+      if (deliveryPlace === DELIVERY_TYPE_SAME && regexTest(/^\d{5}\-\d{3}$/, this.billingCEP) && this.isBillingAddressGroupValid) {
         searchAddress({
           cep: this.billingCEP,
           deliveryMode: true
@@ -1047,7 +845,7 @@ const TalhoCheckoutApp = createApp({
           body: stringify<GetCouponRequestBody>({
             verify_amount: true,
             coupon_code: this.couponCode,
-            cpf: this.customerCPF && NULL_VALUE,
+            cpf: trim(this.customerCPF),
             has_subsidy: this.subsidy?.has ?? false,
             delivery_cep: this.getParsedAddresses.shippingaddress.zipPostalCode,
             has_selected_delivery: !isNull(this.deliveryHour) && !isNull(this.deliveryDate)
@@ -1062,7 +860,7 @@ const TalhoCheckoutApp = createApp({
 
         const data = await response.json()
 
-        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<ISingleOrderCoupon>
+        return postSuccessResponse.call(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1206,7 +1004,7 @@ const TalhoCheckoutApp = createApp({
     async handleSubsidy (): Promise<void> {
       const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
 
-      if (!/^\d{5}\-\d{3}$/.test(shippingCEP)) return
+      if (!regexTest(/^\d{5}\-\d{3}$/, shippingCEP)) return
 
       const response = await this.verifyForSubsidy(numberOnly(shippingCEP))
 
@@ -1232,6 +1030,31 @@ const TalhoCheckoutApp = createApp({
         const data: SubsidyResponse = await response.json()
 
         return postSuccessResponse.call(response, data) as FunctionSucceededPattern<SubsidyResponse>
+      } catch (e) {
+        return postErrorResponse(defaultErrorMessage)
+      }
+    },
+
+    async createAbandonmentCart (payload: CartAbandonmentParams): Promise<ResponsePattern<void>> {
+      const defaultErrorMessage = 'Houve uma ao gerar o carrinho'
+
+      try {
+        const response = await fetch(`${XANO_BASE_URL}/api:EuHZTAGr/abandonment/post`, {
+          ...buildRequestOptions([], 'POST'),
+          keepalive: true,
+          priority: 'high',
+          body: stringify<CartAbandonmentParams>(payload),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+
+          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+        }
+
+        const data = await response.json()
+
+        return postSuccessResponse.call(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1356,7 +1179,7 @@ const TalhoCheckoutApp = createApp({
     customerMailValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerMailElement,
-        !this.hasVisitRegistry('customerMail') || regexTest(/^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/, this.customerMail)
+        !this.hasVisitRegistry('customerMail') || regexTest(EMAIL_REGEX_VALIDATION, this.customerMail)
       )
     },
 
@@ -1365,7 +1188,7 @@ const TalhoCheckoutApp = createApp({
 
       return buildFieldValidation(
         this.customerBirthdateElement,
-        !this.hasVisitRegistry('customerBirthdate') || regexTest(/^\d{2}\/\d{2}\/\d{4}$/, customerBirthdate) && isDateValid(customerBirthdate)
+        !this.hasVisitRegistry('customerBirthdate') || regexTest(DATE_REGEX_VALIDATION, customerBirthdate) && isDateValid(customerBirthdate)
       )
     },
 
@@ -1374,14 +1197,14 @@ const TalhoCheckoutApp = createApp({
 
       return buildFieldValidation(
         this.customerCPFElement,
-        !this.hasVisitRegistry('customerCPF') || regexTest(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, this.customerCPF) && isCPFValid(customerCPF)
+        !this.hasVisitRegistry('customerCPF') || regexTest(CPF_REGEX_VALIDATION, this.customerCPF) && isCPFValid(customerCPF)
       )
     },
 
     customerPhoneValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerPhoneElement,
-        !this.hasVisitRegistry('customerPhone') || regexTest(/\(\d{2}\)\s\d{4,5}-\d{4}/, this.customerPhone)
+        !this.hasVisitRegistry('customerPhone') || regexTest(PHONE_REGEX_VALIDATION, this.customerPhone)
       )
     },
 
@@ -1392,7 +1215,7 @@ const TalhoCheckoutApp = createApp({
     customerCreditCardHolderValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerCreditCardHolderElement,
-        !this.hasVisitRegistry('customerCreditCardHolder') || /^(\w{2,})(\s+(\w+))+$/.test(normalizeText(trimText(this.customerCreditCardHolder).replace(/\s{2,}/g, ' '))),
+        !this.hasVisitRegistry('customerCreditCardHolder') || regexTest(FULLNAME_REGEX_VALIDATION, replaceDuplicatedSpaces(normalizeText(trim(this.customerCreditCardHolder)))),
         !this.isCreditCard
       )
     },
@@ -1400,7 +1223,7 @@ const TalhoCheckoutApp = createApp({
     customerCreditCardNumberValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerCreditCardNumberElement,
-        !this.hasVisitRegistry('customerCreditCardNumber') || regexTest(/^(\d{4})(\s\d{4}){2}(\s\d{3,4})$/, trimText(this.customerCreditCardNumber)),
+        !this.hasVisitRegistry('customerCreditCardNumber') || regexTest(/^(\d{4})(\s\d{4}){2}(\s\d{3,4})$/, trim(this.customerCreditCardNumber)),
         !this.isCreditCard
       )
     },
@@ -1435,7 +1258,7 @@ const TalhoCheckoutApp = createApp({
     billingCEPValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.billingCEPElement,
-        !this.hasVisitRegistry('billingCEP') || regexTest(/^\d{5}-\d{3}$/, this.billingCEP),
+        !this.hasVisitRegistry('billingCEP') || regexTest(CEP_REGEX_VALIDATION, this.billingCEP),
         !this.isCreditCard
       )
     },
@@ -1443,7 +1266,7 @@ const TalhoCheckoutApp = createApp({
     billingAddressValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.billingAddressElement,
-        !this.hasVisitRegistry('billingAddress') || objectSize(trimText(this.billingAddress)) > 2,
+        !this.hasVisitRegistry('billingAddress') || objectSize(trim(this.billingAddress)) > 2,
         !this.isCreditCard
       )
     },
@@ -1502,7 +1325,7 @@ const TalhoCheckoutApp = createApp({
     shippingRecipientValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.shippingRecipientElement,
-        !this.hasVisitRegistry('shippingRecipient') || regexTest(/^(\w{2,})(\s+(\w+))+$/, normalizeText(trimText(this.shippingRecipient)).replace(/\s{2,}/g, ' ')),
+        !this.hasVisitRegistry('shippingRecipient') || regexTest(/^(\w{2,})(\s+(\w+))+$/, replaceDuplicatedSpaces(normalizeText(trim(this.shippingRecipient)))),
         !this.shouldValidateShippingAddress
       )
     },
@@ -1510,7 +1333,7 @@ const TalhoCheckoutApp = createApp({
     shippingCEPValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.shippingCEPElement,
-        !this.hasVisitRegistry('shippingCEP') || regexTest(/^\d{5}-\d{3}$/, this.shippingCEP),
+        !this.hasVisitRegistry('shippingCEP') || regexTest(CEP_REGEX_VALIDATION, this.shippingCEP),
         !this.shouldValidateShippingAddress
       )
     },
@@ -1518,7 +1341,7 @@ const TalhoCheckoutApp = createApp({
     shippingAddressValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.shippingAddressElement,
-        !this.hasVisitRegistry('shippingAddress') || objectSize(trimText(this.shippingAddress)) > 2,
+        !this.hasVisitRegistry('shippingAddress') || objectSize(trim(this.shippingAddress)) > 2,
         !this.shouldValidateShippingAddress
       )
     },
@@ -1526,7 +1349,7 @@ const TalhoCheckoutApp = createApp({
     shippingNumberValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.shippingNumberElement,
-        !this.hasVisitRegistry('shippingNumber') || objectSize(trimText(this.shippingNumber)) > 0,
+        !this.hasVisitRegistry('shippingNumber') || objectSize(trim(this.shippingNumber)) > 0,
         !this.shouldValidateShippingAddress
       )
     },
@@ -1534,7 +1357,7 @@ const TalhoCheckoutApp = createApp({
     shippingNeighborhoodValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.shippingNeighborhoodElement,
-        !this.hasVisitRegistry('shippingNeighborhood') || objectSize(trimText(this.shippingNeighborhood)) > 3,
+        !this.hasVisitRegistry('shippingNeighborhood') || objectSize(trim(this.shippingNeighborhood)) > 3,
         !this.shouldValidateShippingAddress
       )
     },
@@ -1542,7 +1365,7 @@ const TalhoCheckoutApp = createApp({
     shippingCityValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.shippingCityElement,
-        !this.hasVisitRegistry('shippingCity') || objectSize(trimText(this.shippingCity)) > 2,
+        !this.hasVisitRegistry('shippingCity') || objectSize(trim(this.shippingCity)) > 2,
         !this.shouldValidateShippingAddress
       )
     },
@@ -1650,7 +1473,7 @@ const TalhoCheckoutApp = createApp({
     getParsedAddresses (): IParsedAddressContent {
       const parseState = (acronym: IStateAcronym) => statesMap?.[acronym] ?? EMPTY_STRING
 
-      const parseComplement = (complement: string) => trimText(complement).replace(/-+/g, EMPTY_STRING) || 'N/A'
+      const parseComplement = (complement: string) => trim(complement).replace(/-+/g, EMPTY_STRING) || 'N/A'
 
       const shippingaddress: IParsedAddress = {
         zipPostalCode: this.shippingCEP,
@@ -1763,7 +1586,7 @@ const TalhoCheckoutApp = createApp({
     isCouponCodeValid (): boolean {
       const { couponCode } = this
 
-      return objectSize(trimText(couponCode)) > 4 && !regexTest(/[^A-Z\d]/, couponCode)
+      return objectSize(trim(couponCode)) > 4 && !regexTest(/[^A-Z\d]/, couponCode)
     },
 
     getCreditCardToken (): PagSeguroCardEncrypt {
@@ -1778,7 +1601,7 @@ const TalhoCheckoutApp = createApp({
       const [
         month,
         year,
-      ] = this.customerCreditCardDate.split(SLASH_STRING)
+      ] = splitText(this.customerCreditCardDate, SLASH_STRING)
 
       return window.PagSeguro.encryptCard({
         expMonth: month,
@@ -1816,7 +1639,7 @@ const TalhoCheckoutApp = createApp({
 
       const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
 
-      if (!/^\d{5}\-\d{3}$/.test(shippingCEP)) return false
+      if (!regexTest(/^\d{5}\-\d{3}$/, shippingCEP)) return false
 
       const {
         delivery_hour,
@@ -1987,7 +1810,7 @@ const TalhoCheckoutApp = createApp({
         delivery_date,
       } = payload
 
-      if (!/^\d{5}\-\d{3}$/.test(cep)) return
+      if (!regexTest(/^\d{5}\-\d{3}$/, cep)) return
 
       const controller = getAbortController()
 
@@ -2013,7 +1836,7 @@ const TalhoCheckoutApp = createApp({
 
       if (currentAddresses.shippingaddress.zipPostalCode === oldAddresses.shippingaddress.zipPostalCode) return
 
-      if (!/^\d{5}\-\d{3}$/.test(currentAddresses.shippingaddress.zipPostalCode)) return
+      if (!regexTest(/^\d{5}\-\d{3}$/, currentAddresses.shippingaddress.zipPostalCode)) return
 
       if (this.isCreditCard && isNull(this.deliveryPlace)) return
 
@@ -2034,24 +1857,40 @@ const TalhoCheckoutApp = createApp({
   },
 
   directives: {
+    // v-trim
+    trim: buildMaskDirective(trim),
+
+    // v-remove-duplicated-spaces
+    removeDuplicatedSpaces: buildMaskDirective(replaceDuplicatedSpaces),
+
+    // v-mask-date
     maskDate: buildMaskDirective(numberOnly, maskDate),
 
+    // v-mask-cpf
     maskCpf: buildMaskDirective(numberOnly, maskCPFNumber),
 
+    // v-mask-phone
     maskPhone: buildMaskDirective(numberOnly, maskPhoneNumber),
 
+    // v-mask-credit-card
     maskCreditCard: buildMaskDirective(numberOnly, maskCardNumber),
 
+    // v-mask-credit-card-date
     maskCreditCardDate: buildMaskDirective(numberOnly, maskCardDate),
 
+    // v-mask-number-only
     maskNumberOnly: buildMaskDirective(numberOnly),
 
+    // v-mask-cep
     maskCep: buildMaskDirective(numberOnly, maskCEP),
 
+    // v-uppercase
     upperCase: buildMaskDirective(toUpperCase),
 
+    // v-normalize
     normalize: buildMaskDirective(normalizeText),
 
+    // v-visited-field
     visitedField: {
       mounted (el: HTMLInputElement, { value, instance }: DirectiveBinding<string>) {
         const remover = attachEvent(el, 'blur', () => {
@@ -2061,6 +1900,46 @@ const TalhoCheckoutApp = createApp({
         }, { once: true })
 
         eventMap.set(el, remover)
+      },
+
+      unmounted: cleanupDirective,
+    },
+
+    // v-capture-abandonment
+    captureAbandonment: {
+      mounted (el: HTMLInputElement, binding: DirectiveBinding<null, string, AbandonmentFieldsNames>) {
+        eventMap.set(
+          el,
+          attachEvent(el, 'change', (event: InputEvent) => {
+            if (!event.isTrusted || !binding.arg) return
+
+            const field = binding.arg as AbandonmentFieldsNames
+
+            const validators: Record<AbandonmentFieldsNames, RegExp | (() => RegExp)> = ({
+              [AbandonmentFields.EMAIL]: EMAIL_REGEX_VALIDATION,
+              [AbandonmentFields.PHONE]: PHONE_REGEX_VALIDATION,
+              [AbandonmentFields.USERNAME]: FULLNAME_REGEX_VALIDATION,
+              [AbandonmentFields.SHIPPING_CEP]: CEP_REGEX_VALIDATION,
+              [AbandonmentFields.BILLING_CEP]: CEP_REGEX_VALIDATION,
+            })
+
+            const trimmedValue = trim(el.value)
+
+            const regexValidator = validators?.[field] ?? null
+            const selectedValue = field === AbandonmentFields.EMAIL
+              ? replaceDuplicatedSpaces(normalizeText(trimmedValue))
+              : trimmedValue
+
+            if (!regexValidator || !regexTest(regexValidator, selectedValue)) return
+
+            const instance = binding.instance as TalhoCheckoutContext
+
+            instance.createAbandonmentCart({
+              field,
+              value: trimmedValue,
+            })
+          })
+        )
       },
 
       unmounted: cleanupDirective,

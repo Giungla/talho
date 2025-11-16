@@ -9,8 +9,12 @@ import {
 } from './cookie'
 
 import {
-  AUTH_COOKIE_NAME
+  AUTH_COOKIE_NAME,
 } from './requestResponse'
+
+import {
+  EMPTY_STRING,
+} from './index'
 
 export const NULL_VALUE: null = null
 export const GENERAL_HIDDEN_CLASS = 'oculto'
@@ -165,14 +169,42 @@ export function EMAIL_REGEX_VALIDATION (): RegExp {
   return /^(([\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+(\.[\p{L}\p{N}!#$%&'*+\/=?^_`{|}~-]+)*)|("[\p{L}\p{N}\s!#$%&'*+\/=?^_`{|}~.-]+"))@(([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63}|(\[(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\]))$/u
 }
 
-export function regexTest (regex: RegExp, value: string): boolean {
-  return regex.test(value)
+export function PHONE_REGEX_VALIDATION (): RegExp {
+  return /^\(\d{2}\)\s\d{4,5}-\d{4}$/
+}
+
+export function CEP_REGEX_VALIDATION (): RegExp {
+  return /^\d{5}-\d{3}$/
+}
+
+export function FULLNAME_REGEX_VALIDATION (): RegExp {
+  return /^(\w{2,})(\s+(\w+))+$/
+}
+
+export function CPF_REGEX_VALIDATION (): RegExp {
+  return /^\d{3}\.\d{3}\.\d{3}-\d{2}$/
+}
+
+export function DATE_REGEX_VALIDATION (): RegExp {
+  return /^\d{2}\/\d{2}\/\d{4}$/
+}
+
+export function regexTest (regex: RegExp | (() => RegExp), value: string): boolean {
+  const rule = typeof regex === 'function'
+    ? regex()
+    : regex
+
+  return rule.test(value)
 }
 
 export function normalizeText (text: string): string {
   return text
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, EMPTY_STRING)
+}
+
+export function replaceDuplicatedSpaces (value: string): string {
+  return value.replace(/\s{2,}/g, ' ')
 }
 
 export function focusInput (input: ReturnType<typeof querySelector<'input'>>, options?: FocusOptions) {

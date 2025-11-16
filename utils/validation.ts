@@ -4,7 +4,7 @@ import {
   EMPTY_STRING,
   numberOnly,
   objectSize,
-  splitText,
+  splitText, regexTest,
 } from './index'
 
 export const CPF_VERIFIERS_INDEXES = [10, 11]
@@ -28,7 +28,7 @@ export function validatePasswordParts (password: string) {
 export function isCPFValid (cpf: string): boolean {
   cpf = numberOnly(cpf)
 
-  if (objectSize(cpf) !== 11 || /^(\d)\1{10}$/.test(cpf)) return false
+  if (objectSize(cpf) !== 11 || regexTest(/^(\d)\1{10}$/, cpf)) return false
 
   const verifiers = CPF_VERIFIERS_INDEXES.map((verifierDigit, verifierIndex) => {
     const lastIndex = verifierIndex ? 10 : 9;

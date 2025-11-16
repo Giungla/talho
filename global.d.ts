@@ -1,18 +1,26 @@
 
-import Vue, { Ref, WatchOptions, WatchCallback } from 'vue';
+import Vue, {
+  type Ref,
+  type WatchOptions,
+  type WatchCallback,
+} from 'vue'
 
 export type { OnCleanup } from '@vue/reactivity'
 
 import {
-  PIXOrderResponse,
-  CreditCardOrderResponse,
-  CheckoutDeliveryRequestBody,
-  CheckoutDeliveryPriceResponse,
-  CheckoutDeliveryOption,
-  ComputedDeliveryDates,
-  CheckoutDeliveryResponse,
-  CheckoutDeliveryHour,
+  type PIXOrderResponse,
+  type CreditCardOrderResponse,
+  type CheckoutDeliveryRequestBody,
+  type CheckoutDeliveryPriceResponse,
+  type CheckoutDeliveryOption,
+  type ComputedDeliveryDates,
+  type CheckoutDeliveryResponse,
+  type CheckoutDeliveryHour,
 } from './types/checkout'
+
+import {
+  type CartAbandonmentParams,
+} from './types/abandonment'
 
 export type TypeofResult =
   | "string"
@@ -753,6 +761,10 @@ export interface TalhoCheckoutAppMethods {
    * Verifica se o CEP que será usado para entrega do pedido possui subsídio
    */
   verifyForSubsidy: (cep: string) => Promise<ResponsePattern<SubsidyResponse>>;
+  /**
+   * Gera um novo carrinho abandonado
+   */
+  createAbandonmentCart: (payload: CartAbandonmentParams) => Promise<ResponsePattern<void>>;
 }
 
 export interface TalhoCheckoutAppComputedDefinition {
@@ -1108,8 +1120,17 @@ export interface ParsedProductList {
 }
 
 export interface ISingleValidateCheckout <T = Ref<HTMLElement> | HTMLElement> {
+  /**
+   * Referência ao campo
+   */
   field: T;
+  /**
+   * Indica se o `value` contido no campo é válido
+   */
   valid: boolean;
+  /**
+   * Indica se o campo será ignorado para validação
+   */
   ignoreIf?: boolean;
 }
 
@@ -1435,6 +1456,8 @@ export interface FunctionErrorPattern {
 
 export type ResponsePattern <T> = FunctionSucceededPattern<T> | FunctionErrorPattern;
 
+export type ResponsePatternCallback = (...params: any) => void;
+
 export interface ValidatorScheme {
   field: HTMLInputElement | null;
   validator: () => any;
@@ -1576,7 +1599,17 @@ export interface IGoogleAuthURLResponse {
 
 
 export interface GoogleContinueOAuthResponse {
+  /**
+   * Indica se o acesso realizado foi o primeiro (usuário não tinha conta até este momento)
+   */
+  firstAccess: boolean;
+  /**
+   * Token de acesso fornecido para o cliente
+   */
   token: string;
+  /**
+   * Indica o tempo de duração do token
+   */
   maxAge: number;
 }
 

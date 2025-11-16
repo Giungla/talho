@@ -19,6 +19,9 @@ export {
   AUTH_COOKIE_NAME,
   TALHO_SESSION_COOKIE_NAME,
   TALHO_SESSION_HEADER_NAME,
+  DEFAULT_SESSION_COOKIE_OPTIONS,
+  BUILD_URL_DEFAULT_OPTION,
+  unAuthenticatedRedirect,
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
@@ -44,6 +47,12 @@ export {
   GENERAL_HIDDEN_CLASS,
   SCROLL_INTO_VIEW_DEFAULT_ARGS,
   EMAIL_REGEX_VALIDATION,
+  CEP_REGEX_VALIDATION,
+  CPF_REGEX_VALIDATION,
+  FULLNAME_REGEX_VALIDATION,
+  PHONE_REGEX_VALIDATION,
+  DATE_REGEX_VALIDATION,
+  replaceDuplicatedSpaces,
   splitText,
   trim,
   regexTest,
@@ -95,6 +104,8 @@ export {
 export {
   pushIf,
   includes,
+  isEquals,
+  isStrictEquals,
 } from './array'
 
 export {
@@ -115,3 +126,16 @@ export {
   textTestRegex,
   validatePasswordParts,
 } from './validation'
+
+export {
+  TALHO_ABANDONMENT_COOKIE_NAME,
+  TALHO_ABANDONMENT_HEADER_NAME,
+  refreshAbandonmentEntry,
+  abandonmentHeader,
+} from './abandonment'
+
+export {
+  PARAM_NAMES,
+  prefixStorageKey,
+  getTrackingCookies,
+} from './adTracking'
