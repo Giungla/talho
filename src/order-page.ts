@@ -31,6 +31,7 @@ import {
   postSuccessResponse,
   buildRequestOptions,
   getTrackingCookies,
+  getMetaTrackingCookies,
 } from '../utils'
 
 const {
@@ -108,7 +109,7 @@ const TalhoOrderPage = createApp({
 
       try {
         const response = await fetch(`${XANO_BASE_URL}/api:uMv7xbDN/log/purchase`, {
-          ...buildRequestOptions(getTrackingCookies(), 'POST'),
+          ...buildRequestOptions([...getTrackingCookies(), ...getMetaTrackingCookies()], 'POST'),
           keepalive: true,
           priority: 'high',
           body: stringify<PurchaseTrackingParams>({
