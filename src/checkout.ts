@@ -216,7 +216,7 @@ function maskCardDate (value: string): string {
       pushIf(group, response, group)
     }
 
-    return response.join()
+    return response.join(SLASH_STRING)
   })
 }
 
@@ -424,11 +424,11 @@ const TalhoCheckoutApp = createApp({
       availablePayments: [
         {
           label: 'Cartão de crédito',
-          method: CREDIT_CARD_PAYMENT
+          method: CREDIT_CARD_PAYMENT,
         },
         {
           label: 'PIX',
-          method: PIX_PAYMENT
+          method: PIX_PAYMENT,
         }
       ],
       deliveryPlace: NULL_VALUE,
