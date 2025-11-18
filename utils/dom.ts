@@ -201,6 +201,8 @@ export function normalizeText (text: string): string {
   return text
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, EMPTY_STRING)
+    .replace(/[\u200B-\u200D\uFEFF]/g, EMPTY_STRING)
+    .replace(/[\u2060\u034F]/g, EMPTY_STRING)
 }
 
 export function replaceDuplicatedSpaces (value: string): string {

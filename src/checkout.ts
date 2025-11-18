@@ -106,6 +106,8 @@ import {
   isDateValid,
   splitText,
   trim,
+  scrollIntoView,
+  SCROLL_INTO_VIEW_DEFAULT_ARGS,
   EMAIL_REGEX_VALIDATION,
   DATE_REGEX_VALIDATION,
   CPF_REGEX_VALIDATION,
@@ -160,10 +162,6 @@ function getAbortController () {
 
 function hasOwn (object: object, key: PropertyKey): boolean {
   return Object.hasOwn(object, key)
-}
-
-function scrollIntoView (element: HTMLElement, args: boolean | ScrollIntoViewOptions) {
-  element.scrollIntoView(args)
 }
 
 function isExpireDateValid (expireDate: string): boolean {
@@ -671,10 +669,7 @@ const TalhoCheckoutApp = createApp({
       const firstInvalidField = this.firstInvalidField
 
       if (firstInvalidField) {
-        scrollIntoView(firstInvalidField.field, {
-          block: 'center',
-          behavior: 'smooth',
-        })
+        scrollIntoView(firstInvalidField.field, SCROLL_INTO_VIEW_DEFAULT_ARGS)
 
         if (firstInvalidField.field.tagName === 'INPUT') {
           setTimeout(() => firstInvalidField.field.focus(), 500)

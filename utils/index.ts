@@ -88,6 +88,7 @@ export {
 
 export {
   statesMap,
+  PIPE_STRING,
   SLASH_STRING,
   statesValues,
   statesAcronym,
