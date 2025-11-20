@@ -1,5 +1,6 @@
 
 import {
+  PIPE_STRING,
   PARAM_NAMES,
   DEFAULT_SESSION_COOKIE_OPTIONS,
   includes,
@@ -18,7 +19,7 @@ import {
     throw new Error(`You must provide a 'data-parameter-names' parameter`)
   }
 
-  const searchParams = splitText(PARAM_NAMES, '|')
+  const searchParams = splitText(PARAM_NAMES, PIPE_STRING)
 
   const searchParamsSize = objectSize(searchParams)
 

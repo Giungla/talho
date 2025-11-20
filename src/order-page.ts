@@ -20,8 +20,9 @@ import {
 
 import {
   NULL_VALUE,
-  BRLFormatter,
+  SLASH_STRING,
   XANO_BASE_URL,
+  BRLFormatter,
   isNull,
   buildURL,
   stringify,
@@ -32,6 +33,7 @@ import {
   buildRequestOptions,
   getTrackingCookies,
   getMetaTrackingCookies,
+  clearTrackingCookies,
 } from '../utils'
 
 const {
@@ -57,7 +59,7 @@ const TalhoOrderPage = createApp({
     const transactionId = searchParams.get('order')
 
     if (!transactionId) {
-      location.href = buildURL('/', {
+      location.href = buildURL(SLASH_STRING, {
         [REASON_PARAM]: 'trasactionid_not_found',
       })
 
@@ -67,7 +69,7 @@ const TalhoOrderPage = createApp({
     const response = await this.getOrder(transactionId)
 
     if (!response.succeeded) {
-      location.href = buildURL('/', {
+      location.href = buildURL(SLASH_STRING, {
         [REASON_PARAM]: 'order_not_found',
       })
 
@@ -126,6 +128,8 @@ const TalhoOrderPage = createApp({
         response.json().then(() => console.info('Log do pedido finalizado'))
       } catch (e) {
         console.warn(defaultErrorMessage)
+      } finally {
+        clearTrackingCookies()
       }
     }
   },
