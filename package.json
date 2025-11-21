@@ -1,9 +1,12 @@
 {
   "license": "UNLICENSED",
   "devDependencies": {
+    "happy-dom": "^20.0.10",
+    "jsdom": "^27.2.0",
     "terser": "^5.43.1",
     "tsup": "^8.0.0",
     "typescript": "^5.7.3",
+    "vitest": "^4.0.10",
     "vue": "^3.5.14"
   },
   "engines": {
@@ -12,6 +15,7 @@
     "yarn": "1.22.22"
   },
   "scripts": {
+    "test": "yarn vitest",
     "build-all": "yarn tsup-spp-both && yarn tsup-floating-cart-both && yarn tsup-consent-module-both && yarn tsup-checkout-both && yarn tsup-ad-tracking-both && yarn tsup-pix-page-both&&yarn tsup-user-orders-both&&yarn tsup-read-reviews-both&&yarn tsup-review-approve-both&&yarn tsup-user-personal-data-both&&yarn tsup-order-page-both&&yarn tsup-change-password-both&&yarn tsup-google-social-login-both&&yarn tsup-login-both&&yarn tsup-magic-link-both&&yarn tsup-newsletter-both&&yarn tsup-recover-access-both&&yarn tsup-signup-both&&yarn tsup-user-addresses-both",
     "tsup-spp": "tsup src/single-page-product.ts --format iife --minify terser --treeshake --out-dir dev",
     "tsup-spp-prod": "node build-commands/build-for-production.js --name=single-page-product",

@@ -139,5 +139,6 @@ export {
   PARAM_NAMES,
   prefixStorageKey,
   getTrackingCookies,
+  clearTrackingCookies,
   getMetaTrackingCookies,
 } from './adTracking'
