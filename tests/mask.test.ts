@@ -27,7 +27,7 @@ describe('[toUpperCase]', () => {
 })
 
 describe('[maskPhoneNumber]', () => {
-  it('[maskPhoneNumber] valida o funcionamento incremental do método que aplica máscara em telefones', () => {
+  it('valida o funcionamento incremental do método que aplica máscara em telefones', () => {
     expect(maskPhoneNumber('')).toBe('')
     expect(maskPhoneNumber('8')).toBe('(8')
     expect(maskPhoneNumber('81')).toBe('(81')

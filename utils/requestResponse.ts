@@ -8,11 +8,17 @@ import {
 } from "../global"
 
 import {
+  timestampDays,
+} from './dates'
+
+import {
   buildURL,
+} from './dom'
+
+import {
   getCookie,
   setCookie,
-  timestampDays,
-} from "./index"
+} from './cookie'
 
 export const UNAUTHENTICATED_RESPONSE_STATUS = 401
 

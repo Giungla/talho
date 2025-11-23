@@ -1,6 +1,6 @@
 
-import type {
-  Nullable,
+import {
+  type Nullable,
 } from '../global'
 
 import {

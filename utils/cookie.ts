@@ -1,19 +1,20 @@
 
 import {
   type ICookieOptions,
-  type ISplitCookieObject,
+  type ISplitCookieObject, Nullable,
 } from '../global'
 
 import {
   pushIf,
   splitText,
   objectSize,
+  replaceDuplicatedSpaces, EMPTY_STRING,
 } from './index'
 
 export const COOKIE_SEPARATOR = '; '
 
 export function getCookie (name: string): string | false {
-  const selectedCookie = splitText(document.cookie, COOKIE_SEPARATOR)
+  const selectedCookie = splitText(replaceDuplicatedSpaces(document.cookie), COOKIE_SEPARATOR)
     .find(cookie => {
       const { name: cookieName } = splitCookie(cookie)
 
@@ -25,12 +26,14 @@ export function getCookie (name: string): string | false {
     : false
 }
 
-export function splitCookie (cookie: string): ISplitCookieObject {
-  const [name, value] = splitText(cookie, '=', 2)
+export function splitCookie (cookie: string): ISplitCookieObject<string | false> {
+  const [name, ...value] = splitText(cookie, '=')
 
   return {
     name,
-    value
+    value: objectSize(value) > 0
+      ? decodeURIComponent(value.join('='))
+      : false,
   }
 }
 
@@ -43,12 +46,12 @@ export function setCookie (name: string, value: string | number | boolean, optio
     throw new Error("'setCookie' should receive a valid cookie value")
   }
 
-  const cookieOptions: string[] = [`${name}=${value}`]
+  const cookieOptions: string[] = [`${name}=${encodeURIComponent(value)}`]
 
   pushIf(
     options?.expires && options?.expires instanceof Date,
     cookieOptions,
-    `expires=` + options.expires.toUTCString(),
+    `expires=` + options.expires?.toUTCString(),
   )
 
   pushIf(

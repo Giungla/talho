@@ -1,7 +1,9 @@
 
-import type {
-  IStateAcronym
+import {
+  type IStateAcronym,
 } from '../global'
+
+export const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
 
 export const STORAGE_KEY_NAME = 'talho_cart_items'
 
@@ -43,5 +45,6 @@ export const statesValues = Object.values(statesMap)
 
 export const COOKIE_CONSENT_NAME = 'talho-carnes-consent'
 
+export const EMPTY_STRING = ''
 export const SLASH_STRING = '/'
 export const PIPE_STRING = '|'

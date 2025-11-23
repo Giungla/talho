@@ -1,7 +1,4 @@
 
-export const EMPTY_STRING = ''
-export const XANO_BASE_URL = 'https://xef5-44zo-gegm.b2.xano.io'
-
 export {
   COOKIE_SEPARATOR,
   setCookie,
@@ -64,6 +61,7 @@ export {
   changeTextContent,
   hasAttribute,
   addAttribute,
+  toggleAttribute,
   removeAttribute,
   getAttribute,
   attachEvent,
@@ -89,9 +87,11 @@ export {
 export {
   statesMap,
   PIPE_STRING,
+  EMPTY_STRING,
   SLASH_STRING,
   statesValues,
   statesAcronym,
+  XANO_BASE_URL,
   STORAGE_KEY_NAME,
   COOKIE_CONSENT_NAME,
   FREE_SHIPPING_MIN_CART_PRICE,

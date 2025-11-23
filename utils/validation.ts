@@ -1,16 +1,19 @@
-
 import {
-  SLASH_STRING,
-  EMPTY_STRING,
+  regexTest,
   numberOnly,
   objectSize,
-  splitText, regexTest,
+  splitText,
+} from './dom'
+
+import {
+  EMPTY_STRING, isStrictEquals,
+  SLASH_STRING,
 } from './index'
 
 export const CPF_VERIFIERS_INDEXES = [10, 11]
 
-export function textTestRegex (value: string): (value: RegExp) => boolean {
-  return (regex: RegExp) => regex.test(value)
+export function textTestRegex (value: string): ((value: RegExp) => boolean) {
+  return (regex: RegExp) => regexTest(regex, value)
 }
 
 export function validatePasswordParts (password: string) {
@@ -56,5 +59,11 @@ export function isDateValid (date: string): boolean {
 
   const parsedDate = new Date(`${fullYear}-${month}-${day}T00:00:00`)
 
-  return parsedDate.toString() !== 'Invalid Date'
+  if (isStrictEquals(parsedDate.toString(), 'Invalid Date')) return false
+
+  const isSameDay   = isStrictEquals(parsedDate.getUTCDate(), Number(day))
+  const isSameMonth = isStrictEquals(parsedDate.getUTCMonth() + 1, Number(month))
+  const isSameYear  = isStrictEquals(parsedDate.getUTCFullYear(), Number(fullYear))
+
+  return isSameDay && isSameMonth && isSameYear
 }

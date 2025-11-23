@@ -1,6 +1,6 @@
 
 import {
-  type DirectiveBinding,
+  DirectiveBinding,
 } from 'vue'
 
 import {

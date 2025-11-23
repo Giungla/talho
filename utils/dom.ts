@@ -1,7 +1,7 @@
 
-import type {
-  Nullable,
-  IScrollIntoViewArgs,
+import {
+  type Nullable,
+  type IScrollIntoViewArgs,
 } from '../global'
 
 import {
@@ -21,7 +21,7 @@ export const GENERAL_HIDDEN_CLASS = 'oculto'
 
 export const SCROLL_INTO_VIEW_DEFAULT_ARGS: ScrollIntoViewOptions = {
   block: 'center',
-  behavior: 'smooth'
+  behavior: 'smooth',
 }
 
 export function isArray(value: unknown): value is unknown[];
@@ -58,7 +58,7 @@ export function attachEvent <
   eventName: K,
   callback: (event: T extends HTMLElement
     ? HTMLElementEventMap[K extends keyof HTMLElementEventMap ? K : never]
-    : DocumentEventMap[K extends keyof DocumentEventMap ? K : never]
+    : DocumentEventMap[K extends keyof DocumentEventMap ? K : never],
   ) => void,
   options?: boolean | AddEventListenerOptions
 ): VoidFunction | void {
@@ -85,6 +85,12 @@ export function getAttribute (element: ReturnType<typeof querySelector>, qualifi
   if (!element) return NULL_VALUE
 
   return element.getAttribute(qualifiedName)
+}
+
+export function toggleAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string, force?: boolean): boolean {
+  if (!element) return false
+
+  return element.toggleAttribute(qualifiedName, force)
 }
 
 export function hasAttribute (element: ReturnType<typeof querySelector>, qualifiedName: string): boolean {
