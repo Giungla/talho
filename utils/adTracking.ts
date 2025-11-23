@@ -71,12 +71,18 @@ export function clearTrackingCookies (): void {
       ...DEFAULT_SESSION_COOKIE_OPTIONS,
       expires,
     })
+
+    setCookie(name, SLASH_STRING, {
+      ...DEFAULT_SESSION_COOKIE_OPTIONS,
+      expires,
+    })
   }
 
   for (const name of splitText(metaCookiesName, PIPE_STRING)) {
     setCookie(name, SLASH_STRING, {
       ...DEFAULT_SESSION_COOKIE_OPTIONS,
       expires,
+      domain: location.host.replace(/ˆwww/, ''),
     })
   }
 }

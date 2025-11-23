@@ -20,6 +20,10 @@ import {
   setCookie,
 } from './cookie'
 
+import {
+  SLASH_STRING,
+} from './consts'
+
 export const UNAUTHENTICATED_RESPONSE_STATUS = 401
 
 export const AUTH_COOKIE_NAME = '__Host-Talho-AuthToken'
@@ -38,7 +42,7 @@ export const BUILD_URL_DEFAULT_OPTION = {
 }
 
 export const DEFAULT_SESSION_COOKIE_OPTIONS: ICookieOptions = {
-  path: '/',
+  path: SLASH_STRING,
   secure: true,
   sameSite: 'Strict',
   expires: new Date(Date.now() + timestampDays(14)),
