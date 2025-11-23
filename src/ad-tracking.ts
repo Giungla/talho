@@ -65,6 +65,8 @@ import {
       if (!localStorageValue) continue
 
       setCookie(key, localStorageValue, DEFAULT_SESSION_COOKIE_OPTIONS)
+
+      localStorage.removeItem(key)
     }
   }, { once: true })
 })()
