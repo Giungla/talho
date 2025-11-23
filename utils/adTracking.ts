@@ -14,6 +14,7 @@ import {
 
 import {
   PIPE_STRING,
+  SLASH_STRING,
 } from './consts'
 
 import {
@@ -66,14 +67,14 @@ export function clearTrackingCookies (): void {
   const expires = new Date(Date.now() - 1)
 
   for (const name of splitText(PARAM_NAMES as string, PIPE_STRING)) {
-    setCookie(prefixStorageKey(name), EMPTY_STRING, {
+    setCookie(prefixStorageKey(name), SLASH_STRING, {
       ...DEFAULT_SESSION_COOKIE_OPTIONS,
       expires,
     })
   }
 
   for (const name of splitText(metaCookiesName, PIPE_STRING)) {
-    setCookie(name, EMPTY_STRING, {
+    setCookie(name, SLASH_STRING, {
       ...DEFAULT_SESSION_COOKIE_OPTIONS,
       expires,
     })
