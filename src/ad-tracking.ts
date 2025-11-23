@@ -2,6 +2,7 @@
 import {
   PIPE_STRING,
   PARAM_NAMES,
+  EMPTY_STRING,
   DEFAULT_SESSION_COOKIE_OPTIONS,
   includes,
   splitText,
@@ -10,6 +11,10 @@ import {
   isStrictEquals,
   prefixStorageKey,
 } from '../utils'
+
+import {
+  CookieSameSite,
+} from '../types/cookie'
 
 (function () {
   // const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names')
@@ -64,7 +69,12 @@ import {
 
       if (!localStorageValue) continue
 
-      setCookie(key, localStorageValue, DEFAULT_SESSION_COOKIE_OPTIONS)
+      setCookie(key, localStorageValue, {
+        ...DEFAULT_SESSION_COOKIE_OPTIONS,
+        sameSite: CookieSameSite.LAX,
+        secure: false,
+        domain: location.host.replace(/^www/, EMPTY_STRING),
+      })
 
       localStorage.removeItem(key)
     }

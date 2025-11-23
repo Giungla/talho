@@ -1,14 +1,14 @@
 
 import {
   type ICookieOptions,
-  type ISplitCookieObject, Nullable,
+  type ISplitCookieObject,
 } from '../global'
 
 import {
   pushIf,
   splitText,
   objectSize,
-  replaceDuplicatedSpaces, EMPTY_STRING,
+  replaceDuplicatedSpaces,
 } from './index'
 
 export const COOKIE_SEPARATOR = '; '

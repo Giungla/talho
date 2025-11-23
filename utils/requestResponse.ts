@@ -21,6 +21,10 @@ import {
 } from './cookie'
 
 import {
+  CookieSameSite,
+} from '../types/cookie'
+
+import {
   SLASH_STRING,
 } from './consts'
 
@@ -44,7 +48,7 @@ export const BUILD_URL_DEFAULT_OPTION = {
 export const DEFAULT_SESSION_COOKIE_OPTIONS: ICookieOptions = {
   path: SLASH_STRING,
   secure: true,
-  sameSite: 'Strict',
+  sameSite: CookieSameSite.STRICT,
   expires: new Date(Date.now() + timestampDays(14)),
 }
 

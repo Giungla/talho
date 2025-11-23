@@ -1,8 +1,15 @@
+import {
+  type ICookieOptions,
+} from '../global'
 
 import {
   getCookie,
   setCookie,
 } from './cookie'
+
+import {
+  CookieSameSite,
+} from '../types/cookie'
 
 import {
   splitText,
@@ -16,10 +23,6 @@ import {
   PIPE_STRING,
   SLASH_STRING,
 } from './consts'
-
-import {
-  DEFAULT_SESSION_COOKIE_OPTIONS,
-} from './requestResponse'
 
 import {
   EMPTY_STRING,
@@ -65,24 +68,31 @@ export function getTrackingCookies (): [string, string][] {
 
 export function clearTrackingCookies (): void {
   const expires = new Date(Date.now() - 1)
+  const path = SLASH_STRING
+  const secure = false
+  const domain = location.host.replace(/^www/, EMPTY_STRING)
+  const sameSite = CookieSameSite.LAX
+
+  const options: ICookieOptions = {
+    path,
+    secure,
+    expires,
+    domain,
+  }
 
   for (const name of splitText(PARAM_NAMES as string, PIPE_STRING)) {
     setCookie(prefixStorageKey(name), SLASH_STRING, {
-      ...DEFAULT_SESSION_COOKIE_OPTIONS,
-      expires,
+      ...options,
+      sameSite,
     })
 
     setCookie(name, SLASH_STRING, {
-      ...DEFAULT_SESSION_COOKIE_OPTIONS,
-      expires,
+      ...options,
+      sameSite,
     })
   }
 
   for (const name of splitText(metaCookiesName, PIPE_STRING)) {
-    setCookie(name, SLASH_STRING, {
-      ...DEFAULT_SESSION_COOKIE_OPTIONS,
-      expires,
-      domain: location.host.replace(/ˆwww/, ''),
-    })
+    setCookie(name, SLASH_STRING, options)
   }
 }
