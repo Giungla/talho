@@ -3,6 +3,7 @@ import {
   type Nullable,
   type ResponsePattern,
   type ComputedReturnValues,
+  type IPaginateSchema,
 } from '../global'
 
 import {
@@ -13,9 +14,13 @@ import {
 
 export interface OrderManagementListData {
   /**
+   * Data inicial usada no filtro
+   */
+  startDate: Nullable<string>,
+  /**
    * Lista de pedidos recebidos da API
    */
-  orders: Nullable<OrderManagementItem[]>;
+  orders: Nullable<IPaginateSchema<OrderManagementItem>>;
   /**
    * Registra o nome do filtro ativo
    */
@@ -30,7 +35,7 @@ export interface OrderManagementListMethods {
   /**
    * Captura os pedidos que serão exibidos na lista
    */
-  getOrders: () => Promise<ResponsePattern<OrderManagementItem[]>>;
+  getOrders: (page: number = 1) => Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>>;
   /**
    * Aplica um filtro
    */
@@ -39,6 +44,10 @@ export interface OrderManagementListMethods {
    * Captura um filtro específico pelo nome do token
    */
   getFilterByToken: (token: OrderStatusKeys | OrderPrepareStatusKeys) => RenderableOrderFilter | undefined;
+  /**
+   * Captura os registro de outra página
+   */
+  handlePaginate: (page: number) => Promise<void>;
 }
 
 export interface OrderManagementListComputedDefinition {
@@ -58,6 +67,22 @@ export interface OrderManagementListComputedDefinition {
    * Retorna os status dos pedidos que foram devolvidos pela API
    */
   getAvailableStatus: () => (OrderStatusKeys | OrderPrepareStatusKeys | OrderPrepareNotStarted)[];
+  /**
+   * Indica se a paginação possui página anterior
+   */
+  hasPrevPage: () => boolean;
+  /**
+   * Indica se a paginação possui próxima página
+   */
+  hasNextPage: () => boolean;
+  /**
+   * Indica se uma rota para a última página deve ser exibida
+   */
+  hasLastPage: () => boolean;
+  /**
+   * Indica se uma rota para a primeira página deve ser exibida
+   */
+  hasFirstPage: () => boolean;
 }
 
 export type OrderManagementListComputed = ComputedReturnValues<OrderManagementListComputedDefinition>

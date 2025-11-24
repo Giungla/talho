@@ -93,11 +93,10 @@ export interface ICookieOptions {
   maxAge?: number;
 }
 
-export interface ISplitCookieObject <T extends string = string> {
+export interface ISplitCookieObject <T extends string | boolean = string> {
   name: string;
   value: T;
 }
-
 
 export interface ISignUpParam {
   name: string;
@@ -1410,13 +1409,38 @@ export type IOrderAddressType =
 
 
 export interface IPaginateSchema <T> {
+  /**
+   * Lista de itens que retornaram da consulta
+   */
   items: T[];
+  /**
+   * Quantidade de itens "deslocados" na consulta
+   */
   offset: number;
+  /**
+   * Indica a página que está sendo visualizada
+   */
   curPage: number;
+  /**
+   * Indica quantos itens estão retornando em cada página
+   */
   perPage: number;
+  /**
+   * Indica quantos itens retornaram em "items"
+   */
   itemsReceived: number;
+  /**
+   * Indica a próxima página, se existir
+   */
   nextPage: Nullable<number>;
+  /**
+   * Indica a página anterior, se existir
+   */
   prevPage: Nullable<number>;
+  /**
+   * Indica quantas páginas existem
+   */
+  pageTotal: number;
 }
 
 

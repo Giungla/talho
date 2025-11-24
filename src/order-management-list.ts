@@ -1,5 +1,6 @@
 
 import {
+  type IPaginateSchema,
   type ResponsePattern,
 } from '../global'
 
@@ -34,21 +35,24 @@ import {
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
+  includes, scrollIntoView, querySelector,
 } from '../utils'
 
 const OrderManagementApp = createApp({
   name: 'OrderManagementApp',
 
   async created (): Promise<void> {
-    const response = await this.getOrders()
-
-    if (!response.succeeded) return
-
-    this.orders = response.data
+    // const response = await this.getOrders()
+    //
+    // if (!response.succeeded) return
+    //
+    // this.orders = response.data
+    this.handlePaginate(1)
   },
 
   data () {
     return {
+      startDate: NULL_VALUE,
       orders: NULL_VALUE,
       activeFilter: NULL_VALUE,
       availableFilters: [
@@ -81,11 +85,11 @@ const OrderManagementApp = createApp({
   },
 
   methods: {
-    async getOrders (): Promise<ResponsePattern<OrderManagementItem[]>> {
+    async getOrders (page: number = 1): Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>> {
       const defaultErrorMessage = 'Houve uma falha com a busca de pedidos'
 
       try {
-        const response = await fetch(`${XANO_BASE_URL}/api:YomXpzWs/order/list`, {
+        const response = await fetch(`${XANO_BASE_URL}/api:YomXpzWs/order/list?page=${page}`, {
           ...buildRequestOptions(),
         })
 
@@ -95,7 +99,7 @@ const OrderManagementApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const orders: OrderManagementItem[] = await response.json()
+        const orders: IPaginateSchema<OrderManagementItem> = await response.json()
 
         return postSuccessResponse.call(response, orders)
       } catch (e) {
@@ -112,13 +116,28 @@ const OrderManagementApp = createApp({
     getFilterByToken (token: OrderStatusKeys | OrderPrepareStatusKeys): RenderableOrderFilter | undefined {
       return this.getAppliableFilters.find(({ name }) => isStrictEquals(name, token)) as RenderableOrderFilter | undefined
     },
+
+    async handlePaginate (page: number): Promise<void> {
+      const response = await this.getOrders(page)
+
+      if (!response.succeeded) return
+
+      this.orders = response.data
+
+      scrollIntoView(orderManagementList, {
+        block: 'start',
+        behavior: 'smooth',
+      })
+    },
   },
 
   computed: {
     hasOrders (): boolean {
       const { orders } = this
 
-      return Array.isArray(orders) && orders.length > 0
+      const itemsReceived = orders?.itemsReceived
+
+      return typeof itemsReceived === 'number' && itemsReceived > 0
     },
 
     getParsedOrders (): OrderManagementItemParsed[] {
@@ -132,7 +151,7 @@ const OrderManagementApp = createApp({
       // @ts-ignore
       const filteredOrders: OrderManagementItem[] = activeFilter !== null
         // @ts-ignore
-        ? orders.filter(({ prepare_status, status, }) => {
+        ? orders.items.filter(({ prepare_status, status, }) => {
           switch (activeFilter) {
             case OrderStatus.ASSIGNING_DRIVER:
             case OrderStatus.CANCELED:
@@ -149,7 +168,8 @@ const OrderManagementApp = createApp({
               return !isStrictEquals(status, OrderStatus.COMPLETED) && isStrictEquals(prepare_status, activeFilter)
           }
         })
-        : orders
+        // @ts-ignore
+        : orders.items
 
       return filteredOrders.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
         const filterStatus = status === OrderStatus.COMPLETED
@@ -191,7 +211,7 @@ const OrderManagementApp = createApp({
       const statusList: (OrderStatusKeys | OrderPrepareStatusKeys)[] = []
 
       // @ts-ignore
-      for (const { prepare_status, status } of this.orders) {
+      for (const { prepare_status, status } of this.orders?.items) {
         // pushIf(prepare_status && !statusList.includes(prepare_status), statusList, prepare_status)
         pushIf(!statusList.includes(prepare_status), statusList, prepare_status)
 
@@ -199,6 +219,29 @@ const OrderManagementApp = createApp({
       }
 
       return statusList
+    },
+
+    hasPrevPage (): boolean {
+      return this.orders?.prevPage !== NULL_VALUE
+    },
+
+    hasNextPage (): boolean {
+      return this.orders?.nextPage !== NULL_VALUE
+    },
+
+    hasLastPage (): boolean {
+      const orders = this.orders
+
+      return includes([
+        orders?.nextPage,
+        orders?.curPage,
+      ], orders?.pageTotal)
+    },
+
+    hasFirstPage (): boolean {
+      const curPage = this.orders?.curPage
+
+      return typeof curPage === 'number' && curPage > 2
     },
   },
 } satisfies {
@@ -209,7 +252,9 @@ const OrderManagementApp = createApp({
   computed: OrderManagementListComputedDefinition;
 } & ThisType<OrderManagementListContext>)
 
-OrderManagementApp.mount('#order-management-list')
+const orderManagementList = querySelector('#order-management-list')
+
+OrderManagementApp.mount(orderManagementList)
 
 window.addEventListener('pageshow', (e: PageTransitionEvent) => {
   if (e.persisted) window.location.reload()
