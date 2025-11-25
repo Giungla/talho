@@ -145,7 +145,7 @@ export function buildURL (path: string, query: Record<string, string> = {}): str
   return nextPage.toString()
 }
 
-export function stringify <T extends object> (value: T): string {
+export function stringify <T extends any> (value: T): string {
   return JSON.stringify(value)
 }
 

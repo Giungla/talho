@@ -1,5 +1,6 @@
 
 import {
+  type Nullable,
   type IPaginateSchema,
   type ResponsePattern,
 } from '../global'
@@ -12,6 +13,8 @@ import {
   type OrderManagementListContext,
   type RenderableOrderFilter,
   type OrderManagementListComputedDefinition,
+  type OrderManagementFilter,
+  type AvailableFilterStatus,
 } from '../types/order-management-list'
 
 import {
@@ -22,6 +25,7 @@ import {
 } from '../types/order'
 
 const {
+  nextTick,
   createApp,
 } = Vue
 
@@ -35,7 +39,11 @@ import {
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  includes, scrollIntoView, querySelector,
+  includes,
+  scrollIntoView,
+  querySelector,
+  bindURL,
+  isNull,
 } from '../utils'
 
 const OrderManagementApp = createApp({
@@ -47,14 +55,19 @@ const OrderManagementApp = createApp({
     // if (!response.succeeded) return
     //
     // this.orders = response.data
-    this.handlePaginate(1)
+    this.refreshURLState = bindURL<OrderManagementFilter>(
+      'filter',
+      () => this.filter,
+      (filter: OrderManagementFilter) => this.filter = filter,
+    )
+
+    this.refresh(false)
   },
 
   data () {
     return {
       startDate: NULL_VALUE,
       orders: NULL_VALUE,
-      activeFilter: NULL_VALUE,
       availableFilters: [
         {
           label: 'Não iniciado',
@@ -81,15 +94,20 @@ const OrderManagementApp = createApp({
           name: OrderStatus.COMPLETED,
         }
       ],
+      refreshURLState: NULL_VALUE,
+      filter: {
+        page: 1,
+        status: NULL_VALUE,
+      },
     }
   },
 
   methods: {
-    async getOrders (page: number = 1): Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>> {
+    async getOrders (): Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>> {
       const defaultErrorMessage = 'Houve uma falha com a busca de pedidos'
 
       try {
-        const response = await fetch(`${XANO_BASE_URL}/api:YomXpzWs/order/list?page=${page}`, {
+        const response = await fetch(`${XANO_BASE_URL}/api:YomXpzWs/order/list${this.getFilteringQueryParams}`, {
           ...buildRequestOptions(),
         })
 
@@ -107,27 +125,43 @@ const OrderManagementApp = createApp({
       }
     },
 
-    applyFilter (name: OrderStatusKeys | OrderPrepareStatusKeys): void {
-      if (isStrictEquals(this.activeFilter, name)) return
-
-      this.activeFilter = name
-    },
-
     getFilterByToken (token: OrderStatusKeys | OrderPrepareStatusKeys): RenderableOrderFilter | undefined {
       return this.getAppliableFilters.find(({ name }) => isStrictEquals(name, token)) as RenderableOrderFilter | undefined
     },
 
-    async handlePaginate (page: number): Promise<void> {
-      const response = await this.getOrders(page)
+    async refresh (shouldUpdateURL: boolean = true): Promise<void> {
+      const response = await this.getOrders()
 
       if (!response.succeeded) return
 
       this.orders = response.data
 
-      scrollIntoView(orderManagementList, {
-        block: 'start',
-        behavior: 'smooth',
+      await nextTick(() => {
+        scrollIntoView(orderManagementList, {
+          block: 'start',
+          behavior: 'smooth',
+        })
+
+        if (!shouldUpdateURL) return
+
+        this.refreshURLState?.()
       })
+    },
+
+    async handlePaginate (page: number): Promise<void> {
+      this.filter.page = page
+
+      this.refresh()
+    },
+
+    async handleStatus (status: Nullable<AvailableFilterStatus>): Promise<void> {
+      this.filter = {
+        ...this.filter,
+        page: 1,
+        status,
+      }
+
+      this.refresh()
     },
   },
 
@@ -143,35 +177,8 @@ const OrderManagementApp = createApp({
     getParsedOrders (): OrderManagementItemParsed[] {
       if (!this.hasOrders) return []
 
-      const {
-        orders,
-        activeFilter,
-      } = this
-
       // @ts-ignore
-      const filteredOrders: OrderManagementItem[] = activeFilter !== null
-        // @ts-ignore
-        ? orders.items.filter(({ prepare_status, status, }) => {
-          switch (activeFilter) {
-            case OrderStatus.ASSIGNING_DRIVER:
-            case OrderStatus.CANCELED:
-            case OrderStatus.ON_GOING:
-            case OrderStatus.PICKED_UP:
-            case OrderStatus.REJECTED:
-            case OrderStatus.EXPIRED:
-            case OrderStatus.COMPLETED:
-              return isStrictEquals(status, activeFilter)
-            case OrderPrepareStatus.NOTSTARTED:
-            case OrderPrepareStatus.PREPARING:
-            case OrderPrepareStatus.PREPARED:
-            case OrderPrepareStatus.DELIVERYREADY:
-              return !isStrictEquals(status, OrderStatus.COMPLETED) && isStrictEquals(prepare_status, activeFilter)
-          }
-        })
-        // @ts-ignore
-        : orders.items
-
-      return filteredOrders.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
+      return this.orders?.items.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
         const filterStatus = status === OrderStatus.COMPLETED
           ? status
           : prepare_status
@@ -186,39 +193,17 @@ const OrderManagementApp = createApp({
             delivery_status: this.getFilterByToken(filterStatus),
           }),
         }
-      }) ?? []
+      })
     },
 
     getAppliableFilters (): RenderableOrderFilter[] {
-      if (!this.hasOrders) return []
-
-      const { getAvailableStatus } = this
-
-      return this.availableFilters.reduce((filters, filter) => {
-        if (!getAvailableStatus.includes(filter.name)) return filters
-
-        return filters.concat({
+      return this.availableFilters.map<RenderableOrderFilter>(({ name, ...filter}) => {
+        return {
           ...filter,
-          className: filter.name?.toLowerCase(),
-          name: filter.name,
-        })
+          name,
+          className: name?.toLowerCase(),
+        }
       }, [] as RenderableOrderFilter[])
-    },
-
-    getAvailableStatus (): (OrderStatusKeys | OrderPrepareStatusKeys)[] {
-      if (!this.hasOrders) return []
-
-      const statusList: (OrderStatusKeys | OrderPrepareStatusKeys)[] = []
-
-      // @ts-ignore
-      for (const { prepare_status, status } of this.orders?.items) {
-        // pushIf(prepare_status && !statusList.includes(prepare_status), statusList, prepare_status)
-        pushIf(!statusList.includes(prepare_status), statusList, prepare_status)
-
-        pushIf(status && !statusList.includes(status), statusList, status)
-      }
-
-      return statusList
     },
 
     hasPrevPage (): boolean {
@@ -242,6 +227,25 @@ const OrderManagementApp = createApp({
       const curPage = this.orders?.curPage
 
       return typeof curPage === 'number' && curPage > 2
+    },
+
+    getFilteringQueryParams (): string {
+      const filters = this.filter
+
+      const queryParams: string[] = []
+
+      for (const [key, value] of Object.entries(filters)) {
+        switch (key) {
+          case 'page':
+            pushIf(true, queryParams, [key, value].join('='))
+            break
+          case 'status':
+            pushIf(!isNull(value), queryParams, [key, value].join('='))
+            break
+        }
+      }
+
+      return '?' +  queryParams.join('&')
     },
   },
 } satisfies {

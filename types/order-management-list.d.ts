@@ -9,8 +9,20 @@ import {
 import {
   type OrderStatusKeys,
   type OrderPrepareStatusKeys,
-  type OrderPrepareNotStarted,
 } from './order'
+
+export type AvailableFilterStatus = OrderPrepareStatusKeys | Extract<OrderStatusKeys, 'COMPLETED'>;
+
+export interface OrderManagementFilter {
+  /**
+   * Indica a página que está sendo visualizada
+   */
+  page: number;
+  /**
+   * Indica qual o status de preparação/entrega selecionado para visualização
+   */
+  status: Nullable<AvailableFilterStatus>;
+}
 
 export interface OrderManagementListData {
   /**
@@ -22,24 +34,24 @@ export interface OrderManagementListData {
    */
   orders: Nullable<IPaginateSchema<OrderManagementItem>>;
   /**
-   * Registra o nome do filtro ativo
-   */
-  activeFilter: Nullable<OrderStatusKeys | OrderPrepareStatusKeys>;
-  /**
    * Lista de filtros disponíveis para os pedidos
    */
   availableFilters: OrderFilter[];
+  /**
+   * Filtros usados na captura dos registros
+   */
+  filter: OrderManagementFilter;
+  /**
+   * Referencia o método responsável por atualizar a URL
+   */
+  refreshURLState: null | (() => void);
 }
 
 export interface OrderManagementListMethods {
   /**
    * Captura os pedidos que serão exibidos na lista
    */
-  getOrders: (page: number = 1) => Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>>;
-  /**
-   * Aplica um filtro
-   */
-  applyFilter: (name: OrderStatusKeys | OrderPrepareStatusKeys) => void;
+  getOrders: () => Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>>;
   /**
    * Captura um filtro específico pelo nome do token
    */
@@ -47,7 +59,15 @@ export interface OrderManagementListMethods {
   /**
    * Captura os registro de outra página
    */
+  refresh: (shouldUpdatedURL: boolean = true) => Promise<void>;
+  /**
+   * Método responsável por alterar a página que está sendo visualizada
+   */
   handlePaginate: (page: number) => Promise<void>;
+  /**
+   * Método responsável por alterar o filtro de preparação/entrega
+   */
+  handleStatus: (status: Nullable<AvailableFilterStatus>) => Promise<void>;
 }
 
 export interface OrderManagementListComputedDefinition {
@@ -64,10 +84,6 @@ export interface OrderManagementListComputedDefinition {
    */
   getAppliableFilters: () => OrderFilter[];
   /**
-   * Retorna os status dos pedidos que foram devolvidos pela API
-   */
-  getAvailableStatus: () => (OrderStatusKeys | OrderPrepareStatusKeys | OrderPrepareNotStarted)[];
-  /**
    * Indica se a paginação possui página anterior
    */
   hasPrevPage: () => boolean;
@@ -83,6 +99,10 @@ export interface OrderManagementListComputedDefinition {
    * Indica se uma rota para a primeira página deve ser exibida
    */
   hasFirstPage: () => boolean;
+  /**
+   * Retorna os parâmetros responsáveis pelo filtro como query parameters
+   */
+  getFilteringQueryParams: () => string;
 }
 
 export type OrderManagementListComputed = ComputedReturnValues<OrderManagementListComputedDefinition>
@@ -148,7 +168,7 @@ export interface OrderFilter {
   /**
    * Token do filtro (usado para comparação com os status de pedido)
    */
-  name: OrderStatusKeys | OrderPrepareStatusKeys | OrderPrepareNotStarted;
+  name: AvailableFilterStatus;
 }
 
 export type RenderableOrderFilter = OrderFilter & {

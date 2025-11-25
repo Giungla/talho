@@ -1441,6 +1441,10 @@ export interface IPaginateSchema <T> {
    * Indica quantas páginas existem
    */
   pageTotal: number;
+  /**
+   * Total de itens que retornam com as condições/filtros aplicados
+   */
+  itemsTotal: number;
 }
 
 
