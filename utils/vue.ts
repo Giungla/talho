@@ -23,7 +23,7 @@ export const cleanupDirective = (el: HTMLInputElement) => {
 
 export function buildMaskDirective (...mappers: ((value: string) => string)[]) {
   return {
-    mounted (el: HTMLInputElement, binding: DirectiveBinding<string, string, keyof HTMLElementEventMap>) {
+    mounted(el: HTMLInputElement, binding: DirectiveBinding<string, string, keyof HTMLElementEventMap>) {
       const eventType = binding.arg ?? 'input'
 
       const remover = attachEvent(el, eventType, (event: Event) => {

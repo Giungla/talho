@@ -5,11 +5,12 @@ export function timestampDays (days: number): number {
   return SECONDS_IN_A_DAY * 1000 * days
 }
 
-export function formatDate (date: string): string {
+export function formatDate (date: string, options: Intl.DateTimeFormatOptions = {}): string {
   return new Date(date).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
+    ...options,
   })
 }
 

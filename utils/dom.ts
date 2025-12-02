@@ -164,7 +164,7 @@ export function safeParseJson <T = unknown> (value: string | null | undefined): 
 }
 
 export function numberOnly (value: string): string {
-  return value.replace(/\D+/g, '')
+  return value.replace(/\D+/g, EMPTY_STRING)
 }
 
 export function objectSize <T extends string | any[]> (value: T): number {

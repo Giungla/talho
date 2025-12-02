@@ -142,3 +142,11 @@ export {
   clearTrackingCookies,
   getMetaTrackingCookies,
 } from './adTracking'
+
+export {
+  bindURL,
+  getParam,
+  setParam,
+  decodeState,
+  encodeState,
+} from './url-stateful'

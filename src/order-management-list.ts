@@ -3,6 +3,8 @@ import {
   type Nullable,
   type IPaginateSchema,
   type ResponsePattern,
+  type ResponsePatternCallback,
+  type FunctionSucceededPattern,
 } from '../global'
 
 import {
@@ -31,20 +33,67 @@ const {
 
 import {
   NULL_VALUE,
-  BRLFormatter,
+  isNull,
+  attachEvent,
+  querySelector,
+  scrollIntoView,
+  objectSize,
+} from '../utils/dom'
+
+import {
   XANO_BASE_URL,
+} from '../utils/consts'
+
+import {
+  BRLFormatter,
+} from '../utils/mask'
+
+import {
   pushIf,
-  isStrictEquals,
+  includes,
+} from '../utils/array'
+
+import {
+  formatDate,
   timestampDate,
+} from '../utils/dates'
+
+import {
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  includes,
-  scrollIntoView,
-  querySelector,
+} from '../utils/requestResponse'
+
+import {
   bindURL,
-  isNull,
-} from '../utils'
+} from '../utils/url-stateful'
+
+import {
+  eventMap,
+  cleanupDirective,
+} from '../utils/vue'
+
+import {
+  type Directive,
+} from 'vue'
+
+function isInvalidDate (date: Nullable<string>): date is null {
+  return !date || objectSize(date) === 0
+}
+
+function clearDateGetter (date: Nullable<string>): Nullable<string> {
+  return isInvalidDate(date)
+    ? NULL_VALUE
+    : formatDate(date, {
+        timeZone: 'UTC',
+      })
+}
+
+function handleDateSetter (date: Nullable<string>): Nullable<string> {
+  return isInvalidDate(date)
+    ? NULL_VALUE
+    : date
+}
 
 const OrderManagementApp = createApp({
   name: 'OrderManagementApp',
@@ -66,7 +115,6 @@ const OrderManagementApp = createApp({
 
   data () {
     return {
-      startDate: NULL_VALUE,
       orders: NULL_VALUE,
       availableFilters: [
         {
@@ -98,12 +146,14 @@ const OrderManagementApp = createApp({
       filter: {
         page: 1,
         status: NULL_VALUE,
+        endDate: NULL_VALUE,
+        startDate: NULL_VALUE,
       },
     }
   },
 
   methods: {
-    async getOrders (): Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>> {
+    async getOrders <T extends IPaginateSchema<OrderManagementItem>> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Houve uma falha com a busca de pedidos'
 
       try {
@@ -117,16 +167,16 @@ const OrderManagementApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const orders: IPaginateSchema<OrderManagementItem> = await response.json()
+        const orders: T = await response.json()
 
-        return postSuccessResponse.call(response, orders)
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, orders)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
     },
 
     getFilterByToken (token: OrderStatusKeys | OrderPrepareStatusKeys): RenderableOrderFilter | undefined {
-      return this.getAppliableFilters.find(({ name }) => isStrictEquals(name, token)) as RenderableOrderFilter | undefined
+      return this.getAppliableFilters.find(({ name }) => name === token) as RenderableOrderFilter | undefined
     },
 
     async refresh (shouldUpdateURL: boolean = true): Promise<void> {
@@ -207,11 +257,11 @@ const OrderManagementApp = createApp({
     },
 
     hasPrevPage (): boolean {
-      return this.orders?.prevPage !== NULL_VALUE
+      return !isNull(this.orders?.prevPage)
     },
 
     hasNextPage (): boolean {
-      return this.orders?.nextPage !== NULL_VALUE
+      return !isNull(this.orders?.nextPage)
     },
 
     hasLastPage (): boolean {
@@ -242,10 +292,81 @@ const OrderManagementApp = createApp({
           case 'status':
             pushIf(!isNull(value), queryParams, [key, value].join('='))
             break
+          case 'endDate':
+            pushIf(!isInvalidDate(value), queryParams, ['final_date', value].join('='))
+            break
+          case 'startDate':
+            pushIf(!isInvalidDate(value), queryParams, ['start_date', value].join('='))
         }
       }
 
       return '?' +  queryParams.join('&')
+    },
+
+    endDate: {
+      get (): Nullable<string> {
+        return clearDateGetter(this.filter.endDate)
+      },
+
+      set (date: Nullable<string>): void {
+        this.filter.endDate = handleDateSetter(date)
+
+        if (!this.hasReversedDates) {
+          this.handlePaginate(1)
+
+          return
+        }
+
+        this.filter.endDate = NULL_VALUE
+      },
+    },
+
+    startDate: {
+      get (): Nullable<string> {
+        return clearDateGetter(this.filter.startDate)
+      },
+
+      set (date: Nullable<string>): void {
+        this.filter.startDate = handleDateSetter(date)
+
+        if (!this.hasReversedDates) {
+          this.handlePaginate(1)
+
+          return
+        }
+
+        this.filter.startDate = NULL_VALUE
+      },
+    },
+
+    hasReversedDates (): boolean {
+      const {
+        endDate,
+        startDate,
+      } = this.filter
+
+      if (isInvalidDate(endDate) || isInvalidDate(startDate)) return false
+
+      const finalDate = new Date(`${endDate}T23:59:59`)
+      const initialDate = new Date(`${startDate}T00:00:00`)
+
+      return initialDate.getTime() > finalDate.getTime()
+    },
+  },
+
+  directives: {
+    showPickerOnFocus: {
+      mounted (el: HTMLInputElement) {
+        const removerFn = attachEvent(el, 'focus', () => {
+          try {
+            el.showPicker()
+          } catch (e) {}
+        })
+
+        eventMap.set(el, removerFn)
+      },
+
+      unmounted: cleanupDirective,
     },
   },
 } satisfies {
@@ -254,11 +375,12 @@ const OrderManagementApp = createApp({
   data: () => OrderManagementListData;
   methods: OrderManagementListMethods;
   computed: OrderManagementListComputedDefinition;
+  directives: Record<string, Directive>,
 } & ThisType<OrderManagementListContext>)
 
 const orderManagementList = querySelector('#order-management-list')
 
-OrderManagementApp.mount(orderManagementList)
+OrderManagementApp.mount(orderManagementList as Element)
 
 window.addEventListener('pageshow', (e: PageTransitionEvent) => {
   if (e.persisted) window.location.reload()

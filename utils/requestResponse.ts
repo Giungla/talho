@@ -75,6 +75,17 @@ export function handleSession (response?: Response): void {
 }
 
 export function postErrorResponse (
+  message: string,
+  skipRedirectIfUnauthenticated?: boolean,
+  callback?: ResponsePatternCallback,
+): FunctionErrorPattern;
+export function postErrorResponse (
+  this: Response,
+  message: string,
+  skipRedirectIfUnauthenticated?: boolean,
+  callback?: ResponsePatternCallback,
+): FunctionErrorPattern;
+export function postErrorResponse (
   this: Response | undefined,
   message: string,
   skipRedirectIfUnauthenticated: boolean = false,
@@ -94,7 +105,16 @@ export function postErrorResponse (
   }
 }
 
-export function postSuccessResponse <T> (
+export function postSuccessResponse <T extends unknown> (
+  response: T,
+  callback?: ResponsePatternCallback,
+): FunctionSucceededPattern<T>;
+export function postSuccessResponse <T extends unknown> (
+  this: Response,
+  response: T,
+  callback?: ResponsePatternCallback,
+): FunctionSucceededPattern<T>;
+export function postSuccessResponse <T extends unknown> (
   this: Response | undefined,
   response: T,
   callback?: ResponsePatternCallback,

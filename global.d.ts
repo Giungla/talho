@@ -1472,7 +1472,7 @@ export interface INewsletterSuccessfulResponse {
   message: string;
 }
 
-export interface FunctionSucceededPattern <T = null> {
+export interface FunctionSucceededPattern <T extends unknown> {
   data: T;
   succeeded: true;
 }

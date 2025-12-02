@@ -11,6 +11,10 @@ import {
   type OrderPrepareStatusKeys,
 } from './order'
 
+import {
+  type WritableComputedOptions,
+} from 'vue'
+
 export type AvailableFilterStatus = OrderPrepareStatusKeys | Extract<OrderStatusKeys, 'COMPLETED'>;
 
 export interface OrderManagementFilter {
@@ -22,13 +26,17 @@ export interface OrderManagementFilter {
    * Indica qual o status de preparação/entrega selecionado para visualização
    */
   status: Nullable<AvailableFilterStatus>;
-}
-
-export interface OrderManagementListData {
+  /**
+   * Data final usada no filtro
+   */
+  endDate: Nullable<string>;
   /**
    * Data inicial usada no filtro
    */
-  startDate: Nullable<string>,
+  startDate: Nullable<string>;
+}
+
+export interface OrderManagementListData {
   /**
    * Lista de pedidos recebidos da API
    */
@@ -103,6 +111,18 @@ export interface OrderManagementListComputedDefinition {
    * Retorna os parâmetros responsáveis pelo filtro como query parameters
    */
   getFilteringQueryParams: () => string;
+  /**
+   * Permite escrita e leitura (formatada) da data final
+   */
+  endDate: WritableComputedOptions<Nullable<string>>;
+  /**
+   * Permite escrita e leitura (formatada) da data inicial
+   */
+  startDate: WritableComputedOptions<Nullable<string>>;
+  /**
+   * Informa se a ordem fornecida para as datas está incorreta
+   */
+  hasReversedDates: () => boolean;
 }
 
 export type OrderManagementListComputed = ComputedReturnValues<OrderManagementListComputedDefinition>
