@@ -15,7 +15,7 @@ import {
   type WritableComputedOptions,
 } from 'vue'
 
-export type AvailableFilterStatus = OrderPrepareStatusKeys | Extract<OrderStatusKeys, 'COMPLETED'>;
+export type AvailableFilterStatus = OrderPrepareStatusKeys | Extract<OrderStatusKeys, 'COMPLETED' | 'CANCELED'>;
 
 export interface OrderManagementFilter {
   /**

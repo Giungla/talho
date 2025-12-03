@@ -140,6 +140,11 @@ const OrderManagementApp = createApp({
         {
           label: 'Pedido entregue',
           name: OrderStatus.COMPLETED,
+        },
+
+        {
+          label: 'Cancelado',
+          name: OrderStatus.CANCELED,
         }
       ],
       refreshURLState: NULL_VALUE,
@@ -229,7 +234,7 @@ const OrderManagementApp = createApp({
 
       // @ts-ignore
       return this.orders?.items.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
-        const filterStatus = status === OrderStatus.COMPLETED
+        const filterStatus = includes([OrderStatus.COMPLETED, OrderStatus.CANCELED], status as string)
           ? status
           : prepare_status
 
