@@ -1,6 +1,5 @@
 
 import {
-  type HttpMethod,
   type ICookieOptions,
   type FunctionErrorPattern,
   type ResponsePatternCallback,
@@ -27,6 +26,11 @@ import {
 import {
   SLASH_STRING,
 } from './consts'
+
+import {
+  EnumHttpMethods,
+  type HttpMethods,
+} from '../types/http'
 
 export const UNAUTHENTICATED_RESPONSE_STATUS = 401
 
@@ -129,7 +133,7 @@ export function postSuccessResponse <T extends unknown> (
   }
 }
 
-export function buildRequestOptions (headers: [string, string][] = [], method: HttpMethod = GET): Pick<RequestInit, 'method' | 'headers'> {
+export function buildRequestOptions (headers: [string, string][] = [], method: HttpMethods = EnumHttpMethods.GET): Pick<RequestInit, 'method' | 'headers'> {
   const applicationJson = 'application/json'
 
   const _headers = new Headers({

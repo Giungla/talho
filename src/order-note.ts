@@ -11,17 +11,25 @@ import {
   type FinalCOrder,
   type PixDiscount,
   type PatchPrepareStatusParams,
+  type AvailableFilterChangeOptions,
+  type PatchPreparedStatusResponse,
 } from '../types/order-note'
 
 import {
   type Nullable,
   type ResponsePattern,
+  type ResponsePatternCallback,
+  type FunctionSucceededPattern,
 } from '../global'
 
 import {
-  type OrderStatusKeys,
-  type OrderPrepareStatusKeys, OrderPrepareStatus, OrderStatus,
+  OrderStatus,
+  OrderPrepareStatus,
 } from '../types/order'
+
+import {
+  type AvailableFilterStatus,
+} from '../types/order-management-list'
 
 const {
   createApp,
@@ -29,13 +37,29 @@ const {
 
 import {
   NULL_VALUE,
-  XANO_BASE_URL,
+  isNull,
   stringify,
   objectSize,
+} from '../utils/dom'
+
+import {
+  XANO_BASE_URL,
+} from '../utils/consts'
+
+import {
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-} from '../utils'
+} from '../utils/requestResponse'
+
+import {
+  EnumHttpMethods,
+} from '../types/http'
+
+import {
+  push,
+  pushIf,
+} from '../utils/array'
 
 const ORDER_IDENTIFIER = 'transactionid'
 
@@ -49,14 +73,34 @@ const paymentLabelMap = {
 
 const XANO_ORDER_NOTE_BASE_PATH = `${XANO_BASE_URL}/api:YomXpzWs`
 
+function buildAvailableFilterOption (filterKey: AvailableFilterStatus): AvailableFilterChangeOptions {
+  return {
+    filterKey,
+    label: stateLabels[filterKey],
+  }
+}
+
+const stateLabels: Record<AvailableFilterStatus, string> = ({
+  [OrderPrepareStatus.NOTSTARTED]: 'Não iniciado',
+  [OrderPrepareStatus.PREPARING]: 'Pedido em preparação',
+  [OrderPrepareStatus.PREPARED]: 'Pedido preparado',
+  [OrderPrepareStatus.DELIVERYREADY]: 'Pedido pronto para entrega',
+  [OrderStatus.CANCELED]: 'Pedido cancelado',
+  [OrderStatus.COMPLETED]: 'Pedido entregue',
+}) as const
+
 const TalhoCheckoutApp = createApp({
   name: 'TalhoOrderNoteApp',
 
   data (): OrderNoteData {
     return {
       order: NULL_VALUE,
-      prepare_status: NULL_VALUE,
+      messageTimer: NULL_VALUE,
       prepareMessage: NULL_VALUE,
+      prepare_status: {
+        selected: OrderPrepareStatus.NOTSTARTED,
+        current: NULL_VALUE,
+      },
     }
   },
 
@@ -78,16 +122,17 @@ const TalhoCheckoutApp = createApp({
     }
 
     this.order = response.data
-    this.prepare_status = response.data.order.prepare_status
+
+    this.syncOrderStatuses()
   },
 
   methods: {
-    async getOrder (transactionid: string): Promise<ResponsePattern<Order>> {
+    async getOrder <T extends Order> (transactionid: string): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Não foi possível encontrar o pedido'
 
       try {
         const response = await fetch(`${XANO_ORDER_NOTE_BASE_PATH}/order/delivery-prepare?${ORDER_IDENTIFIER}=${transactionid}`, {
-          ...buildRequestOptions()
+          ...buildRequestOptions(),
         })
 
         if (!response.ok) {
@@ -96,34 +141,65 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const order: Order = await response.json()
+        const order: T = await response.json()
 
-        return postSuccessResponse.call(response, order)
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, order)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
     },
 
     async handleOrderStatus (): Promise<void> {
+      if (this.messageTimer) {
+        this.clearMessage()
+      }
+
       const order = this.order
 
-      const { prepare_status } = this
+      const { prepare_status: localPrepareStatus } = this
 
-      if (!order || !prepare_status) return
+      if (!order || !localPrepareStatus) return
 
-      const response = await this.setOrderStatus(order.order.number, prepare_status)
+      const response = await this.setOrderStatus(order.order.number, localPrepareStatus.selected)
 
-      this.prepareMessage = response.succeeded
-        ? 'Modificado com sucesso'
-        : response.message
+      if (!response.succeeded) {
+        this.prepare_status.current  = this.finalOrderStatus
+        this.prepare_status.selected = this.finalOrderStatus
+
+        this.prepareMessage = response.message
+
+        this.messageTimer = setTimeout(this.clearMessage, 5000)
+
+        return
+      }
+
+      const {
+        status,
+        prepare_status,
+      } = response.data
+
+      this.order = {
+        ...order,
+        order: {
+          ...order.order,
+          status,
+          prepare_status,
+        },
+      }
+
+      this.prepare_status.current = this.finalOrderStatus
+
+      this.prepareMessage = 'Modificado com sucesso'
+
+      this.messageTimer = setTimeout(this.clearMessage, 5000)
     },
 
-    async setOrderStatus (order_id: number, prepare_status: OrderPrepareStatusKeys | OrderStatusKeys): Promise<ResponsePattern<PatchPrepareStatusParams>> {
+    async setOrderStatus <T extends PatchPreparedStatusResponse> (order_id: number, prepare_status: AvailableFilterStatus): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Não foi possível alterar o status de preparação'
 
       try {
         const response = await fetch(`${XANO_ORDER_NOTE_BASE_PATH}/order/delivery-status`, {
-          ...buildRequestOptions([], 'PATCH'),
+          ...buildRequestOptions([], EnumHttpMethods.PATCH),
           body: stringify<PatchPrepareStatusParams>({
             order_id,
             prepare_status,
@@ -136,9 +212,9 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const order: PatchPrepareStatusParams = await response.json()
+        const order: T = await response.json()
 
-        return postSuccessResponse.call(response, order)
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, order)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -147,20 +223,42 @@ const TalhoCheckoutApp = createApp({
     printPage (): void {
       window.print()
     },
+
+    clearMessage (): void {
+      if (!isNull(this.messageTimer)) {
+        clearTimeout(this.messageTimer)
+
+        this.messageTimer = NULL_VALUE
+      }
+
+      this.prepareMessage = NULL_VALUE
+    },
+
+    syncOrderStatuses (): void {
+      this.prepare_status.selected = this.finalOrderStatus
+      this.prepare_status.current  = this.finalOrderStatus
+    },
   },
 
   computed: {
     finalOrderStatus: {
-      get () {
-        if (this.order?.order?.status === OrderStatus.COMPLETED) {
-          return OrderStatus.COMPLETED
-        }
+      get (): AvailableFilterStatus {
+        const order = this.order?.order ?? NULL_VALUE
 
-        return this.prepare_status
+        if (isNull(order)) return OrderPrepareStatus.NOTSTARTED
+
+        const {
+          status,
+          prepare_status,
+        } = order
+
+        return isNull(status)
+          ? prepare_status
+          : status
       },
 
-      set (prepare_status: OrderPrepareStatusKeys | OrderStatusKeys): void {
-        this.prepare_status = prepare_status
+      set (prepare_status: AvailableFilterStatus): void {
+        this.prepare_status.selected = prepare_status
       }
     },
 
@@ -259,6 +357,43 @@ const TalhoCheckoutApp = createApp({
 
     deliveredAt (): Nullable<string> {
       return this.order?.order.delivered_at ?? NULL_VALUE
+    },
+
+    getAvailableFilterChangeOptions (): AvailableFilterChangeOptions[] {
+      const order = this.order
+
+      if (!order) return []
+
+      const {
+        status,
+        prepare_status,
+      } = order.order
+
+      const options: AvailableFilterStatus[] = [
+        // O item abaixo será adicionado condicionalmente à lista
+        // OrderPrepareStatus.NOTSTARTED
+        OrderPrepareStatus.PREPARING,
+        OrderPrepareStatus.PREPARED,
+        OrderPrepareStatus.DELIVERYREADY,
+        OrderStatus.COMPLETED,
+        OrderStatus.CANCELED,
+      ]
+
+      const response: AvailableFilterChangeOptions[] = []
+
+      // Inclui condicionalmente a opção "Não iniciado" na lista de forma que o pedido possa ser resetado uma vez que for cancelado ou quando o pedido ainda não tiver sido iniciado
+      pushIf(
+        (!isNull(status) && status === OrderStatus.CANCELED) || prepare_status === OrderPrepareStatus.NOTSTARTED,
+        response,
+        buildAvailableFilterOption(OrderPrepareStatus.NOTSTARTED)
+      )
+
+      // Inclui as opções "Pedido em preparação", "Pedido preparado", "Pedido pronto para entrega", "Entregue" e "Cancelado" por padrão
+      for (const option of options) {
+        push(response, buildAvailableFilterOption(option))
+      }
+
+      return response
     },
   },
 

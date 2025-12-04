@@ -56,14 +56,6 @@ export interface ILoginUser {
   password: string;
 }
 
-export type HttpMethod =
-  | 'GET'
-  | 'HEAD'
-  | 'POST'
-  | 'PUT'
-  | 'PATCH'
-  | 'DELETE';
-
 export interface ILoginUserPayload {
   /**
    * Token de autenticação gerado pelo backend da aplicação

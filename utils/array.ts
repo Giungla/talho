@@ -5,6 +5,10 @@ export function pushIf <T extends any> (condition: any, list: T[], value: T) {
   return list.push(value)
 }
 
+export function push <T extends any> (list: T[], value: T): number {
+  return pushIf(true, list, value)
+}
+
 export function includes <T> (
   source: T[] | string,
   search: T extends string ? string : T

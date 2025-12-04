@@ -14,6 +14,10 @@ import {
   type WritableComputedOptions,
 } from 'vue'
 
+import {
+  type AvailableFilterStatus,
+} from './order-management-list'
+
 export interface OrderCompany {
   name: string;
   website: string;
@@ -56,7 +60,7 @@ export interface OrderDetails {
   /**
    * Status de entrega do pedido
    */
-  status: Nullable<OrderStatusKeys>;
+  status: Nullable<Exclude<AvailableFilterStatus, OrderPrepareStatusKeys>>;
 }
 
 export type OrderPayment = (
@@ -99,21 +103,49 @@ export interface Order {
   items: OrderItem[];
 }
 
+export interface AvailableFilterChangeOptions {
+  label: string;
+  filterKey: AvailableFilterStatus;
+}
+
+export interface OrderPrepareStatusChangeable {
+  /**
+   * Valor que foi configurado pelo usuário ou recebido da API
+   */
+  selected: AvailableFilterStatus;
+  /**
+   * Valor do status real do pedido
+   */
+  current: Nullable<AvailableFilterStatus>;
+}
+
 export interface OrderNoteData {
   order: Nullable<Order>;
+  /**
+   * Registra o timer da mensagem presente na tela, `null` se não houverem mensagens
+   */
+  messageTimer: Nullable<NodeJS.Timeout>;
   prepareMessage: Nullable<string>;
-  prepare_status: Nullable<OrderPrepareStatusKeys | OrderStatusKeys>;
+  prepare_status: OrderPrepareStatusChangeable;
 }
 
 export interface OrderNoteMethods {
   getOrder: (transactionid: string) => Promise<ResponsePattern<Order>>;
   handleOrderStatus: () => Promise<void>;
-  setOrderStatus: (order_id: number, status: OrderPrepareStatusKeys | OrderStatusKeys) => Promise<ResponsePattern<PatchPrepareStatusParams>>;
+  setOrderStatus: (order_id: number, status: AvailableFilterStatus) => Promise<ResponsePattern<PatchPrepareStatuszResponse>>;
   printPage: () => void;
+  /**
+   * Responsável pela limpeza da mensagem e do timer atrelado a ela
+   */
+  clearMessage: () => void;
+  /**
+   * Sincroniza o estado recebido do backend com as variáveis locais em casos de updates e/ou falhas nas requisições
+   */
+  syncOrderStatuses: () => void;
 }
 
 export interface OrderNoteComputedDefinition {
-  finalOrderStatus: WritableComputedOptions<OrderPrepareStatusKeys | OrderStatusKeys>;
+  finalOrderStatus: WritableComputedOptions<AvailableFilterStatus>;
   company: () => Nullable<OrderCompany>;
   customer: () => Nullable<OrderCustomer>;
   items: () => Nullable<OrderItem[]>;
@@ -125,6 +157,7 @@ export interface OrderNoteComputedDefinition {
   pixDiscount: () => Nullable<PixDiscount>;
   hasPaid: () => boolean;
   deliveredAt: () => Nullable<string>;
+  getAvailableFilterChangeOptions: () => AvailableFilterChangeOptions[];
 }
 
 export type OrderNoteComputed = ComputedReturnValues<OrderNoteComputedDefinition>;
@@ -133,5 +166,16 @@ export type OrderNoteContext = OrderNoteData & OrderNoteMethods & OrderNoteCompu
 
 export interface PatchPrepareStatusParams {
   order_id: number;
-  prepare_status: OrderPrepareStatus;
+  prepare_status: AvailableFilterStatus;
+}
+
+export interface PatchPreparedStatusResponse extends PatchPrepareStatusParams{
+  /**
+   * Status de entrega atualizado do item
+   */
+  status: OrderStatusKeys;
+  /**
+   * Status de preparo atualizado do item
+   */
+  prepare_status: OrderPrepareStatusKeys;
 }
