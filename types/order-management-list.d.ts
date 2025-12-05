@@ -3,7 +3,7 @@ import {
   type Nullable,
   type ResponsePattern,
   type ComputedReturnValues,
-  type IPaginateSchema,
+  type IPaginateSchema, IPaginatedSchemaAddon,
 } from '../global'
 
 import {
@@ -40,7 +40,7 @@ export interface OrderManagementListData {
   /**
    * Lista de pedidos recebidos da API
    */
-  orders: Nullable<IPaginateSchema<OrderManagementItem>>;
+  orders: Nullable<IPaginatedSchemaAddon<OrderManagementItem, OrderManagementDateLimitObject>>;
   /**
    * Lista de filtros disponíveis para os pedidos
    */
@@ -59,7 +59,7 @@ export interface OrderManagementListMethods {
   /**
    * Captura os pedidos que serão exibidos na lista
    */
-  getOrders: () => Promise<ResponsePattern<IPaginateSchema<OrderManagementItem>>>;
+  getOrders: () => Promise<ResponsePattern<IPaginatedSchemaAddon<OrderManagementItem, OrderManagementDateLimitObject>>>;
   /**
    * Captura um filtro específico pelo nome do token
    */
@@ -76,6 +76,14 @@ export interface OrderManagementListMethods {
    * Método responsável por alterar o filtro de preparação/entrega
    */
   handleStatus: (status: Nullable<AvailableFilterStatus>) => Promise<void>;
+  /**
+   * Reseta as datas do filtro para o mínimo e máximo disponível
+   */
+  resetFilterDates: () => void;
+  /**
+   * Permite resetar as datas usadas no filtro
+   */
+  handleResetDates: () => void;
 }
 
 export interface OrderManagementListComputedDefinition {
@@ -123,6 +131,10 @@ export interface OrderManagementListComputedDefinition {
    * Informa se a ordem fornecida para as datas está incorreta
    */
   hasReversedDates: () => boolean;
+  /**
+   * Retorna os limites de busca
+   */
+  getLimits: () => OrderManagementDateLimits<Nullable<string>>;
 }
 
 export type OrderManagementListComputed = ComputedReturnValues<OrderManagementListComputedDefinition>
@@ -196,4 +208,19 @@ export type RenderableOrderFilter = OrderFilter & {
    * Nome da classe gerada com base no token do filtro
    */
   className: string;
+}
+
+export interface OrderManagementDateLimits <T> {
+  /**
+   * Timestamp do pedido mais antigo da base
+   */
+  oldest: T;
+  /**
+   * Timestamp do pedido mais recente da base
+   */
+  newest: T;
+}
+
+export interface OrderManagementDateLimitObject {
+  dateLimits: OrderManagementDateLimits<number>;
 }

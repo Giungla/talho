@@ -14,13 +14,14 @@ export function formatDate (date: string, options: Intl.DateTimeFormatOptions = 
   })
 }
 
-export function timestampDate (timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString('pt-BR', {
+export function timestampDate (timestamp: number, options: Intl.DateTimeFormatOptions = {}, localeArgument: Intl.LocalesArgument = 'pt-BR'): string {
+  return new Date(timestamp).toLocaleDateString(localeArgument, {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    ...options,
   })
 }

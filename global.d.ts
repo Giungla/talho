@@ -1439,6 +1439,8 @@ export interface IPaginateSchema <T> {
   itemsTotal: number;
 }
 
+export type IPaginatedSchemaAddon <T, I> = IPaginateSchema<T> & I;
+
 
 
 

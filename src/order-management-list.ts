@@ -4,7 +4,7 @@ import {
   type IPaginateSchema,
   type ResponsePattern,
   type ResponsePatternCallback,
-  type FunctionSucceededPattern,
+  type FunctionSucceededPattern, IPaginatedSchemaAddon,
 } from '../global'
 
 import {
@@ -16,7 +16,7 @@ import {
   type RenderableOrderFilter,
   type OrderManagementListComputedDefinition,
   type OrderManagementFilter,
-  type AvailableFilterStatus,
+  type AvailableFilterStatus, OrderManagementDateLimitObject, OrderManagementDateLimits,
 } from '../types/order-management-list'
 
 import {
@@ -37,10 +37,13 @@ import {
   attachEvent,
   querySelector,
   scrollIntoView,
-  objectSize,
+  objectSize, splitText,
 } from '../utils/dom'
 
 import {
+  DASH_STRING,
+  EMPTY_STRING,
+  SLASH_STRING,
   XANO_BASE_URL,
 } from '../utils/consts'
 
@@ -84,9 +87,7 @@ function isInvalidDate (date: Nullable<string>): date is null {
 function clearDateGetter (date: Nullable<string>): Nullable<string> {
   return isInvalidDate(date)
     ? NULL_VALUE
-    : formatDate(date, {
-        timeZone: 'UTC',
-      })
+    : formatDate(date, dateTimeFormatOptions)
 }
 
 function handleDateSetter (date: Nullable<string>): Nullable<string> {
@@ -95,22 +96,29 @@ function handleDateSetter (date: Nullable<string>): Nullable<string> {
     : date
 }
 
+const dateTimeFormatOptions: Intl.DateTimeFormatOptions = {
+  timeZone: 'UTC',
+}
+
+function getSpecificLimitDate (timestamp: number): Nullable<string> {
+  const timeDifference = 60 * 60 * 3 * 1000
+
+  const date = new Date(timestamp - timeDifference).toISOString()
+
+  return splitText(date, 'T').at(0) ?? NULL_VALUE
+}
+
 const OrderManagementApp = createApp({
   name: 'OrderManagementApp',
 
   async created (): Promise<void> {
-    // const response = await this.getOrders()
-    //
-    // if (!response.succeeded) return
-    //
-    // this.orders = response.data
     this.refreshURLState = bindURL<OrderManagementFilter>(
       'filter',
       () => this.filter,
       (filter: OrderManagementFilter) => this.filter = filter,
     )
 
-    this.refresh(false)
+    this.refresh(false).then(this.resetFilterDates)
   },
 
   data () {
@@ -143,7 +151,7 @@ const OrderManagementApp = createApp({
         },
 
         {
-          label: 'Cancelado',
+          label: 'Pedido em análise',
           name: OrderStatus.CANCELED,
         }
       ],
@@ -158,7 +166,7 @@ const OrderManagementApp = createApp({
   },
 
   methods: {
-    async getOrders <T extends IPaginateSchema<OrderManagementItem>> (): Promise<ResponsePattern<T>> {
+    async getOrders <T extends IPaginatedSchemaAddon<OrderManagementItem, OrderManagementDateLimitObject>> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Houve uma falha com a busca de pedidos'
 
       try {
@@ -215,6 +223,29 @@ const OrderManagementApp = createApp({
         page: 1,
         status,
       }
+
+      this.refresh()
+    },
+
+    resetFilterDates (): void {
+      const {
+        newest,
+        oldest,
+      } = this.getLimits
+
+      this.filter.startDate ??= oldest
+      this.filter.endDate   ??= newest
+    },
+
+    handleResetDates (): void {
+      this.filter = {
+        ...this.filter,
+        page: 1,
+        endDate: NULL_VALUE,
+        startDate: NULL_VALUE,
+      }
+
+      this.resetFilterDates()
 
       this.refresh()
     },
@@ -316,13 +347,19 @@ const OrderManagementApp = createApp({
       set (date: Nullable<string>): void {
         this.filter.endDate = handleDateSetter(date)
 
+        const { endDate } = this.filter
+
+        if (isNull(endDate)) {
+          this.filter.endDate = this.getLimits.newest
+        }
+
         if (!this.hasReversedDates) {
           this.handlePaginate(1)
 
           return
         }
 
-        this.filter.endDate = NULL_VALUE
+        this.filter.startDate = this.getLimits.oldest
       },
     },
 
@@ -334,13 +371,19 @@ const OrderManagementApp = createApp({
       set (date: Nullable<string>): void {
         this.filter.startDate = handleDateSetter(date)
 
+        const { startDate } = this.filter
+
+        if (isNull(startDate)) {
+          this.filter.startDate = this.getLimits.oldest
+        }
+
         if (!this.hasReversedDates) {
           this.handlePaginate(1)
 
           return
         }
 
-        this.filter.startDate = NULL_VALUE
+        this.filter.endDate = this.getLimits.newest
       },
     },
 
@@ -356,6 +399,27 @@ const OrderManagementApp = createApp({
       const initialDate = new Date(`${startDate}T00:00:00`)
 
       return initialDate.getTime() > finalDate.getTime()
+    },
+
+    getLimits (): OrderManagementDateLimits<Nullable<string>> {
+      const orders = this.orders
+
+      if (isNull(orders)) {
+        return {
+          oldest: NULL_VALUE,
+          newest: NULL_VALUE,
+        }
+      }
+
+      const {
+        oldest,
+        newest,
+      } = orders.dateLimits
+
+      return {
+        oldest: getSpecificLimitDate(oldest),
+        newest: getSpecificLimitDate(newest),
+      }
     },
   },
 
