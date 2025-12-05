@@ -85,7 +85,7 @@ const stateLabels: Record<AvailableFilterStatus, string> = ({
   [OrderPrepareStatus.PREPARING]: 'Pedido em preparação',
   [OrderPrepareStatus.PREPARED]: 'Pedido preparado',
   [OrderPrepareStatus.DELIVERYREADY]: 'Pedido pronto para entrega',
-  [OrderStatus.CANCELED]: 'Pedido cancelado',
+  [OrderStatus.CANCELED]: 'Pedido em análise',
   [OrderStatus.COMPLETED]: 'Pedido entregue',
 }) as const
 
@@ -235,8 +235,12 @@ const TalhoCheckoutApp = createApp({
     },
 
     syncOrderStatuses (): void {
-      this.prepare_status.selected = this.finalOrderStatus
-      this.prepare_status.current  = this.finalOrderStatus
+      const finalOrderStatus = this.finalOrderStatus
+
+      this.prepare_status = {
+        current: finalOrderStatus,
+        selected: finalOrderStatus,
+      }
     },
   },
 
