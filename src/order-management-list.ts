@@ -1,10 +1,10 @@
 
 import {
   type Nullable,
-  type IPaginateSchema,
   type ResponsePattern,
   type ResponsePatternCallback,
-  type FunctionSucceededPattern, IPaginatedSchemaAddon,
+  type FunctionSucceededPattern,
+  type IPaginatedSchemaAddon,
 } from '../global'
 
 import {
@@ -16,7 +16,9 @@ import {
   type RenderableOrderFilter,
   type OrderManagementListComputedDefinition,
   type OrderManagementFilter,
-  type AvailableFilterStatus, OrderManagementDateLimitObject, OrderManagementDateLimits,
+  type AvailableFilterStatus,
+  type OrderManagementDateLimitObject,
+  type OrderManagementDateLimits,
 } from '../types/order-management-list'
 
 import {
@@ -37,7 +39,8 @@ import {
   attachEvent,
   querySelector,
   scrollIntoView,
-  objectSize, splitText,
+  objectSize,
+  splitText,
 } from '../utils/dom'
 
 import {
@@ -165,7 +168,7 @@ const OrderManagementApp = createApp({
     }
   },
 
-  methods: {
+  methods: ({
     async getOrders <T extends IPaginatedSchemaAddon<OrderManagementItem, OrderManagementDateLimitObject>> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Houve uma falha com a busca de pedidos'
 
@@ -249,7 +252,7 @@ const OrderManagementApp = createApp({
 
       this.refresh()
     },
-  },
+  } satisfies OrderManagementListMethods & ThisType<OrderManagementListContext>),
 
   computed: {
     hasOrders (): boolean {
@@ -278,7 +281,11 @@ const OrderManagementApp = createApp({
           ...(filterStatus && {
             delivery_status: this.getFilterByToken(filterStatus),
           }),
-        }
+          delivery_date: splitText(order.date, '-')
+            .reverse()
+            .join(SLASH_STRING)
+            .concat(` às ${order.hour}hrs`),
+        } satisfies OrderManagementItemParsed
       })
     },
 

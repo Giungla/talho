@@ -190,6 +190,7 @@ export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'cr
   items_count: number;
   created_date: string;
   delivery_status?: OrderFilter;
+  delivery_date: string;
 }
 
 export interface OrderFilter {
