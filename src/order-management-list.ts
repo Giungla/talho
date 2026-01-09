@@ -18,7 +18,7 @@ import {
   type OrderManagementFilter,
   type AvailableFilterStatus,
   type OrderManagementDateLimitObject,
-  type OrderManagementDateLimits,
+  type OrderManagementDateLimits, OrderFilter,
 } from '../types/order-management-list'
 
 import {
@@ -44,8 +44,6 @@ import {
 } from '../utils/dom'
 
 import {
-  DASH_STRING,
-  EMPTY_STRING,
   SLASH_STRING,
   XANO_BASE_URL,
 } from '../utils/consts'
@@ -121,7 +119,14 @@ const OrderManagementApp = createApp({
       (filter: OrderManagementFilter) => this.filter = filter,
     )
 
-    this.refresh(false).then(this.resetFilterDates)
+    this.refresh(false)
+      .then(this.resetFilterDates)
+      .then(() => {
+        // reset dates each 30min and refetch orders
+        setTimeout(() => {
+          location.href = location.hostname + location.pathname
+        }, 30 * 60 * 1000)
+      })
   },
 
   data () {
@@ -192,7 +197,7 @@ const OrderManagementApp = createApp({
     },
 
     getFilterByToken (token: OrderStatusKeys | OrderPrepareStatusKeys): RenderableOrderFilter | undefined {
-      return this.getAppliableFilters.find(({ name }) => name === token) as RenderableOrderFilter | undefined
+      return this.getAppliableFilters.find<RenderableOrderFilter>((filter: OrderFilter) => filter.name === token)
     },
 
     async refresh (shouldUpdateURL: boolean = true): Promise<void> {
