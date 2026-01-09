@@ -124,7 +124,7 @@ const OrderManagementApp = createApp({
       .then(() => {
         // reset dates each 30min and refetch orders
         setTimeout(() => {
-          location.href = location.hostname + location.pathname
+          location.href = location.protocol.concat('//', location.hostname, location.pathname)
         }, 30 * 60 * 1000)
       })
   },
