@@ -36,7 +36,7 @@ import {
   type CreditCardPostAdditional,
   type PaymentResponseMap,
   type UserPartialCheckout,
-  type UserAddressCheckout,
+  type UserAddressCheckout, ResponsePatternCallback,
 } from '../global'
 
 import {
@@ -67,13 +67,17 @@ const {
 } = Vue
 
 import {
+  XANO_BASE_URL,
+  SUBSIDY_MIN_CART_PRICE,
+  FREE_SHIPPING_MIN_CART_PRICE,
+} from '../utils/consts'
+
+import {
   eventMap,
   BLUR_EVENT,
   NULL_VALUE,
   SLASH_STRING,
   EMPTY_STRING,
-  XANO_BASE_URL,
-  FREE_SHIPPING_MIN_CART_PRICE,
   BRLFormatter,
   statesMap,
   statesAcronym,
@@ -116,6 +120,10 @@ import {
   CEP_REGEX_VALIDATION,
   replaceDuplicatedSpaces,
 } from '../utils'
+
+import {
+  EnumHttpMethods,
+} from '../types/http'
 
 const ERROR_KEY = 'error'
 
@@ -239,7 +247,7 @@ async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Pro
 
   try {
     const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}/checkout`, {
-      ...buildRequestOptions([], 'POST'),
+      ...buildRequestOptions([], EnumHttpMethods.POST),
       body: stringify<Pick<SearchAddressCheckout, 'deliveryMode'>>({
         deliveryMode,
       })
@@ -464,7 +472,7 @@ const TalhoCheckoutApp = createApp({
 
   created (): void {
     Promise.allSettled([
-      this.getLoggedInUser().then(response => {
+      this.getLoggedInUser().then((response: ResponsePattern<UserPartialCheckout>) => {
         if (!response.succeeded) return
 
         this.user = response.data
@@ -515,12 +523,12 @@ const TalhoCheckoutApp = createApp({
       }
     },
 
-    async getLoggedInUser (): Promise<ResponsePattern<UserPartialCheckout>> {
+    async getLoggedInUser <T extends ResponsePattern<UserPartialCheckout>> (): Promise<T> {
       const defaultErrorMessage = 'Falha na captura do usuário'
 
       try {
         const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/checkout`, {
-          ...buildRequestOptions([]),
+          ...buildRequestOptions(),
         })
 
         if (!response.ok) {
@@ -531,7 +539,7 @@ const TalhoCheckoutApp = createApp({
 
         const user: UserPartialCheckout = await response.json()
 
-        return postSuccessResponse.call(response, user)
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback], FunctionSucceededPattern<T>>(response, user)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -542,7 +550,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${CART_BASE_URL}/cart/get`, {
-          ...buildRequestOptions([]),
+          ...buildRequestOptions(),
         })
 
         if (!response.ok) {
@@ -583,7 +591,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${PAYMENT_BASE_URL}/calculatefees`, {
-          ...buildRequestOptions([], 'POST'),
+          ...buildRequestOptions([], EnumHttpMethods.POST),
           body: stringify<GetInstallmentsBody>({
             amount: this.getOrderPrice,
             cardBin: this.customerCreditCardNumber
@@ -707,7 +715,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${PAYMENT_BASE_URL}/payment/process/${paymentType}`, {
-          ...buildRequestOptions([], 'POST'),
+          ...buildRequestOptions([], EnumHttpMethods.POST),
           body: stringify({
             ...this.getOrderBaseData,
             customer: {
@@ -836,7 +844,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${PAYMENT_BASE_URL}/get_coupon`, {
-          ...buildRequestOptions([], 'POST'),
+          ...buildRequestOptions([], EnumHttpMethods.POST),
           body: stringify<GetCouponRequestBody>({
             verify_amount: true,
             coupon_code: this.couponCode,
@@ -919,7 +927,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${DELIVERY_BASE_URL}/delivery`, {
-          ...buildRequestOptions([]),
+          ...buildRequestOptions(),
         })
 
         if (!response.ok) {
@@ -977,7 +985,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${XANO_BASE_URL}/api:i6etHc7G/site/checkout-delivery`, {
-          ...buildRequestOptions([], 'POST'),
+          ...buildRequestOptions([], EnumHttpMethods.POST),
           signal: controller.signal,
           body: stringify<Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>>(this.quotationPayload as (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>)),
         })
@@ -1013,7 +1021,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${DELIVERY_BASE_URL}/delivery/${cep}/subsidy`, {
-          ...buildRequestOptions([]),
+          ...buildRequestOptions(),
         })
 
         if (!response.ok) {
@@ -1035,7 +1043,7 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${XANO_BASE_URL}/api:EuHZTAGr/abandonment/post`, {
-          ...buildRequestOptions([], 'POST'),
+          ...buildRequestOptions([], EnumHttpMethods.POST),
           keepalive: true,
           priority: 'high',
           body: stringify<CartAbandonmentParams>(payload),
@@ -1078,10 +1086,11 @@ const TalhoCheckoutApp = createApp({
         this.getOrderSubtotal,
         this.getShippingPrice,
         this.priorityFee,
-        this.subsidyDiscountPrice,
+        // this.subsidyDiscountPrice,
         this.getCouponDiscountPrice,
       ]
 
+      pushIf(this.hasSubsidy, finalPrice, this.subsidyDiscountPrice)
       pushIf(this.hasPIXDiscount, finalPrice, this.PIXDiscountPrice)
 
       return decimalRound(
@@ -1693,7 +1702,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     hasSubsidy (): boolean {
-      return this.subsidy?.has === true && this.getShippingPrice > 0
+      return this.subsidy?.has === true && this.getShippingPrice > 0 && this.getOrderSubtotal >= SUBSIDY_MIN_CART_PRICE && !this.hasFreeShippingByCartPrice
     },
 
     subsidyDiscountPrice (): number {
