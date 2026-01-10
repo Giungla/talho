@@ -473,6 +473,10 @@ export interface TalhoCheckoutAppData {
    */
   selectedInstallment: Nullable<number>;
   /**
+   * Mensagem de erro customizada para a seção de parcelamento
+   */
+  installmentMessage: Nullable<string>;
+  /**
    * Verifica se existe uma busca de cupom ainda pendente
    */
   isCouponPending: boolean;

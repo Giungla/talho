@@ -144,7 +144,7 @@ const CEP_MESSAGES: Record<string, string> = {
   [ERROR_CODE_BAD_REQUEST]: 'Não realizamos entregas na sua região.',
 }
 
-const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key')
+const PAGSEGURO_PUBLIC_KEY = document.currentScript?.getAttribute('data-public-key') ?? 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxPIKWT6ettkFKqSyfoUpH/550Q8YQtRf7ZYJJbV3U7/4HBtamJT9If4wiLs2YlEfwTPWlB5Cl0jGmkBSQkjIDF+QTOSJviZYKgiuR7Bnavgt+idkcZsd5hM1I6u1uwOJJE3wSSXg+Nw70GZCeg7A6bmq9tOu1827En/ZFKWBXqv9Upc7q/Y6N0XMzZ3CL1j6ZlhnCalQzzaV9whijxK22lIL78gLEUcnmEO7CUX6DyfcdlA13MM4X538k2eYUosdnKafCEDNVcT+PPUeUdJZ0CpBWA9c/XtO0BIbTXHTsDuDlX0r7BF0vMFJMi0D9lkFCavY/kjZEQYhnXMtrWlUWwIDAQAB'
 
 if (!PAGSEGURO_PUBLIC_KEY) {
   console.warn('[Checkout] public key must be provided as a parameter to this file')
@@ -450,6 +450,7 @@ const TalhoCheckoutApp = createApp({
       ],
       installment: NULL_VALUE,
       selectedInstallment: NULL_VALUE,
+      installmentMessage: NULL_VALUE,
       isCouponPending: false,
       coupon: NULL_VALUE,
       isPagSeguroLoaded: false,
@@ -467,7 +468,7 @@ const TalhoCheckoutApp = createApp({
 
       selectedBillingAddressId: NULL_VALUE,
       selectedShippingAddressId: NULL_VALUE,
-    }
+    } satisfies TalhoCheckoutAppData
   },
 
   created (): void {
@@ -617,12 +618,17 @@ const TalhoCheckoutApp = createApp({
     async refreshInstallments (): Promise<void> {
       if (!this.isCreditCard || !this.isCreditCardGroupValid || this.getCreditCardToken.hasErrors) return
 
-      this.installment = NULL_VALUE
+      this.installment         = NULL_VALUE
       this.selectedInstallment = NULL_VALUE
+      this.installmentMessage  = NULL_VALUE
 
       const response = await this.getInstallments()
 
-      if (!response.succeeded) return
+      if (!response.succeeded) {
+        this.installmentMessage = response.message
+
+        return
+      }
 
       this.installment = response.data
     },
@@ -679,8 +685,12 @@ const TalhoCheckoutApp = createApp({
       if (firstInvalidField) {
         scrollIntoView(firstInvalidField.field, SCROLL_INTO_VIEW_DEFAULT_ARGS)
 
-        if (firstInvalidField.field.tagName === 'INPUT') {
-          setTimeout(() => firstInvalidField.field.focus(), 500)
+        try {
+          if (firstInvalidField.field.tagName === 'INPUT') {
+            setTimeout(() => firstInvalidField.field.focus(), 500)
+          }
+        } catch (e) {
+          console.log(firstInvalidField)
         }
 
         return
@@ -1095,7 +1105,7 @@ const TalhoCheckoutApp = createApp({
 
       return decimalRound(
         finalPrice.reduce((accPrice, price) => accPrice + price, 0),
-        2
+        2,
       )
     },
 
@@ -1561,7 +1571,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     showInstallmentSection (): boolean {
-      return this.isCreditCard && objectSize(this.installment ?? []) > 0
+      return this.isCreditCard && (objectSize(this.installment ?? []) > 0 || !isNull(this.installmentMessage))
     },
 
     getParsedInstallments (): InstallmentItem<BRLString>[] {
