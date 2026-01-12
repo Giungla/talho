@@ -1,8 +1,10 @@
 
-import Vue, {
+import {
   type Ref,
   type WatchOptions,
   type WatchCallback,
+  type DefineComponent,
+  type ObjectDirective,
 } from 'vue'
 
 export type { OnCleanup } from '@vue/reactivity'
@@ -377,13 +379,6 @@ export interface IGetCreditCardTokenResponse {
   encryptedCard: string | undefined;
 }
 
-export interface IAPIRootDetails {
-  user_id: number | null;
-  coupon_code: null | string;
-  items: IParsedProducts[];
-  shippingMethod: null | ICorreiosDeliveryCode;
-}
-
 export type ICouponType =
   | 'subtotal'
   | 'shipping'
@@ -423,7 +418,7 @@ export interface UserPartialCheckout {
   address_list: UserAddressCheckout[];
 }
 
-export interface TalhoCheckoutAppData {
+export type TalhoCheckoutAppData = {
   /**
    * Armazena os dados do usuário, caso esteja logado no site
    */
@@ -1082,6 +1077,10 @@ export interface TalhoCheckoutAppComputedDefinition {
    * Retorna a lista de endereços salvos por este usuário
    */
   userAddresses: () => UserAddressCheckout[];
+  /**
+   * Indica se a seção "Valor do frete" será exibida em tela
+   */
+  showDeliveryPrice: () => boolean;
 }
 
 export type TalhoCheckoutAppComputed = ComputedReturnValues<TalhoCheckoutAppComputedDefinition>;
@@ -1097,6 +1096,17 @@ export interface TalhoCheckoutAppWatch {
 }
 
 export type TalhoCheckoutContext = TalhoCheckoutAppData & TalhoCheckoutAppSetup & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;
+
+export interface TalhoCheckoutVueApp {
+  name: string;
+  created: () => void;
+  data: () => TalhoCheckoutAppData;
+  setup: () => TalhoCheckoutAppSetup;
+  methods: TalhoCheckoutAppMethods;
+  computed: TalhoCheckoutAppComputedDefinition;
+  watch: TalhoCheckoutAppWatch;
+  directives: Record<string, ObjectDirective>;
+}
 
 export type BRLString = `R$ ${string}`;
 
@@ -1163,7 +1173,7 @@ export interface PagSeguroCardEncrypt {
 
 declare global {
   interface Window {
-    Vue: Vue;
+    Vue: typeof import('vue');
     PagSeguro: PagSeguro;
   }
 }
@@ -1362,33 +1372,6 @@ export type CouponDefinition = ISingleOrderCoupon | ISingleOrderCouponError
 
 
 
-export interface IOrderDetailsResponse {
-  id: number;
-  email: string;
-  transaction_id: string;
-  shipping_method: ICorreiosDeliveryCode;
-  shipping_total: number;
-  payment_method: ISinglePaymentKey;
-  installment_count: number;
-  installment_price: number;
-  order_status:
-    | '0'
-    | '1'
-    | '2'
-    | '3';
-  pago: boolean;
-  total: number;
-  barcode?: string;
-  boletourl?: string;
-  qrcode?: string;
-  qrcode_text?: string;
-  order_items: IOrderDetailsProduct[];
-  billing_address: IOrderDetailsAddress;
-  shipping_address: IOrderDetailsAddress;
-  discount_code?: string;
-  discount?: number;
-  coupon?: ISingleOrderCoupon;
-}
 
 export type IOrderAddressType =
   | 'shipping'
@@ -1805,3 +1788,5 @@ export interface FloatingCartStateHandler {
 }
 
 export type GroupFloatingCartState = FloatingCartState & FloatingCartStateHandler;
+
+export {}

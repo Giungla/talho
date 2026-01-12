@@ -1780,6 +1780,10 @@ const TalhoCheckoutApp = createApp({
         complete: `${address}, ${number} ${cep}`
       }))
     },
+
+    showDeliveryPrice (): boolean {
+      return !isNull(this.deliveryPrice) || this.hasFreeShippingByCartPrice
+    },
   },
 
   watch: {
