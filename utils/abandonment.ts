@@ -1,6 +1,6 @@
 
 import {
-  type CartAbandonmentResponse,
+  CartAbandonmentResponse,
 } from '../types/abandonment'
 
 import {
