@@ -6,14 +6,20 @@ import {
 
 import {
   EMPTY_STRING,
-  BRLFormatter,
-  toUpperCase,
+} from '../utils/consts'
+
+import {
   splitText,
-  maskPhoneNumber,
-  maskCPFNumber,
+} from '../utils/dom'
+
+import {
+  BRLFormatter,
   maskCEP,
   maskDate,
-} from '../utils'
+  toUpperCase,
+  maskCPFNumber,
+  maskPhoneNumber,
+} from '../utils/mask'
 
 describe('[toUpperCase]', () => {
   it('validação do método de transformação de string para caixa alta', () => {

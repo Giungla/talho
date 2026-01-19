@@ -15,6 +15,10 @@ import {
   splitCookie,
 } from '../utils/cookie'
 
+import {
+  EMPTY_STRING,
+} from '../utils/consts'
+
 describe('[getCookie]', () => {
   let originalCookieDescriptor: PropertyDescriptor | undefined;
 
@@ -25,7 +29,7 @@ describe('[getCookie]', () => {
 
     // resetar cookies entre os testes
     Object.defineProperty(document, 'cookie', {
-      value: '',
+      value: EMPTY_STRING,
       writable: true,
       configurable: true,
     })

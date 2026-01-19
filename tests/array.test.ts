@@ -11,7 +11,8 @@ import {
   includes,
   isEquals,
   isStrictEquals,
-} from '../utils'
+} from '../utils/array'
+import {EMPTY_STRING} from "../utils/consts";
 
 describe('[pushIf]', () => {
   it('retorna -1 e não altera a lista quando a condição for falsy', () => {
@@ -69,7 +70,7 @@ describe('[pushIf]', () => {
   })
 
   it('retorna -1 quando condition for 0 (falsy)', () => {
-    const list = []
+    const list: any[] = []
 
     const result = pushIf(0, list, 'x')
 
@@ -120,12 +121,15 @@ describe('[includes]', () => {
   })
 
   it('funciona com string vazia', () => {
-    const result = includes('', '')
+    const result = includes(EMPTY_STRING, EMPTY_STRING)
     expect(result).toBe(true)
   })
 
   it('funciona com array vazio', () => {
-    const result = includes([], 'any')
+    const list: any[] = []
+
+    const result = includes(list, 'any')
+
     expect(result).toBe(false)
   })
 

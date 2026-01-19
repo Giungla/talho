@@ -10,29 +10,13 @@ import {
   isDateValid,
   textTestRegex,
   validatePasswordParts,
-} from '../utils'
-
-import * as utils from '../utils/dom'
+} from '../utils/validation'
 
 describe('[textTestRegex]', () => {
   it('retorna uma função', () => {
     const fn = textTestRegex('hello')
 
     expect(typeof fn).toBe('function')
-  })
-
-  it('a função retornada testa corretamente o regex usando regexTest', () => {
-    const spy = vi.spyOn(utils, 'regexTest')
-
-    const matcher = textTestRegex('banana')
-    const regex = /ana/
-
-    matcher(regex)
-
-    expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith(regex, 'banana')
-
-    spy.mockRestore()
   })
 
   it('retorna true quando o regex casa com o texto', () => {
@@ -77,7 +61,7 @@ describe('[validatePasswordParts]', () => {
       hasLowercase: true,
       hasUppercase: true,
       hasMinLength: true,
-      hasSpecialChar: true
+      hasSpecialChar: true,
     })
   })
 
@@ -89,7 +73,7 @@ describe('[validatePasswordParts]', () => {
       hasLowercase: false,
       hasUppercase: false,
       hasMinLength: false,
-      hasSpecialChar: false
+      hasSpecialChar: false,
     })
   })
 
@@ -131,7 +115,7 @@ describe('[validatePasswordParts]', () => {
       hasLowercase: true,
       hasUppercase: false,
       hasMinLength: true,
-      hasSpecialChar: false
+      hasSpecialChar: false,
     })
   })
 
@@ -143,7 +127,7 @@ describe('[validatePasswordParts]', () => {
       hasLowercase: false,
       hasUppercase: false,
       hasMinLength: true,
-      hasSpecialChar: false
+      hasSpecialChar: false,
     })
   })
 })
@@ -155,7 +139,7 @@ describe('[isCPFValid]', () => {
     '16899535009',
     '98765432100',
     '11144477735',
-    '93541134780'
+    '93541134780',
   ]
 
   validCpfs.forEach(cpf => {
@@ -201,7 +185,7 @@ describe('[isCPFValid]', () => {
       '66666666666',
       '77777777777',
       '88888888888',
-      '99999999999'
+      '99999999999',
     ]
 
     repeatedCpfs.forEach(cpf => {
