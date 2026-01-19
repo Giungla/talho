@@ -1,32 +1,66 @@
 
-import type {
-  UserStateProxy,
-  ICurrentUserData,
-  FunctionErrorPattern,
-  FunctionSucceededPattern,
+import {
+  type UserStateProxy,
+  type ICurrentUserData,
+  type FunctionErrorPattern,
+  type FunctionSucceededPattern,
+  type ResponsePattern,
+  type ResponsePatternCallback, Nullable,
 } from '../global'
 
 import {
+  EnumHttpMethods,
+} from '../types/http'
+
+import {
+  DASH_STRING,
+  EMPTY_STRING,
+  SLASH_STRING,
   XANO_BASE_URL,
+} from '../utils/consts'
+
+import {
   GENERAL_HIDDEN_CLASS,
+  trim,
   addClass,
-  toggleClass,
-  querySelector,
-  changeTextContent,
-  removeAttribute,
-  removeClass,
-  attachEvent,
   splitText,
   stringify,
-  buildRequestOptions,
-  postErrorResponse,
-  postSuccessResponse,
+  regexTest,
   numberOnly,
   objectSize,
-} from '../utils'
+  toggleClass,
+  removeClass,
+  attachEvent,
+  querySelector,
+  normalizeText,
+  removeAttribute,
+  changeTextContent,
+  CPF_REGEX_VALIDATION,
+  PHONE_REGEX_VALIDATION,
+  DATE_REGEX_VALIDATION, isNull, isUndefined,
+} from '../utils/dom'
+
+import {
+  postErrorResponse,
+  buildRequestOptions,
+  postSuccessResponse,
+} from '../utils/requestResponse'
+
+import {
+  isCPFValid,
+  isDateValid,
+} from '../utils/validation'
+
+import {
+  maskDate,
+  maskCPFNumber,
+  maskPhoneNumber,
+} from '../utils/mask'
 
 (function () {
   const ERROR_MESSAGE_CLASS = 'mensagemdeerro'
+
+  const USER_BASE_PATH = `${XANO_BASE_URL}/api:TJEuMepe`
 
   function camelToKebabCase (str: string): string {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
@@ -59,7 +93,7 @@ import {
   function renderSinglePersonalData (where: ReturnType<typeof querySelector>, value: string | null) {
     toggleClass(where, GENERAL_HIDDEN_CLASS, !value)
 
-    changeTextContent(where, value ?? '')
+    changeTextContent(where, value ?? EMPTY_STRING)
   }
 
   function syncState (state: Omit<ICurrentUserData, 'id'>) {
@@ -68,13 +102,13 @@ import {
     setupEditAction()
   }
 
-  const userState = new Proxy({
-    cpf: '',
-    name: '',
-    email: '',
-    birthday: '',
-    telephone: '',
-    isFormVisible: false
+  const userState = new Proxy<UserStateProxy>({
+    cpf: EMPTY_STRING,
+    name: EMPTY_STRING,
+    email: EMPTY_STRING,
+    birthday: EMPTY_STRING,
+    telephone: EMPTY_STRING,
+    isFormVisible: false,
   } as UserStateProxy, {
     get (target: UserStateProxy, key: string | symbol): any {
       const value = Reflect.get(target, key)
@@ -93,7 +127,7 @@ import {
       switch (key) {
         case 'name':
         case 'last_name':
-          renderSinglePersonalData(printName, receiver?.fullName ?? '')
+          renderSinglePersonalData(printName, receiver?.fullName ?? EMPTY_STRING)
 
           break
         case 'birthday':
@@ -164,7 +198,7 @@ import {
       validateNameField,
       validateLastNameField,
       validatePhoneField,
-      validateBirthdayField
+      validateBirthdayField,
     ]
 
     if (hasCPF) {
@@ -183,9 +217,9 @@ import {
       return
     }
 
-    const birthday = splitText(dateField?.value ?? '', '/')
+    const birthday = splitText(dateField?.value ?? EMPTY_STRING, SLASH_STRING)
       .reverse()
-      .join('-')
+      .join(DASH_STRING)
 
     const body: Omit<ICurrentUserData, 'id' | 'email' | 'points'> = {
       birthday,
@@ -232,7 +266,7 @@ import {
     { field: lastNameField, validator: validateLastNameField },
     { field: CPFField,      validator: validateCPFField      },
     { field: phoneField,    validator: validatePhoneField    },
-    { field: dateField,     validator: validateBirthdayField }
+    { field: dateField,     validator: validateBirthdayField },
   ]
 
   for (const { field, validator } of validators) {
@@ -243,23 +277,23 @@ import {
     attachEvent(field, 'input', () => applyWrapperError(field, true))
   }
 
-  if (phoneField) {
-    attachEvent(phoneField, 'input', () => {
-      phoneField.value = maskPhone(phoneField.value)
-    })
-  }
+  if (!phoneField) return
 
-  if (CPFField) {
-    attachEvent(CPFField, 'input', () => {
-      CPFField.value = maskCPF(CPFField.value)
-    })
-  }
+  attachEvent(phoneField, 'input', () => {
+    phoneField.value = maskPhoneNumber(numberOnly(phoneField.value))
+  })
 
-  if (dateField) {
-    attachEvent(dateField, 'input', () => {
-      dateField.value = maskDate(dateField.value)
-    })
-  }
+  if (!CPFField) return
+
+  attachEvent(CPFField, 'input', () => {
+    CPFField.value = maskCPFNumber(numberOnly(CPFField.value))
+  })
+
+  if (!dateField) return
+
+  attachEvent(dateField, 'input', () => {
+    dateField.value = maskDate(numberOnly(dateField.value))
+  })
 
   function setupEditAction () {
     if (!editButton) return
@@ -270,7 +304,7 @@ import {
       addClass(editButton, GENERAL_HIDDEN_CLASS)
     }, { once: true })
 
-    const _mapper = [
+    const _mapper: [Nullable<HTMLInputElement>, Nullable<string> | undefined][] = [
       [CPFField, userState.cpf],
       [nameField, userState.name],
       [dateField, userState.birthday],
@@ -280,6 +314,10 @@ import {
 
     for (const [field, value] of _mapper) {
       setStateToField(field as ReturnType<typeof querySelector<'input'>>, value as string | undefined)
+
+      if (field !== CPFField || isNull(field)) continue
+
+      toggleClass(field.closest('[data-wtf-wrapper]'), GENERAL_HIDDEN_CLASS, !isNull(value) && !isUndefined(value) && isCPFValid(value))
     }
 
     removeClass(editButton, GENERAL_HIDDEN_CLASS)
@@ -292,61 +330,8 @@ import {
     field.value = value ?? ''
   }
 
-  function normalizeText (text: string): string {
-    return text
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-  }
-
-  function maskPhone (value: string): string {
-    const { cleaned, size } = handleInitialMaskValues(value)
-
-    if (size === 0) return cleaned
-
-    if (size > 0 && size < 3) return cleaned.replace(/(\d{0,2})/, '($1')
-
-    if (size < 7) return cleaned.replace(/(\d{2})(\d{0,4})/, '($1) $2')
-
-    if (size <= 10) return cleaned.replace(/(\d{2})(\d{4})(\d{1,4})/, '($1) $2-$3')
-
-    return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
-  }
-
-  function maskCPF (value: string): string {
-    const { cleaned, size } = handleInitialMaskValues(value)
-
-    if (size < 4) return cleaned
-
-    if (size < 7) return cleaned.replace(/(\d{3})(\d{1,3})/, '$1.$2')
-
-    if (size <= 9) return cleaned.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3')
-
-    return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4')
-  }
-
-  function maskDate (value: string): string {
-    const { cleaned, size } = handleInitialMaskValues(value)
-
-    if (size < 3) return cleaned
-
-    if (size < 5) return cleaned.replace(/(\d{2})(\d{1,2})/, '$1/$2')
-
-    return cleaned.replace(/(\d{2})(\d{2})(\d{1,4})/, '$1/$2/$3')
-  }
-
-  function handleInitialMaskValues (value: string) {
-    const cleaned = numberOnly(value)
-
-    return {
-      cleaned,
-      size: objectSize(cleaned)
-    }
-  }
-
   function removeDuplicatedSpaces (value: string): string {
-    return value
-      .trim()
-      .replace(/\s+/g, ' ')
+    return trim(value).replace(/\s+/g, ' ')
   }
 
   function validatorResponse (datasetName: string) {
@@ -362,7 +347,7 @@ import {
   }
 
   function isNameValid (name: string): boolean {
-    return /^[a-zA-Z\s]+$/.test(name)
+    return regexTest(/^[a-zA-Z\s]+$/, name)
   }
 
   function validateNameField () {
@@ -398,7 +383,7 @@ import {
 
     if (!CPFField) return response(false)
 
-    const isFieldValid = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(CPFField.value) && validateCPF(CPFField.value)
+    const isFieldValid = regexTest(CPF_REGEX_VALIDATION, CPFField.value) && isCPFValid(CPFField.value)
 
     applyWrapperError(CPFField, isFieldValid)
 
@@ -410,7 +395,7 @@ import {
 
     if (!phoneField) return response(false)
 
-    const isFieldValid = /^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(phoneField.value)
+    const isFieldValid = regexTest(PHONE_REGEX_VALIDATION, phoneField.value)
 
     applyWrapperError(phoneField, isFieldValid)
 
@@ -424,56 +409,35 @@ import {
 
     const date = dateField.value
 
-    const hasPatternMatch = /^(\d{2})\/(\d{2})\/(19|20)(\d{2})$/g.test(date)
+    if (!isDateValid(date)) {
+      applyWrapperError(dateField, false)
 
-    const [day, month, year] = splitText(date, '/')
+      return response(false)
+    }
+
+    const hasPatternMatch = regexTest(DATE_REGEX_VALIDATION, date)
+
+    const [day, month, year] = splitText(date, SLASH_STRING)
 
     const getTimeFromDate = new Date(`${year}-${month}-${day}T00:00:00.000Z`).getTime()
 
-    const isValidDate = hasPatternMatch && !isNaN(getTimeFromDate) && Date.now() > getTimeFromDate
+    const isValidDate = hasPatternMatch && Date.now() > getTimeFromDate
 
     applyWrapperError(dateField, isValidDate)
 
     return response(isValidDate)
   }
 
-  function validateCPF (cpf: string): boolean {
-    cpf = numberOnly(cpf)
-
-    if (objectSize(cpf) !== 11 || /^(\d)\1{10}$/.test(cpf)) return false
-
-    let result = true
-
-    const validationIndexes = [9, 10]
-
-    validationIndexes.forEach(function(j){
-      let soma = 0, r: number
-
-      splitText(cpf, '')
-        .splice(0, j)
-        .forEach(function(e: string, i: number){
-          soma += parseInt(e) * ((j + 2) - (i + 1))
-        })
-
-      r = soma % 11
-
-      r = (r < 2)
-        ? 0
-        : 11 - r
-
-      if (r !== parseInt(cpf.substring(j, j + 1))) result = false
-    })
-
-    return result
-  }
-  
-  async function postPersonalData (payload: Omit<ICurrentUserData, 'id' | 'email' | 'points'>): Promise<FunctionSucceededPattern<Omit<ICurrentUserData, 'id'>> | FunctionErrorPattern> {
+  async function postPersonalData <
+    T extends Omit<ICurrentUserData, 'id'>,
+    K extends Omit<ICurrentUserData, 'id' | 'email' | 'points'>,
+  > (payload: K): Promise<ResponsePattern<T>> {
     const defaultErrorMessage = 'Houve uma falha ao salvar seus dados. Tente novamente mais tarde.'
 
     try {
-      const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/edit`, {
-        ...buildRequestOptions([], 'PUT'),
-        body: stringify<Omit<ICurrentUserData, 'id' | 'email' | 'points'>>(payload)
+      const response = await fetch(`${USER_BASE_PATH}/user/edit`, {
+        ...buildRequestOptions([], EnumHttpMethods.PUT),
+        body: stringify<K>(payload),
       })
   
       if (!response.ok) {
@@ -482,20 +446,20 @@ import {
         return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
       }
 
-      const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
+      const personalData: T = await response.json()
 
-      return postSuccessResponse.call(response, personalData)
+      return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }
   }
 
-  async function getCurrentUser (): Promise<FunctionSucceededPattern<Omit<ICurrentUserData, 'id'>> | FunctionErrorPattern> {
+  async function getCurrentUser <T extends Omit<ICurrentUserData, 'id'>> (): Promise<ResponsePattern<T>> {
     const defaultErrorMessage = 'Houve uma falha ao carregar seus dados. Tente novamente mais tarde.'
 
     try {
-      const response = await fetch(`${XANO_BASE_URL}/api:TJEuMepe/user/get`, {
-        ...buildRequestOptions()
+      const response = await fetch(`${USER_BASE_PATH}/user/get`, {
+        ...buildRequestOptions(),
       })
 
       if (!response.ok) {
@@ -504,9 +468,9 @@ import {
         return postErrorResponse.call(response, error?.message?? defaultErrorMessage)
       }
 
-      const personalData: Omit<ICurrentUserData, 'id'> = await response.json()
+      const personalData: T = await response.json()
 
-      return postSuccessResponse.call(response, personalData)
+      return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, personalData)
     } catch (error) {
       return postErrorResponse(defaultErrorMessage)
     }
