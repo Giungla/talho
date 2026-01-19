@@ -4,11 +4,17 @@ import {
 } from '../global'
 
 import {
-  SLASH_STRING,
-  EMPTY_STRING,
-  pushIf,
   objectSize,
-} from './index'
+} from './dom'
+
+import {
+  EMPTY_STRING,
+  SLASH_STRING,
+} from './consts'
+
+import {
+  pushIf,
+} from './array'
 
 export const BRLFormatter = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',

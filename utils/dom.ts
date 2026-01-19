@@ -14,7 +14,7 @@ import {
 
 import {
   EMPTY_STRING,
-} from './index'
+} from './consts'
 
 export const NULL_VALUE: null = null
 export const GENERAL_HIDDEN_CLASS = 'oculto'
@@ -154,7 +154,7 @@ export function trim (value: string): string {
 }
 
 export function safeParseJson <T = unknown> (value: string | null | undefined): T | null {
-  if (typeof value !== 'string') return null
+  if (typeof value !== 'string') return NULL_VALUE
 
   try {
     return JSON.parse(value) as T
@@ -233,4 +233,12 @@ export function splitText (value: string, separator: string | RegExp, limit?: nu
 
 export function isNull (v: any): v is null {
   return v === NULL_VALUE
+}
+
+export function isUndefined (v: any): v is undefined {
+  return v === undefined
+}
+
+export function isEmptyString (v: string): v is typeof EMPTY_STRING {
+  return objectSize(v) === 0
 }

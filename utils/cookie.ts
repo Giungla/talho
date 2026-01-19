@@ -6,10 +6,13 @@ import {
 
 import {
   pushIf,
+} from './array'
+
+import {
   splitText,
   objectSize,
   replaceDuplicatedSpaces,
-} from './index'
+} from './dom'
 
 export const COOKIE_SEPARATOR = '; '
 

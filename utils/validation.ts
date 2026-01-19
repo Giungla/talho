@@ -6,9 +6,13 @@ import {
 } from './dom'
 
 import {
-  EMPTY_STRING, isStrictEquals,
+  EMPTY_STRING,
   SLASH_STRING,
-} from './index'
+} from './consts'
+
+import {
+  isStrictEquals,
+} from './array'
 
 export const CPF_VERIFIERS_INDEXES = [10, 11]
 
