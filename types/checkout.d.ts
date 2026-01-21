@@ -10,19 +10,19 @@ export interface OrderResponse {
   paymentstatus: 1 | 2;
 }
 
-export interface CreditCardOrderResponse extends OrderResponse {
+export type CreditCardOrderResponse = OrderResponse & {
   recurring_card_id: Nullable<string>;
   transaction_charge_id: Nullable<string>;
 }
 
-export interface PIXOrderResponse extends OrderResponse {
+export type PIXOrderResponse = OrderResponse & {
   qrcode: string;
   qrcode_text: string;
 }
 
 export interface SearchAddressCheckout {
   cep: string;
-  deliveryMode?: boolean;
+  deliveryMode: boolean;
 }
 
 export interface CheckoutDeliveryRequestBody {

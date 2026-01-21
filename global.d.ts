@@ -49,6 +49,10 @@ export type ComputedReturnValues <T> = {
   [K in keyof T]: T[K] extends () => infer R ? R : never;
 };
 
+export type UnrefSetupContext <T> = {
+  [K in keyof T]: T[K] extends Ref<infer R> ? R : never;
+}
+
 export type Nullable <T> = null | T;
 
 export type Binary = '0' | '1';
@@ -153,13 +157,37 @@ export type IScrollIntoViewArgs =
 // user-area
 
 export interface ICurrentUserData {
+  /**
+   * ID do usuário na base de dados
+   */
   id: number;
+  /**
+   * Númeração de CPf do usuário
+   */
   cpf: string | null;
+  /**
+   * Primeiro nome do usuário
+   */
   name: string;
+  /**
+   * Sobrenome do usuário
+   */
   last_name?: string;
+  /**
+   * Endereço de e-mail do usuário
+   */
   email: string;
+  /**
+   * Data de aniversário do usuário
+   */
   birthday: string;
-  telephone: string;
+  /**
+   * Número de telefone do usuário
+   */
+  telephone: Nullable<string>;
+  /**
+   * Quantidade de pontos que o usuário possui no programa de pontos
+   */
   points: number;
 }
 
@@ -527,103 +555,103 @@ export interface TalhoCheckoutAppSetup {
   /**
    * Endereço de e-mail do cliente
    */
-  customerMail: string;
+  customerMail: Ref<string>;
   /**
    * Data de nascimento do cliente
    */
-  customerBirthdate: string;
+  customerBirthdate: Ref<string>;
   /**
    * CPF do cliente
    */
-  customerCPF: string;
+  customerCPF: Ref<string>;
   /**
    * Telefone do cliente
    */
-  customerPhone: string;
+  customerPhone:Ref <string>;
 
   /**
    * Código de segurança do cartão
    */
-  customerCreditCardCVV: string;
+  customerCreditCardCVV: Ref<string>;
   /**
    * Data de validade do cartão
    */
-  customerCreditCardDate: string;
+  customerCreditCardDate: Ref<string>;
   /**
    * Numeração do cartão de crédito do cliente
    */
-  customerCreditCardNumber: string;
+  customerCreditCardNumber: Ref<string>;
   /**
    * Nome impresso no cartão do cliente
    */
-  customerCreditCardHolder: string;
+  customerCreditCardHolder:Ref <string>;
 
   /**
    * CEP de cobrança do cliente
    */
-  billingCEP: string;
+  billingCEP: Ref<string>;
   /**
    * Endereço de cobrança do cliente
    */
-  billingAddress: string;
+  billingAddress: Ref<string>;
   /**
    * Número do endereço de cobrança
    */
-  billingNumber: string;
+  billingNumber: Ref<string>;
   /**
    * Complemento do endereço de cobrança
    */
-  billingComplement: string;
+  billingComplement: Ref<string>;
   /**
    * Bairro do endereço de cobrança
    */
-  billingNeighborhood: string;
+  billingNeighborhood: Ref<string>;
   /**
    * Cidade do endereço de cobrança
    */
-  billingCity: string;
+  billingCity: Ref<string>;
   /**
    * Estado do endereço de cobrança
    */
-  billingState: IStateAcronym;
+  billingState: Ref<string>;
 
   /**
    * Quem será o destinatário deste envio
    */
-  shippingRecipient: string;
+  shippingRecipient: Ref<string>;
   /**
    * CEP de entrega do cliente
    */
-  shippingCEP: string;
+  shippingCEP: Ref<string>;
   /**
    * Endereço de cobrança do cliente
    */
-  shippingAddress: string;
+  shippingAddress: Ref<string>;
   /**
    * Número do endereço de entrega
    */
-  shippingNumber: string;
+  shippingNumber: Ref<string>;
   /**
    * Complemento do endereço de entrega
    */
-  shippingComplement: string;
+  shippingComplement: Ref<string>;
   /**
    * Bairro do endereço de entrega
    */
-  shippingNeighborhood: string;
+  shippingNeighborhood: Ref<string>;
   /**
    * Cidade do endereço de entrega
    */
-  shippingCity: string;
+  shippingCity: Ref<string>;
   /**
    * Estado do endereço de entrega
    */
-  shippingState: IStateAcronym;
+  shippingState: Ref<string>;
 
   /**
    * Código de desconto informado pelo cliente
    */
-  couponCode: string;
+  couponCode: Ref<string>;
 
   customerCPFElement: Ref<HTMLInputElement | null>;
   customerMailElement: Ref<HTMLInputElement | null>;
@@ -670,16 +698,16 @@ export interface TalhoCheckoutAppSetup {
 
   couponCodeElement: Ref<HTMLInputElement | null>;
 
-  deliveryPlaceAddressErrorMessage: Nullable<string>;
+  deliveryPlaceAddressErrorMessage: Ref<Nullable<string>>;
 
-  deliveryBillingAddressErrorMessage: Nullable<string>;
+  deliveryBillingAddressErrorMessage: Ref<Nullable<string>>;
 
-  deliveryShippingAddressErrorMessage: Nullable<string>;
+  deliveryShippingAddressErrorMessage: Ref<Nullable<string>>;
 }
 
 export type PaymentResponseMap = {
-  pix: ResponsePattern<PIXOrderResponse>;
-  creditcard: ResponsePattern<CreditCardOrderResponse>;
+  pix: PIXOrderResponse;
+  creditcard: CreditCardOrderResponse;
 }
 
 export interface TalhoCheckoutAppMethods {
@@ -700,8 +728,8 @@ export interface TalhoCheckoutAppMethods {
   setVisitedField: (fieldName: string) => number;
   hasVisitRegistry: (fieldName: string) => boolean;
   handlePayment: (e: MouseEvent) => Promise<void>;
-  handlePostPayment (paymentType: 'pix'): Promise<PaymentResponseMap['pix']>;
-  handlePostPayment (paymentType: 'creditcard'): Promise<PaymentResponseMap['creditcard']>;
+  handlePostPayment <T extends ISinglePaymentKey> (paymentType: T): Promise<ResponsePattern<PaymentResponseMap[T]>>;
+  // handlePostPayment (paymentType: 'creditcard'): Promise<PaymentResponseMap['creditcard']>;
   //handleProcessPIX: () => Promise<ResponsePattern<PIXOrderResponse>>;
   //handleProcessCreditCard: () => Promise<ResponsePattern<CreditCardOrderResponse>>;
   triggerValidations: () => void;
@@ -756,6 +784,8 @@ export interface TalhoCheckoutAppMethods {
    */
   createAbandonmentCart: (payload: CartAbandonmentParams) => Promise<ResponsePattern<void>>;
 }
+
+export type QuotationPayloadReturns = false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>);
 
 export interface TalhoCheckoutAppComputedDefinition {
   /**
@@ -1040,7 +1070,7 @@ export interface TalhoCheckoutAppComputedDefinition {
   /**
    * Indica se os dados usados na geração da quotation são válidos
    */
-  quotationPayload: () => false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>);
+  quotationPayload: () => QuotationPayloadReturns;
 
   /**
    * Indica se o CEP usado no envio possui subsídio
@@ -1090,12 +1120,12 @@ export interface TalhoCheckoutAppWatch {
   shippingCEP: WatchCallback<TalhoCheckoutContext['shippingCEP'], TalhoCheckoutContext['shippingCEP']>;
   getOrderPrice: WatchOptions;
   getCreditCardToken: WatchCallback<TalhoCheckoutContext['getCreditCardToken'], TalhoCheckoutContext['getCreditCardToken']>;
-  quotationPayload: WatchCallback<false | CheckoutDeliveryRequestBody, false | CheckoutDeliveryRequestBody>;
+  quotationPayload: WatchCallback<QuotationPayloadReturns, QuotationPayloadReturns>;
   getParsedAddresses: WatchCallback<IParsedAddressContent, IParsedAddressContent>;
   user: WatchCallback<Nullable<UserPartialCheckout>, Nullable<UserPartialCheckout>>;
 }
 
-export type TalhoCheckoutContext = TalhoCheckoutAppData & TalhoCheckoutAppSetup & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;
+export type TalhoCheckoutContext = TalhoCheckoutAppData & UnrefSetupContext<TalhoCheckoutAppSetup> & TalhoCheckoutAppMethods & TalhoCheckoutAppComputed;
 
 export interface TalhoCheckoutVueApp {
   name: string;
@@ -1124,7 +1154,7 @@ export interface ParsedProductList {
   imageStyle: string;
 }
 
-export interface ISingleValidateCheckout <T = Ref<HTMLElement> | HTMLElement> {
+export interface ISingleValidateCheckout <T extends Nullable<HTMLElement> = Nullable<HTMLElement>> {
   /**
    * Referência ao campo
    */
@@ -1596,11 +1626,16 @@ export type ICartOfferPayload = Nullable<{
  * Personal User Data
  */
 
-type ICurrentUserDataOptional = Omit<ICurrentUserData, 'id'>
+type ICurrentUserDataOptional = Omit<ICurrentUserData, 'id'>;
 
 export interface UserStateProxy extends ICurrentUserDataOptional {
+  /**
+   * Indica se o formulário de edição está ou não visível
+   */
   isFormVisible: boolean;
 }
+
+export type UserStateProxyKeys = keyof UserStateProxy;
 
 export interface IGoogleAuthURLResponse {
   authUrl: string;

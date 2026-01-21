@@ -36,18 +36,19 @@ import {
   type CreditCardPostAdditional,
   type PaymentResponseMap,
   type UserPartialCheckout,
-  type UserAddressCheckout, ResponsePatternCallback,
+  type UserAddressCheckout,
+  type ResponsePatternCallback,
+  type FunctionErrorPattern,
+  type QuotationPayloadReturns,
 } from '../global'
 
 import {
-  type Ref,
   type ObjectDirective,
   type DirectiveBinding,
 } from 'vue'
 
 import {
   type SearchAddressCheckout,
-  type CheckoutDeliveryRequestBody,
   type CheckoutDeliveryPriceResponse,
   type CheckoutDeliveryOption,
   type ComputedDeliveryDates,
@@ -57,73 +58,105 @@ import {
 
 import {
   AbandonmentFields,
-  AbandonmentFieldsNames,
   type CartAbandonmentParams,
+  type AbandonmentFieldsNames,
 } from '../types/abandonment'
 
-const {
-  ref,
-  createApp,
-} = Vue
+const parseState = (acronym: string) => statesMap?.[acronym as IStateAcronym] ?? EMPTY_STRING
+
+const parseComplement = (complement: string) => trim(complement).replace(/-+/g, EMPTY_STRING) || 'N/A'
 
 import {
+  statesMap,
+  statesAcronym,
+  DASH_STRING,
+  SLASH_STRING,
+  EMPTY_STRING,
   XANO_BASE_URL,
+  STORAGE_KEY_NAME,
   SUBSIDY_MIN_CART_PRICE,
   FREE_SHIPPING_MIN_CART_PRICE,
 } from '../utils/consts'
 
 import {
-  eventMap,
-  BLUR_EVENT,
-  NULL_VALUE,
-  SLASH_STRING,
-  EMPTY_STRING,
-  BRLFormatter,
-  statesMap,
-  statesAcronym,
-  STORAGE_KEY_NAME,
   pushIf,
-  regexTest,
-  cleanupDirective,
-  buildMaskDirective,
-  maskDate,
-  maskCPFNumber,
-  maskPhoneNumber,
-  maskCEP,
-  buildURL,
-  isArray,
+  includes,
+} from '../utils/array'
+
+import {
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  isNull,
+} from '../utils/requestResponse'
+
+import {
   clamp,
-  isPageLoading,
-  stringify,
-  numberOnly,
   decimalRound,
-  normalizeText,
-  objectSize,
-  attachEvent,
-  toUpperCase,
-  includes,
+} from '../utils/math'
+
+import {
   isCPFValid,
   isDateValid,
-  splitText,
-  trim,
-  scrollIntoView,
+} from '../utils/validation'
+
+import {
+  eventMap,
+  cleanupDirective,
+  buildMaskDirective,
+} from '../utils/vue'
+
+import {
+  NULL_VALUE,
   SCROLL_INTO_VIEW_DEFAULT_ARGS,
-  EMAIL_REGEX_VALIDATION,
-  DATE_REGEX_VALIDATION,
+  CEP_REGEX_VALIDATION,
   CPF_REGEX_VALIDATION,
+  DATE_REGEX_VALIDATION,
+  EMAIL_REGEX_VALIDATION,
   PHONE_REGEX_VALIDATION,
   FULLNAME_REGEX_VALIDATION,
-  CEP_REGEX_VALIDATION,
+  trim,
+  isNull,
+  isArray,
+  buildURL,
+  regexTest,
+  splitText,
+  stringify,
+  numberOnly,
+  objectSize,
+  attachEvent,
+  isPageLoading,
+  normalizeText,
+  scrollIntoView,
   replaceDuplicatedSpaces,
-} from '../utils'
+} from '../utils/dom'
+
+import {
+  BLUR_EVENT,
+} from '../utils/events'
+
+import {
+  maskCEP,
+  maskDate,
+  toUpperCase,
+  BRLFormatter,
+  maskCPFNumber,
+  maskPhoneNumber,
+} from '../utils/mask'
 
 import {
   EnumHttpMethods,
 } from '../types/http'
+
+import {
+  getTrackingCookies,
+  clearTrackingCookies,
+  getMetaTrackingCookies,
+} from '../utils/adTracking'
+
+const {
+  ref,
+  createApp,
+} = Vue
 
 const ERROR_KEY = 'error'
 
@@ -227,18 +260,18 @@ function maskCardDate (value: string): string {
 }
 
 function buildFieldValidation (
-  field: Ref<HTMLElement> | HTMLElement,
+  field: Nullable<HTMLElement>,
   valid: boolean,
   ignoreIf?: boolean,
 ): ISingleValidateCheckout {
   return {
     field,
     valid,
-    ...(ignoreIf && ({ ignoreIf }))
+    ...(ignoreIf && ({ ignoreIf })),
   }
 }
 
-async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Promise<ResponsePattern<VIACEPFromXano>> {
+async function searchAddress <T extends VIACEPFromXano> ({ cep, deliveryMode }: SearchAddressCheckout): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Não foi possível encontrar o endereço'
 
   cep = numberOnly(cep)
@@ -248,9 +281,9 @@ async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Pro
   try {
     const response = await fetch(`${XANO_BASE_URL}/api:jyidAW68/cepaddress/${cep}/checkout`, {
       ...buildRequestOptions([], EnumHttpMethods.POST),
-      body: stringify<Pick<SearchAddressCheckout, 'deliveryMode'>>({
+      body: stringify<Omit<SearchAddressCheckout, 'cep'>>({
         deliveryMode,
-      })
+      }),
     })
 
     if (!response.ok) {
@@ -259,9 +292,9 @@ async function searchAddress ({ cep, deliveryMode }: SearchAddressCheckout): Pro
       return postErrorResponse.call(response, error?.code ?? defaultErrorMessage)
     }
 
-    const address: VIACEPFromXano = await response.json()
+    const address: T = await response.json()
 
-    return postSuccessResponse.call(response, address) as FunctionSucceededPattern<VIACEPFromXano>
+    return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, address)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -271,155 +304,83 @@ const TalhoCheckoutApp = createApp({
   name: 'TalhoCheckoutApp',
 
   setup () {
-    const customerCPF = ref<string>(EMPTY_STRING)
-    const customerMail = ref<string>(EMPTY_STRING)
-    const customerPhone = ref<string>(EMPTY_STRING)
-    const customerBirthdate = ref<string>(EMPTY_STRING)
+    return ({
+      customerCPF: ref<string>(EMPTY_STRING),
+      customerMail: ref<string>(EMPTY_STRING),
+      customerPhone: ref<string>(EMPTY_STRING),
+      customerBirthdate: ref<string>(EMPTY_STRING),
 
-    const customerCreditCardCVV = ref<string>(EMPTY_STRING)
-    const customerCreditCardDate = ref<string>(EMPTY_STRING)
-    const customerCreditCardNumber = ref<string>(EMPTY_STRING)
-    const customerCreditCardHolder = ref<string>(EMPTY_STRING)
+      customerCreditCardCVV: ref<string>(EMPTY_STRING),
+      customerCreditCardDate: ref<string>(EMPTY_STRING),
+      customerCreditCardNumber: ref<string>(EMPTY_STRING),
+      customerCreditCardHolder: ref<string>(EMPTY_STRING),
 
-    const billingCEP = ref<string>(EMPTY_STRING)
-    const billingAddress = ref<string>(EMPTY_STRING)
-    const billingNumber = ref<string>(EMPTY_STRING)
-    const billingComplement = ref<string>(EMPTY_STRING)
-    const billingNeighborhood = ref<string>(EMPTY_STRING)
-    const billingCity = ref<string>(EMPTY_STRING)
-    const billingState = ref<string>(EMPTY_STRING)
+      billingCEP: ref<string>(EMPTY_STRING),
+      billingAddress: ref<string>(EMPTY_STRING),
+      billingNumber: ref<string>(EMPTY_STRING),
+      billingComplement: ref<string>(EMPTY_STRING),
+      billingNeighborhood: ref<string>(EMPTY_STRING),
+      billingCity: ref<string>(EMPTY_STRING),
+      billingState: ref<string>(EMPTY_STRING),
 
-    const shippingRecipient = ref<string>(EMPTY_STRING)
-    const shippingCEP = ref<string>(EMPTY_STRING)
-    const shippingAddress = ref<string>(EMPTY_STRING)
-    const shippingNumber = ref<string>(EMPTY_STRING)
-    const shippingComplement = ref<string>(EMPTY_STRING)
-    const shippingNeighborhood = ref<string>(EMPTY_STRING)
-    const shippingCity = ref<string>(EMPTY_STRING)
-    const shippingState = ref<string>(EMPTY_STRING)
+      shippingRecipient: ref<string>(EMPTY_STRING),
+      shippingCEP: ref<string>(EMPTY_STRING),
+      shippingAddress: ref<string>(EMPTY_STRING),
+      shippingNumber: ref<string>(EMPTY_STRING),
+      shippingComplement: ref<string>(EMPTY_STRING),
+      shippingNeighborhood: ref<string>(EMPTY_STRING),
+      shippingCity: ref<string>(EMPTY_STRING),
+      shippingState: ref<string>(EMPTY_STRING),
 
-    const couponCode = ref<string>(EMPTY_STRING)
+      couponCode: ref<string>(EMPTY_STRING),
 
-    const customerMailElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const customerCPFElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const customerPhoneElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const customerBirthdateElement = ref<HTMLInputElement | null>(NULL_VALUE)
+      customerMailElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      customerCPFElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      customerPhoneElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      customerBirthdateElement: ref<HTMLInputElement | null>(NULL_VALUE),
 
-    const paymentMethodMessageElement = ref<HTMLInputElement | null>(NULL_VALUE)
+      paymentMethodMessageElement: ref<HTMLInputElement | null>(NULL_VALUE),
 
-    const customerCreditCardCVVElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const customerCreditCardDateElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const customerCreditCardNumberElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const customerCreditCardHolderElement = ref<HTMLInputElement | null>(NULL_VALUE)
+      customerCreditCardCVVElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      customerCreditCardDateElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      customerCreditCardNumberElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      customerCreditCardHolderElement: ref<HTMLInputElement | null>(NULL_VALUE),
 
-    const billingCEPElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const billingAddressElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const billingNumberElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const billingNeighborhoodElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const billingCityElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const billingStateElement = ref<HTMLInputElement | null>(NULL_VALUE)
+      billingCEPElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      billingAddressElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      billingNumberElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      billingNeighborhoodElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      billingCityElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      billingStateElement: ref<HTMLInputElement | null>(NULL_VALUE),
 
-    const deliveryPlaceMessageElement = ref<HTMLElement | null>(NULL_VALUE)
+      deliveryPlaceMessageElement: ref<HTMLElement | null>(NULL_VALUE),
 
-    const shippingRecipientElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const shippingCEPElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const shippingAddressElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const shippingNumberElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const shippingNeighborhoodElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const shippingCityElement = ref<HTMLInputElement | null>(NULL_VALUE)
-    const shippingStateElement = ref<HTMLInputElement | null>(NULL_VALUE)
+      shippingRecipientElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      shippingCEPElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      shippingAddressElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      shippingNumberElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      shippingNeighborhoodElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      shippingCityElement: ref<HTMLInputElement | null>(NULL_VALUE),
+      shippingStateElement: ref<HTMLInputElement | null>(NULL_VALUE),
 
-    const deliveryDateMessageElement = ref<HTMLElement | null>(NULL_VALUE)
+      deliveryDateMessageElement: ref<HTMLElement | null>(NULL_VALUE),
 
-    const deliveryHourMessageElement = ref<HTMLElement | null>(NULL_VALUE)
+      deliveryHourMessageElement: ref<HTMLElement | null>(NULL_VALUE),
 
-    const installmentsMessageElement = ref<HTMLElement | null>(NULL_VALUE)
+      installmentsMessageElement: ref<HTMLElement | null>(NULL_VALUE),
 
-    const couponCodeElement = ref<HTMLInputElement | null>(NULL_VALUE)
+      couponCodeElement: ref<HTMLInputElement | null>(NULL_VALUE),
 
-    const deliveryPlaceAddressErrorMessage = ref<Nullable<string>>(NULL_VALUE)
+      deliveryPlaceAddressErrorMessage: ref<Nullable<string>>(NULL_VALUE),
 
-    const deliveryBillingAddressErrorMessage = ref<Nullable<string>>(NULL_VALUE)
+      deliveryBillingAddressErrorMessage: ref<Nullable<string>>(NULL_VALUE),
 
-    const deliveryShippingAddressErrorMessage = ref<Nullable<string>>(NULL_VALUE)
-
-    return {
-      customerCPF,
-      customerMail,
-      customerPhone,
-      customerBirthdate,
-
-      customerCreditCardCVV,
-      customerCreditCardDate,
-      customerCreditCardNumber,
-      customerCreditCardHolder,
-
-      billingCEP,
-      billingAddress,
-      billingNumber,
-      billingComplement,
-      billingNeighborhood,
-      billingCity,
-      billingState,
-
-      shippingRecipient,
-      shippingCEP,
-      shippingAddress,
-      shippingNumber,
-      shippingComplement,
-      shippingNeighborhood,
-      shippingCity,
-      shippingState,
-
-      couponCode,
-
-      customerMailElement,
-      customerCPFElement,
-      customerPhoneElement,
-      customerBirthdateElement,
-
-      paymentMethodMessageElement,
-
-      customerCreditCardCVVElement,
-      customerCreditCardDateElement,
-      customerCreditCardNumberElement,
-      customerCreditCardHolderElement,
-
-      billingCEPElement,
-      billingAddressElement,
-      billingNumberElement,
-      billingNeighborhoodElement,
-      billingCityElement,
-      billingStateElement,
-
-      deliveryPlaceMessageElement,
-
-      shippingRecipientElement,
-      shippingCEPElement,
-      shippingAddressElement,
-      shippingNumberElement,
-      shippingNeighborhoodElement,
-      shippingCityElement,
-      shippingStateElement,
-
-      deliveryDateMessageElement,
-
-      deliveryHourMessageElement,
-
-      installmentsMessageElement,
-
-      couponCodeElement,
-
-      deliveryPlaceAddressErrorMessage,
-
-      deliveryBillingAddressErrorMessage,
-
-      deliveryShippingAddressErrorMessage,
-    }
+      deliveryShippingAddressErrorMessage: ref<Nullable<string>>(NULL_VALUE),
+    } satisfies TalhoCheckoutAppSetup)
   },
 
   data () {
-    return {
+    return ({
       user: NULL_VALUE,
       errorMessage: NULL_VALUE,
       hasPendingPayment: false,
@@ -441,11 +402,11 @@ const TalhoCheckoutApp = createApp({
       deliveryPlaces: [
         {
           token: DELIVERY_TYPE_SAME,
-          label: 'Mesmo endereço de cobrança do cartão'
+          label: 'Mesmo endereço de cobrança do cartão',
         },
         {
           token: DELIVERY_TYPE_DIFF,
-          label: 'Entregar em um endereço diferente'
+          label: 'Entregar em um endereço diferente',
         }
       ],
       installment: NULL_VALUE,
@@ -468,7 +429,7 @@ const TalhoCheckoutApp = createApp({
 
       selectedBillingAddressId: NULL_VALUE,
       selectedShippingAddressId: NULL_VALUE,
-    } satisfies TalhoCheckoutAppData
+    } satisfies TalhoCheckoutAppData)
   },
 
   created (): void {
@@ -505,12 +466,12 @@ const TalhoCheckoutApp = createApp({
         neighborhood,
       } = selectedAddress
 
-      this[`${addressType}CEP`] = cep
-      this[`${addressType}Address`] = address
-      this[`${addressType}Number`] = number
-      this[`${addressType}Complement`] = complement
-      this[`${addressType}City`] = city
-      this[`${addressType}State`] = state
+      this[`${addressType}CEP`]          = cep
+      this[`${addressType}Address`]      = address
+      this[`${addressType}Number`]       = number
+      this[`${addressType}Complement`]   = complement
+      this[`${addressType}City`]         = city
+      this[`${addressType}State`]        = state
       this[`${addressType}Neighborhood`] = neighborhood
 
       if (addressType === SHIPPING_NAME_TOKEN) {
@@ -524,7 +485,7 @@ const TalhoCheckoutApp = createApp({
       }
     },
 
-    async getLoggedInUser <T extends ResponsePattern<UserPartialCheckout>> (): Promise<T> {
+    async getLoggedInUser <T extends UserPartialCheckout> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha na captura do usuário'
 
       try {
@@ -535,18 +496,18 @@ const TalhoCheckoutApp = createApp({
         if (!response.ok) {
           const error = await response.json()
 
-          return postErrorResponse.call(response, error?.message ?? defaultErrorMessage, true)
+          return postErrorResponse.call<Response, [string, boolean?, ResponsePatternCallback?], FunctionErrorPattern>(response, error?.message ?? defaultErrorMessage, true)
         }
 
-        const user: UserPartialCheckout = await response.json()
+        const user: T = await response.json()
 
-        return postSuccessResponse.call<Response, [T, ResponsePatternCallback], FunctionSucceededPattern<T>>(response, user)
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, user)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
     },
 
-    async getCart (): Promise<ResponsePattern<CartResponse>> {
+    async getCart <T extends CartResponse> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao capturar os produtos'
 
       try {
@@ -560,9 +521,9 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data: CartResponse = await response.json()
+        const data: T = await response.json()
 
-        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CartResponse>
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -577,7 +538,7 @@ const TalhoCheckoutApp = createApp({
 
           if (objectSize(cartData.data.items) === 0) {
             location.href = buildURL('/', {
-              reason: 'empty_cart'
+              reason: 'empty_cart',
             })
 
             return
@@ -587,7 +548,7 @@ const TalhoCheckoutApp = createApp({
         })
     },
 
-    async getInstallments (): Promise<ResponsePattern<InstallmentItem[]>> {
+    async getInstallments <T extends InstallmentItem[]> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao capturar o parcelamento'
 
       try {
@@ -597,7 +558,7 @@ const TalhoCheckoutApp = createApp({
             amount: this.getOrderPrice,
             cardBin: this.customerCreditCardNumber
               .replace(/\D+/g, EMPTY_STRING)
-              .slice(0, 8)
+              .slice(0, 8),
           })
         })
 
@@ -607,9 +568,9 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data = await response.json()
+        const data: T = await response.json()
 
-        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<InstallmentItem[]>
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -668,7 +629,9 @@ const TalhoCheckoutApp = createApp({
     async handlePayment (e: MouseEvent): Promise<void> {
       e.preventDefault()
 
-      if (this.hasPendingPayment || this.isDeliveryLoading) return
+      const selectedPayment = this.selectedPayment
+
+      if (this.hasPendingPayment || this.isDeliveryLoading || isNull(selectedPayment)) return
 
       this.triggerValidations()
 
@@ -682,23 +645,17 @@ const TalhoCheckoutApp = createApp({
 
       const firstInvalidField = this.firstInvalidField
 
-      if (firstInvalidField) {
+      if (firstInvalidField && firstInvalidField.field) {
         scrollIntoView(firstInvalidField.field, SCROLL_INTO_VIEW_DEFAULT_ARGS)
 
-        try {
-          if (firstInvalidField.field.tagName === 'INPUT') {
-            setTimeout(() => firstInvalidField.field.focus(), 500)
-          }
-        } catch (e) {
-          console.log(firstInvalidField)
-        }
+        firstInvalidField.field.tagName === 'INPUT' && setTimeout(firstInvalidField.field.focus, 500)
 
         return
       }
 
       this.hasPendingPayment = !isPageLoading(true)
 
-      const response = await this.handlePostPayment(this.selectedPayment as 'pix')
+      const response = await this.handlePostPayment(selectedPayment)
 
       if (!response.succeeded) {
         this.errorMessage = response.message
@@ -708,16 +665,20 @@ const TalhoCheckoutApp = createApp({
         return
       }
 
-      const redirectURL = {
-        'pix': 'pix',
-        'creditcard': 'confirmacao-do-pedido',
-      }[this.selectedPayment as ISinglePaymentKey]
+      clearTrackingCookies()
+
+      const path: Record<ISinglePaymentKey, string> = {
+        [PIX_PAYMENT]: 'pix',
+        [CREDIT_CARD_PAYMENT]: 'confirmacao-do-pedido',
+      }
+
+      const redirectURL: string = path[selectedPayment]
+
+      localStorage.removeItem(STORAGE_KEY_NAME)
 
       location.href = buildURL(['/pagamento', redirectURL].join(SLASH_STRING), {
         order: response.data.transactionid,
       })
-
-      localStorage.removeItem(STORAGE_KEY_NAME)
     },
 
     async handlePostPayment <T extends ISinglePaymentKey> (paymentType: T): Promise<ResponsePattern<PaymentResponseMap[T]>> {
@@ -725,7 +686,10 @@ const TalhoCheckoutApp = createApp({
 
       try {
         const response = await fetch(`${PAYMENT_BASE_URL}/payment/process/${paymentType}`, {
-          ...buildRequestOptions([], EnumHttpMethods.POST),
+          ...buildRequestOptions([
+            ...getTrackingCookies(),
+            ...getMetaTrackingCookies(),
+          ], EnumHttpMethods.POST),
           body: stringify({
             ...this.getOrderBaseData,
             customer: {
@@ -742,16 +706,18 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data = await response.json()
+        const data: PaymentResponseMap[T] = await response.json()
 
-        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<PaymentResponseMap[T]>
+        return postSuccessResponse.call<
+          Response, [PaymentResponseMap[T], ResponsePatternCallback?], FunctionSucceededPattern<PaymentResponseMap[T]>
+        >(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
     },
 
     triggerValidations (): void {
-      const notIgnoredFields: ISingleValidateCheckout<Nullable<HTMLElement>>[] = this.notIgnoredFields
+      const notIgnoredFields = this.notIgnoredFields
 
       for (const { field } of notIgnoredFields) {
         field?.dispatchEvent(BLUR_EVENT)
@@ -785,10 +751,10 @@ const TalhoCheckoutApp = createApp({
     setDeliveryPlace (deliveryPlace: IAddressType): void {
       if (this.deliveryPlace === deliveryPlace) return
 
-      if (deliveryPlace === DELIVERY_TYPE_SAME && regexTest(/^\d{5}\-\d{3}$/, this.billingCEP) && this.isBillingAddressGroupValid) {
+      if (deliveryPlace === DELIVERY_TYPE_SAME && regexTest(CEP_REGEX_VALIDATION, this.billingCEP) && this.isBillingAddressGroupValid) {
         searchAddress({
           cep: this.billingCEP,
-          deliveryMode: true
+          deliveryMode: true,
         }).then(address => {
           if (address.succeeded) return
 
@@ -802,13 +768,13 @@ const TalhoCheckoutApp = createApp({
     },
 
     async captureAddress (addressType: IOrderAddressType, cep: string, oldCep?: string): Promise<boolean> {
-      if (!regexTest(/^\d{5}-\d{3}$/, cep) || cep === oldCep) return false
+      if (!regexTest(CEP_REGEX_VALIDATION, cep) || cep === oldCep) return false
 
       const fieldKey: `${IOrderAddressType}CEP` = `${addressType}CEP`
 
       const address = await searchAddress({
         cep,
-        deliveryMode: addressType === SHIPPING_NAME_TOKEN
+        deliveryMode: addressType === SHIPPING_NAME_TOKEN,
       })
 
       if (!address.succeeded) {
@@ -818,17 +784,10 @@ const TalhoCheckoutApp = createApp({
 
         this.setVisitedField(fieldKey)
 
-        // if (addressType === SHIPPING_NAME_TOKEN) {
-        //   this.deliveryShippingAddressErrorMessage = address.message
-        // }
-
         this.deliveryShippingAddressErrorMessage = addressType === SHIPPING_NAME_TOKEN && message !== ERROR_CODE_NOT_FOUND
           ? (CEP_MESSAGES?.[message] ?? CEP_MESSAGES[ERROR_CODE_BAD_REQUEST])
           : NULL_VALUE
 
-        // if (addressType === BILLING_NAME_TOKEN) {
-        //   this.deliveryBillingAddressErrorMessage = address.message
-        // }
         this.deliveryBillingAddressErrorMessage = addressType === BILLING_NAME_TOKEN && message !== ERROR_CODE_NOT_FOUND
           ? (CEP_MESSAGES?.[message] ?? CEP_MESSAGES[ERROR_CODE_BAD_REQUEST])
           : NULL_VALUE
@@ -849,7 +808,7 @@ const TalhoCheckoutApp = createApp({
       return true
     },
 
-    async captureCoupon (): Promise<ResponsePattern<ISingleOrderCoupon>> {
+    async captureCoupon <T extends ISingleOrderCoupon> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao capturar o cupom indicado'
 
       try {
@@ -861,7 +820,7 @@ const TalhoCheckoutApp = createApp({
             cpf: trim(this.customerCPF),
             has_subsidy: this.subsidy?.has ?? false,
             delivery_cep: this.getParsedAddresses.shippingaddress.zipPostalCode,
-            has_selected_delivery: !isNull(this.deliveryHour) && !isNull(this.deliveryDate)
+            has_selected_delivery: !isNull(this.deliveryHour) && !isNull(this.deliveryDate),
           })
         })
 
@@ -871,9 +830,9 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data = await response.json()
+        const data: T = await response.json()
 
-        return postSuccessResponse.call(response, data)
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -932,7 +891,7 @@ const TalhoCheckoutApp = createApp({
       this.deliveryOptions = response.data
     },
 
-    async captureDeliveryOptions (): Promise<ResponsePattern<CheckoutDeliveryResponse>> {
+    async captureDeliveryOptions <T extends CheckoutDeliveryResponse> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao capturar as opções de entrega'
 
       try {
@@ -946,18 +905,20 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data: CheckoutDeliveryResponse = await response.json()
+        const data: T = await response.json()
 
-        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CheckoutDeliveryResponse>
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
     },
 
     setDeliveryDate (shiftDays: number): void {
-      const deliveryOption = this.deliveryOptions?.dates?.find(({ shift_days }) => shift_days === shiftDays)
+      if (this.deliveryDate === shiftDays || !this.deliveryOptions) return
 
-      if (!deliveryOption || this.deliveryDate === shiftDays) return
+      const deliveryOption = this.deliveryOptions.dates.find(({ shift_days }) => shift_days === shiftDays)
+
+      if (!deliveryOption) return
 
       this.deliveryDate  = deliveryOption.shift_days
       this.deliveryHour  = NULL_VALUE
@@ -982,22 +943,24 @@ const TalhoCheckoutApp = createApp({
         validator,
       } = response.data
 
-      this.deliveryPrice = {
+      this.deliveryPrice = ({
         value,
         validator,
-      } satisfies Omit<PostOrderDeliveryGroup, 'has_priority'>
+      } satisfies Omit<PostOrderDeliveryGroup, 'has_priority'>)
 
       this.isDeliveryLoading = false
     },
 
-    async captureDeliveryQuotation (controller: AbortController): Promise<ResponsePattern<CheckoutDeliveryPriceResponse>> {
+    async captureDeliveryQuotation <T extends CheckoutDeliveryPriceResponse> (controller: AbortController): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao gerar uma cotação'
 
       try {
         const response = await fetch(`${XANO_BASE_URL}/api:i6etHc7G/site/checkout-delivery`, {
           ...buildRequestOptions([], EnumHttpMethods.POST),
           signal: controller.signal,
-          body: stringify<Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>>(this.quotationPayload as (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>)),
+          body: stringify<
+            Exclude<QuotationPayloadReturns, false>
+          >(this.quotationPayload as Exclude<QuotationPayloadReturns, false>),
         })
 
         if (!response.ok) {
@@ -1006,9 +969,9 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data: CheckoutDeliveryPriceResponse = await response.json()
+        const data: T = await response.json()
 
-        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CheckoutDeliveryPriceResponse>
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1017,7 +980,7 @@ const TalhoCheckoutApp = createApp({
     async handleSubsidy (): Promise<void> {
       const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
 
-      if (!regexTest(/^\d{5}\-\d{3}$/, shippingCEP)) return
+      if (!regexTest(CEP_REGEX_VALIDATION, shippingCEP)) return
 
       const response = await this.verifyForSubsidy(numberOnly(shippingCEP))
 
@@ -1026,7 +989,7 @@ const TalhoCheckoutApp = createApp({
         : NULL_VALUE
     },
 
-    async verifyForSubsidy (cep: string): Promise<ResponsePattern<SubsidyResponse>> {
+    async verifyForSubsidy <T extends SubsidyResponse> (cep: string): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Houve uma falha na verificação'
 
       try {
@@ -1040,9 +1003,9 @@ const TalhoCheckoutApp = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data: SubsidyResponse = await response.json()
+        const data: T = await response.json()
 
-        return postSuccessResponse.call(response, data) as FunctionSucceededPattern<SubsidyResponse>
+        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1067,7 +1030,7 @@ const TalhoCheckoutApp = createApp({
 
         const data = await response.json()
 
-        return postSuccessResponse.call(response, data)
+        return postSuccessResponse.call<Response, [void, ResponsePatternCallback?], FunctionSucceededPattern<void>>(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1186,14 +1149,14 @@ const TalhoCheckoutApp = createApp({
         this.customerMailValidation.valid,
         this.customerBirthdateValidation.valid,
         this.customerCPFValidation.valid,
-        this.customerPhoneValidation.valid
+        this.customerPhoneValidation.valid,
       ].every(Boolean)
     },
 
     customerMailValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerMailElement,
-        !this.hasVisitRegistry('customerMail') || regexTest(EMAIL_REGEX_VALIDATION, this.customerMail)
+        !this.hasVisitRegistry('customerMail') || regexTest(EMAIL_REGEX_VALIDATION, this.customerMail),
       )
     },
 
@@ -1202,7 +1165,7 @@ const TalhoCheckoutApp = createApp({
 
       return buildFieldValidation(
         this.customerBirthdateElement,
-        !this.hasVisitRegistry('customerBirthdate') || regexTest(DATE_REGEX_VALIDATION, customerBirthdate) && isDateValid(customerBirthdate)
+        !this.hasVisitRegistry('customerBirthdate') || regexTest(DATE_REGEX_VALIDATION, customerBirthdate) && isDateValid(customerBirthdate),
       )
     },
 
@@ -1211,14 +1174,14 @@ const TalhoCheckoutApp = createApp({
 
       return buildFieldValidation(
         this.customerCPFElement,
-        !this.hasVisitRegistry('customerCPF') || regexTest(CPF_REGEX_VALIDATION, this.customerCPF) && isCPFValid(customerCPF)
+        !this.hasVisitRegistry('customerCPF') || regexTest(CPF_REGEX_VALIDATION, this.customerCPF) && isCPFValid(customerCPF),
       )
     },
 
     customerPhoneValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerPhoneElement,
-        !this.hasVisitRegistry('customerPhone') || regexTest(PHONE_REGEX_VALIDATION, this.customerPhone)
+        !this.hasVisitRegistry('customerPhone') || regexTest(PHONE_REGEX_VALIDATION, this.customerPhone),
       )
     },
 
@@ -1230,7 +1193,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.customerCreditCardHolderElement,
         !this.hasVisitRegistry('customerCreditCardHolder') || regexTest(FULLNAME_REGEX_VALIDATION, replaceDuplicatedSpaces(normalizeText(trim(this.customerCreditCardHolder)))),
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1238,7 +1201,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.customerCreditCardNumberElement,
         !this.hasVisitRegistry('customerCreditCardNumber') || regexTest(/^(\d{4})(\s\d{4}){2}(\s\d{3,4})$/, trim(this.customerCreditCardNumber)),
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1248,7 +1211,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.customerCreditCardDateElement,
         !this.hasVisitRegistry('customerCreditCardDate') || regexTest(/^(1[012]|0[1-9])\/\d{2}$/, customerCreditCardDate) && isExpireDateValid(customerCreditCardDate),
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1256,7 +1219,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.customerCreditCardCVVElement,
         !this.hasVisitRegistry('customerCreditCardCVV') || regexTest(/^\d{3,4}$/, this.customerCreditCardCVV),
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1273,7 +1236,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.billingCEPElement,
         !this.hasVisitRegistry('billingCEP') || regexTest(CEP_REGEX_VALIDATION, this.billingCEP),
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1281,7 +1244,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.billingAddressElement,
         !this.hasVisitRegistry('billingAddress') || objectSize(trim(this.billingAddress)) > 2,
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1289,7 +1252,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.billingNumberElement,
         !this.hasVisitRegistry('billingNumber') || objectSize(this.billingNumber) > 0,
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1297,7 +1260,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.billingNeighborhoodElement,
         !this.hasVisitRegistry('billingNeighborhood') || objectSize(this.billingNeighborhood) > 0,
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1305,7 +1268,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.billingCityElement,
         !this.hasVisitRegistry('billingCity') || objectSize(this.billingCity) > 2,
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1313,7 +1276,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.billingStateElement,
         !this.hasVisitRegistry('billingState') || includes(statesAcronym, this.billingState),
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1332,7 +1295,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.deliveryPlaceMessageElement,
         this.hasSelectedAddress && isNull(this.deliveryPlaceAddressErrorMessage),
-        !this.isCreditCard
+        !this.isCreditCard,
       )
     },
 
@@ -1340,7 +1303,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.shippingRecipientElement,
         !this.hasVisitRegistry('shippingRecipient') || regexTest(/^(\w{2,})(\s+(\w+))+$/, replaceDuplicatedSpaces(normalizeText(trim(this.shippingRecipient)))),
-        !this.shouldValidateShippingAddress
+        !this.shouldValidateShippingAddress,
       )
     },
 
@@ -1348,7 +1311,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.shippingCEPElement,
         !this.hasVisitRegistry('shippingCEP') || regexTest(CEP_REGEX_VALIDATION, this.shippingCEP),
-        !this.shouldValidateShippingAddress
+        !this.shouldValidateShippingAddress,
       )
     },
 
@@ -1356,7 +1319,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.shippingAddressElement,
         !this.hasVisitRegistry('shippingAddress') || objectSize(trim(this.shippingAddress)) > 2,
-        !this.shouldValidateShippingAddress
+        !this.shouldValidateShippingAddress,
       )
     },
 
@@ -1364,7 +1327,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.shippingNumberElement,
         !this.hasVisitRegistry('shippingNumber') || objectSize(trim(this.shippingNumber)) > 0,
-        !this.shouldValidateShippingAddress
+        !this.shouldValidateShippingAddress,
       )
     },
 
@@ -1372,7 +1335,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.shippingNeighborhoodElement,
         !this.hasVisitRegistry('shippingNeighborhood') || objectSize(trim(this.shippingNeighborhood)) > 3,
-        !this.shouldValidateShippingAddress
+        !this.shouldValidateShippingAddress,
       )
     },
 
@@ -1380,7 +1343,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.shippingCityElement,
         !this.hasVisitRegistry('shippingCity') || objectSize(trim(this.shippingCity)) > 2,
-        !this.shouldValidateShippingAddress
+        !this.shouldValidateShippingAddress,
       )
     },
 
@@ -1388,7 +1351,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.shippingStateElement,
         !this.hasVisitRegistry('shippingState') || includes(statesAcronym, this.shippingState),
-        !this.shouldValidateShippingAddress
+        !this.shouldValidateShippingAddress,
       )
     },
 
@@ -1407,7 +1370,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.deliveryDateMessageElement,
         !isNull(this.deliveryDate),
-        !this.paymentMethodValidation.valid
+        !this.paymentMethodValidation.valid,
       )
     },
 
@@ -1415,7 +1378,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.deliveryHourMessageElement,
         !isNull(this.deliveryHour),
-        !this.deliveryDatesGroupValidation.valid
+        !this.deliveryDatesGroupValidation.valid,
       )
     },
 
@@ -1423,7 +1386,7 @@ const TalhoCheckoutApp = createApp({
       return buildFieldValidation(
         this.installmentsMessageElement,
         !isNull(this.selectedInstallment),
-        !this.isCreditCard || !this.paymentMethodValidation.valid
+        !this.isCreditCard || !this.paymentMethodValidation.valid,
       )
     },
 
@@ -1485,10 +1448,6 @@ const TalhoCheckoutApp = createApp({
     },
 
     getParsedAddresses (): IParsedAddressContent {
-      const parseState = (acronym: IStateAcronym) => statesMap?.[acronym] ?? EMPTY_STRING
-
-      const parseComplement = (complement: string) => trim(complement).replace(/-+/g, EMPTY_STRING) || 'N/A'
-
       const shippingaddress: IParsedAddress = {
         zipPostalCode: this.shippingCEP,
         street: this.shippingAddress,
@@ -1496,7 +1455,7 @@ const TalhoCheckoutApp = createApp({
         complement: parseComplement(this.shippingComplement),
         neighbourhood: this.shippingNeighborhood,
         city: this.shippingCity,
-        state: parseState(this.shippingState)
+        state: parseState(this.shippingState),
       }
 
       const billingaddress: IParsedAddress = {
@@ -1506,7 +1465,7 @@ const TalhoCheckoutApp = createApp({
         complement: parseComplement(this.billingComplement),
         neighbourhood: this.billingNeighborhood,
         city: this.billingCity,
-        state: parseState(this.billingState)
+        state: parseState(this.billingState),
       }
 
       if (this.isCreditCard) {
@@ -1514,7 +1473,7 @@ const TalhoCheckoutApp = createApp({
           billingaddress,
           shippingaddress: this.isSameAddress
             ? billingaddress
-            : shippingaddress
+            : shippingaddress,
         }
       }
 
@@ -1630,7 +1589,7 @@ const TalhoCheckoutApp = createApp({
     hasDeliveryDates (): boolean {
       const { deliveryOptions } = this
 
-      return isArray(deliveryOptions?.dates) && objectSize(deliveryOptions?.dates as []) > 0
+      return isArray(deliveryOptions?.dates) && objectSize(deliveryOptions?.dates) > 0
     },
 
     hasDeliveryHour (): boolean {
@@ -1638,22 +1597,22 @@ const TalhoCheckoutApp = createApp({
     },
 
     getParsedDeliveryHours (): ComputedDeliveryHours[] {
-      if (!this.hasDeliveryDates || isNull(this.getSelectedDateDetails)) return []
+      const { getSelectedDateDetails } = this
 
-      const hourList = (this.getSelectedDateDetails as CheckoutDeliveryOption).periods.hours
+      if (!this.hasDeliveryDates || isNull(getSelectedDateDetails)) return []
 
-      return hourList.map(({ label, hour }) => ({
+      return getSelectedDateDetails.periods.hours.map(({ label, hour }) => ({
         hour,
         label,
       }))
     },
 
-    quotationPayload (): false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>) {
-      if ([this.deliveryDate, this.deliveryHour].some(v => isNull(v))) return false
+    quotationPayload (): QuotationPayloadReturns {
+      if ([this.deliveryDate, this.deliveryHour].some(isNull)) return false
 
       const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
 
-      if (!regexTest(/^\d{5}\-\d{3}$/, shippingCEP)) return false
+      if (!regexTest(CEP_REGEX_VALIDATION, shippingCEP)) return false
 
       const {
         delivery_hour,
@@ -1668,31 +1627,41 @@ const TalhoCheckoutApp = createApp({
     },
 
     getParsedDeliveryDates (): ComputedDeliveryDates[] {
-      if (isNull(this.deliveryOptions)) return []
+      const { deliveryOptions, deliveryDate } = this
 
-      const selectedDate = this.deliveryDate
+      if (isNull(deliveryOptions)) return []
 
-      return (this.deliveryOptions as CheckoutDeliveryResponse).dates.map(({ label, shift_days }) => ({
+      return deliveryOptions.dates.map(({ label, shift_days }) => ({
         label,
         shift_days,
-        selected: selectedDate === shift_days,
+        selected: deliveryDate === shift_days,
       }))
     },
 
     getSelectedDateDetails (): Nullable<CheckoutDeliveryOption> {
-      if (!this.deliveryDate === NULL_VALUE) return NULL_VALUE
+      const {
+        deliveryDate,
+        deliveryOptions,
+      } = this
 
-      const selectedDate = this.deliveryOptions?.dates.find(({ shift_days }) => shift_days === this.deliveryDate)
+      if (isNull(deliveryDate) || isNull(deliveryOptions)) return NULL_VALUE
 
-      if (!selectedDate) return NULL_VALUE
+      const selectedDate = deliveryOptions.dates.find(({ shift_days }) => shift_days === deliveryDate)
 
-      return selectedDate
+      return selectedDate ?? NULL_VALUE
     },
 
     getSelectedHourDetails (): Nullable<CheckoutDeliveryHour> {
-      if (!this.getSelectedDateDetails || !this.deliveryHour) return NULL_VALUE
+      const {
+        deliveryHour,
+        getSelectedDateDetails,
+      } = this
 
-      return this.getSelectedDateDetails.periods.hours.find(({ hour }) => hour === this.deliveryHour) ?? NULL_VALUE
+      if (isNull(getSelectedDateDetails) || isNull(this.deliveryHour)) return NULL_VALUE
+
+      const selectedHour = getSelectedDateDetails.periods.hours.find(({ hour }) => hour === deliveryHour)
+
+      return selectedHour ?? NULL_VALUE
     },
 
     hasPriorityFee (): boolean {
@@ -1712,12 +1681,20 @@ const TalhoCheckoutApp = createApp({
     },
 
     hasSubsidy (): boolean {
-      return this.subsidy?.has === true && this.getShippingPrice > 0 && this.getOrderSubtotal >= SUBSIDY_MIN_CART_PRICE && !this.hasFreeShippingByCartPrice
+      const { subsidy } = this
+
+      if (isNull(subsidy)) return false
+
+      return subsidy.has && this.getShippingPrice > 0 && this.getOrderSubtotal >= SUBSIDY_MIN_CART_PRICE && !this.hasFreeShippingByCartPrice
     },
 
     subsidyDiscountPrice (): number {
-      return this.subsidy?.has === true
-        ? Math.min(this.subsidy.value, this.getShippingPrice) * -1
+      const { subsidy } = this
+
+      if (isNull(subsidy)) return 0
+
+      return subsidy.has
+        ? Math.min(subsidy.value, this.getShippingPrice) * -1
         : 0
     },
 
@@ -1752,15 +1729,25 @@ const TalhoCheckoutApp = createApp({
     },
 
     hasPIXDiscount (): boolean {
-      return this.selectedPayment === PIX_PAYMENT && (this.deliveryOptions?.pix_discount ?? 0) > 0
+      const {
+        deliveryOptions,
+        selectedPayment,
+      } = this
+
+      if (isNull(deliveryOptions) || isNull(selectedPayment)) return false
+
+      return selectedPayment === PIX_PAYMENT && deliveryOptions.pix_discount > 0
     },
 
     PIXDiscountPrice (): number {
-      if (!this.hasPIXDiscount) return 0
+      const {
+        hasPIXDiscount,
+        deliveryOptions,
+      } = this
 
-      const discountPIX = this.deliveryOptions?.pix_discount ?? 0
+      if (!hasPIXDiscount || isNull(deliveryOptions)) return 0
 
-      return decimalRound(discountPIX / 100 * -this.getOrderSubtotal, 2)
+      return decimalRound(deliveryOptions.pix_discount / 100 * -this.getOrderSubtotal, 2)
     },
 
     PIXDiscountPriceFormatted (): string {
@@ -1768,7 +1755,7 @@ const TalhoCheckoutApp = createApp({
     },
 
     userAddresses (): UserAddressCheckout[] {
-      const user = this.user
+      const { user } = this
 
       if (!user || objectSize(user.address_list) === 0) return []
 
@@ -1777,7 +1764,7 @@ const TalhoCheckoutApp = createApp({
         address,
         number,
         cep,
-        complete: `${address}, ${number} ${cep}`
+        complete: `${address}, ${number} ${cep}`,
       }))
     },
 
@@ -1808,9 +1795,12 @@ const TalhoCheckoutApp = createApp({
 
     getOrderPrice: {
       immediate: true,
+      // TODO: Verificar meio de tipar corretamente este watcher
+      // TODO: Verificar se é possível subtituir essa abordagem pela chamada do método no `created`
+      // @ts-ignore
       handler: function (): void {
         this.refreshInstallments()
-      }
+      },
     },
 
     getCreditCardToken (payload: PagSeguroCardEncrypt) {
@@ -1819,34 +1809,38 @@ const TalhoCheckoutApp = createApp({
       this.refreshInstallments()
     },
 
-    quotationPayload (payload: false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>), oldPayload: false | (Omit<PostOrderDelivery, 'delivery_price'> & Pick<CheckoutDeliveryRequestBody, 'cep'>), cleanup: OnCleanup): void {
+    quotationPayload (
+      payload: QuotationPayloadReturns,
+      oldPayload: QuotationPayloadReturns,
+      cleanup: OnCleanup,
+    ): void {
       if (!payload) return
 
       const {
         cep,
-        delivery_hour,
-        delivery_date,
+        // delivery_hour,
+        // delivery_date,
       } = payload
 
-      if (!regexTest(/^\d{5}\-\d{3}$/, cep)) return
+      if (!regexTest(CEP_REGEX_VALIDATION, cep)) return
 
       const controller = getAbortController()
 
       if (!oldPayload) {
         this.handleDeliveryQuotation(controller)
 
-        return cleanup(() => controller.abort())
+        return cleanup(controller.abort)
       }
 
       const {
         cep: oldCep,
-        delivery_date: oldDeliveryDate,
-        delivery_hour: oldDeliveryHour,
+        // delivery_date: oldDeliveryDate,
+        // delivery_hour: oldDeliveryHour,
       } = oldPayload
 
       this.handleDeliveryQuotation(controller)
 
-      return cleanup(() => controller.abort())
+      return cleanup(controller.abort)
     },
 
     getParsedAddresses (currentAddresses: IParsedAddressContent, oldAddresses: IParsedAddressContent): void {
@@ -1854,7 +1848,7 @@ const TalhoCheckoutApp = createApp({
 
       if (currentAddresses.shippingaddress.zipPostalCode === oldAddresses.shippingaddress.zipPostalCode) return
 
-      if (!regexTest(/^\d{5}\-\d{3}$/, currentAddresses.shippingaddress.zipPostalCode)) return
+      if (!regexTest(CEP_REGEX_VALIDATION, currentAddresses.shippingaddress.zipPostalCode)) return
 
       if (this.isCreditCard && isNull(this.deliveryPlace)) return
 
@@ -1864,13 +1858,13 @@ const TalhoCheckoutApp = createApp({
     user (user: Nullable<UserPartialCheckout>): void {
       if (!user) return
 
-      this.customerPhone     = user.telephone ?? ''
-      this.customerCPF       = user.cpf ?? ''
+      this.customerPhone     = user.telephone ?? EMPTY_STRING
+      this.customerCPF       = user.cpf ?? EMPTY_STRING
       this.customerBirthdate = user.birthday
-        ?.split('-')
+        ?.split(DASH_STRING)
         .reverse()
-        .join('/') ?? ''
-      this.customerMail      = user.email ?? ''
+        .join(SLASH_STRING) ?? EMPTY_STRING
+      this.customerMail      = user.email ?? EMPTY_STRING
     },
   },
 
@@ -1912,6 +1906,8 @@ const TalhoCheckoutApp = createApp({
     visitedField: {
       mounted (el: HTMLInputElement, { value, instance }: DirectiveBinding<string>) {
         const remover = attachEvent(el, 'blur', () => {
+          // TODO: Encontrar maneira de tipar corretamente a instância do componente abaixo
+          // @ts-ignore
           instance.setVisitedField(value)
 
           eventMap.delete(el)
@@ -1928,7 +1924,7 @@ const TalhoCheckoutApp = createApp({
       mounted (el: HTMLInputElement, binding: DirectiveBinding<null, string, AbandonmentFieldsNames>) {
         eventMap.set(
           el,
-          attachEvent(el, 'change', (event: InputEvent) => {
+          attachEvent(el, 'change', (event: Event) => {
             if (!event.isTrusted || !binding.arg) return
 
             const field = binding.arg as AbandonmentFieldsNames
