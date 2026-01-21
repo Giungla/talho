@@ -18,7 +18,7 @@ export interface TalhoOrderPageMethods {
   /**
    * Realiza tracking do pedido via backend
    */
-  logPurchase: (orderId: string, retry: number) => Promise<void>;
+  // logPurchase: (orderId: string, retry: number) => Promise<void>;
 }
 
 // como os dados computados serão declarados

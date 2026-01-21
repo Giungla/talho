@@ -105,7 +105,7 @@ export function postErrorResponse (
 
   return {
     message,
-    succeeded: false
+    succeeded: false,
   }
 }
 
@@ -129,7 +129,7 @@ export function postSuccessResponse <T extends unknown> (
 
   return {
     data: response,
-    succeeded: true
+    succeeded: true,
   }
 }
 

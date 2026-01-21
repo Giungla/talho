@@ -12,35 +12,47 @@ import {
 
 import {
   type ResponsePattern,
+  type ResponsePatternCallback,
+  type FunctionSucceededPattern,
 } from '../global'
 
-import {
-  type PurchaseTrackingParams,
-} from '../types/tracking'
+// import {
+//   type PurchaseTrackingParams,
+// } from '../types/tracking'
+//
+// import {
+//   getTrackingCookies,
+//   clearTrackingCookies,
+//   getMetaTrackingCookies,
+// } from '../utils/adTracking'
 
 import {
-  NULL_VALUE,
-  SLASH_STRING,
-  XANO_BASE_URL,
-  BRLFormatter,
-  isNull,
-  buildURL,
-  stringify,
-  isPageLoading,
-  querySelector,
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  getTrackingCookies,
-  getMetaTrackingCookies,
-  clearTrackingCookies,
-} from '../utils'
+} from '../utils/requestResponse'
+
+import {
+  NULL_VALUE,
+  isNull,
+  buildURL,
+  // stringify,
+  isPageLoading,
+} from '../utils/dom'
+
+import {
+  DASH_STRING,
+  SLASH_STRING,
+  XANO_BASE_URL,
+} from '../utils/consts'
+
+import {
+  BRLFormatter,
+} from '../utils/mask'
 
 const {
   createApp,
 } = window.Vue
-
-const FALLBACK_STRING = '-'
 
 const REASON_PARAM = 'reason'
 
@@ -80,11 +92,11 @@ const TalhoOrderPage = createApp({
 
     isPageLoading(false)
 
-    this.logPurchase(transactionId, 3)
+    // this.logPurchase(transactionId, 3)
   },
 
   methods: {
-    async getOrder (orderId: string): Promise<ResponsePattern<OrderData>> {
+    async getOrder <T extends OrderData> (orderId: string): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao capturar o pedido'
 
       try {
@@ -98,40 +110,42 @@ const TalhoOrderPage = createApp({
           return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
         }
 
-        const data: OrderData = await response.json()
+        const data: T = await response.json()
 
-        return postSuccessResponse.call(response, data)
+        return postSuccessResponse.call<
+          Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+        >(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
     },
 
-    async logPurchase (orderId: string, retry: number = 0): Promise<void> {
-      const defaultErrorMessage = 'Falha ao registrar log do pedido'
-
-      try {
-        const response = await fetch(`${XANO_BASE_URL}/api:uMv7xbDN/log/purchase`, {
-          ...buildRequestOptions([...getTrackingCookies(), ...getMetaTrackingCookies()], 'POST'),
-          keepalive: true,
-          priority: 'high',
-          body: stringify<PurchaseTrackingParams>({
-            transactionid: orderId,
-          }),
-        })
-
-        if (!response.ok) {
-          return retry > 0
-            ? this.logPurchase(orderId, retry - 1)
-            : console.warn(defaultErrorMessage)
-        }
-
-        response.json().then(() => console.info('Log do pedido finalizado'))
-      } catch (e) {
-        console.warn(defaultErrorMessage)
-      } finally {
-        clearTrackingCookies()
-      }
-    }
+    // async logPurchase (orderId: string, retry: number = 0): Promise<void> {
+    //   const defaultErrorMessage = 'Falha ao registrar log do pedido'
+    //
+    //   try {
+    //     const response = await fetch(`${XANO_BASE_URL}/api:uMv7xbDN/log/purchase`, {
+    //       ...buildRequestOptions([...getTrackingCookies(), ...getMetaTrackingCookies()], 'POST'),
+    //       keepalive: true,
+    //       priority: 'high',
+    //       body: stringify<PurchaseTrackingParams>({
+    //         transactionid: orderId,
+    //       }),
+    //     })
+    //
+    //     if (!response.ok) {
+    //       return retry > 0
+    //         ? this.logPurchase(orderId, retry - 1)
+    //         : console.warn(defaultErrorMessage)
+    //     }
+    //
+    //     response.json().then(() => console.info('Log do pedido finalizado'))
+    //   } catch (e) {
+    //     console.warn(defaultErrorMessage)
+    //   } finally {
+    //     clearTrackingCookies()
+    //   }
+    // }
   },
 
   computed: {
@@ -150,31 +164,31 @@ const TalhoOrderPage = createApp({
     },
 
     name (): string {
-      return this.order?.name ?? FALLBACK_STRING
+      return this.order?.name ?? DASH_STRING
     },
 
     email (): string {
-      return this.order?.email ?? FALLBACK_STRING
+      return this.order?.email ?? DASH_STRING
     },
 
     cpf (): string {
-      return this.order?.cpf_cnpj ?? FALLBACK_STRING
+      return this.order?.cpf_cnpj ?? DASH_STRING
     },
 
     phone (): string {
-      return this.order?.phone ?? FALLBACK_STRING
+      return this.order?.phone ?? DASH_STRING
     },
 
     shipping (): OrderShippingAddress {
       const {
-        number = FALLBACK_STRING,
-        cep = FALLBACK_STRING,
-        address = FALLBACK_STRING,
-        state = FALLBACK_STRING,
-        city = FALLBACK_STRING,
-        complement = FALLBACK_STRING,
-        neighborhood = FALLBACK_STRING,
-        user_name = FALLBACK_STRING,
+        number = DASH_STRING,
+        cep = DASH_STRING,
+        address = DASH_STRING,
+        state = DASH_STRING,
+        city = DASH_STRING,
+        complement = DASH_STRING,
+        neighborhood = DASH_STRING,
+        user_name = DASH_STRING,
       } = this.order?.delivery.address ?? {}
 
       return {
@@ -191,13 +205,13 @@ const TalhoOrderPage = createApp({
 
     billing (): OrderAddress {
       const {
-        cep = FALLBACK_STRING,
-        address = FALLBACK_STRING,
-        number = FALLBACK_STRING,
-        complement = FALLBACK_STRING,
-        neighborhood = FALLBACK_STRING,
-        city = FALLBACK_STRING,
-        state = FALLBACK_STRING,
+        cep          = DASH_STRING,
+        address      = DASH_STRING,
+        number       = DASH_STRING,
+        complement   = DASH_STRING,
+        neighborhood = DASH_STRING,
+        city         = DASH_STRING,
+        state        = DASH_STRING,
       } = this.order?.billing_address ?? {}
 
       return {
@@ -216,18 +230,22 @@ const TalhoOrderPage = createApp({
     },
 
     getOrderSubtotalPriceFormatted (): string {
-      const price = this.order?.subtotal ?? 0
+      const { order } = this
 
-      return BRLFormatter.format(price / 100)
+      return BRLFormatter.format(
+        isNull(order)
+          ? 0
+          : order.subtotal / 100
+      )
     },
 
     getOrderPriceFormatted (): string {
-      const total = this.order?.total
+      const { order } = this
 
       return BRLFormatter.format(
-        typeof total === 'number'
-          ? (total / 100)
-          : 0
+        isNull(order)
+          ? 0
+          : order.total / 100
       )
     },
 
@@ -307,7 +325,7 @@ const TalhoOrderPage = createApp({
   computed: TalhoOrderPageComputedDefinition,
 } & ThisType<TalhoOrderPageContext>)
 
-TalhoOrderPage.mount(querySelector('#orderapp'))
+TalhoOrderPage.mount('#orderapp')
 
 window.addEventListener('pageshow', (e: PageTransitionEvent) => {
   if (e.persisted) window.location.reload()

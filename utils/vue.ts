@@ -1,13 +1,19 @@
 
 import {
-  DirectiveBinding,
+  type DirectiveBinding,
 } from 'vue'
 
 import {
-  attachEvent,
-  INPUT_EVENT,
   EMPTY_STRING,
-} from './index'
+} from './consts'
+
+import {
+  attachEvent,
+} from './dom'
+
+import {
+  INPUT_EVENT,
+} from './events'
 
 export const eventMap: WeakMap<HTMLElement, ReturnType<typeof attachEvent>> = new WeakMap()
 

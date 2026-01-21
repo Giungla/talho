@@ -3,13 +3,13 @@ import {
 } from '../global'
 
 import {
+  CookieSameSite,
+} from '../types/cookie'
+
+import {
   getCookie,
   setCookie,
 } from './cookie'
-
-import {
-  CookieSameSite,
-} from '../types/cookie'
 
 import {
   splitText,
@@ -21,17 +21,14 @@ import {
 
 import {
   PIPE_STRING,
+  EMPTY_STRING,
   SLASH_STRING,
 } from './consts'
 
-import {
-  EMPTY_STRING,
-} from './index'
-
 export const metaCookiesName = '_fbc|_fbp'
 
-export const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names')
-// export const PARAM_NAMES = 'gclid|gbraid|wbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
+// export const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names')
+export const PARAM_NAMES = 'gclid|gbraid|wbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
 
 export function prefixStorageKey (key: string): string {
   return `talho_${key}`

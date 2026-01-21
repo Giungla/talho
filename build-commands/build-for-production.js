@@ -61,6 +61,7 @@ await build({
     'console',
     'debugger',
   ],
+  platform: 'browser',
   terserOptions: {
     compress: {
       booleans: true,            // true → !0, false → !1
@@ -87,7 +88,6 @@ await build({
       comments: false            // remove comentários
     },
     safari10: true,
-
   },
 });
 
