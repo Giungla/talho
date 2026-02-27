@@ -60,6 +60,12 @@ export function getTrackingCookies (): [string, string][] {
     )
   }
 
+  const itemName = '_ga'
+
+  const clientId = getCookie(itemName)
+
+  pushIf(clientId !== false, headers, [ 'x-ga', clientId ])
+
   return headers
 }
 
