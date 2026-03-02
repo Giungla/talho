@@ -58,16 +58,17 @@ export function isDateValid (date: string): boolean {
   const [
     day,
     month,
-    fullYear
-  ] = splitText(date, SLASH_STRING)
+    fullYear,
+  ] = splitText(date, SLASH_STRING).map(Number)
 
-  const parsedDate = new Date(`${fullYear}-${month}-${day}T00:00:00`)
+  // const parsedDate = new Date(`${fullYear}-${month}-${day}T00:00:00`)
+  const parsedDate = new Date(Date.UTC(fullYear, month - 1, day))
 
-  if (isStrictEquals(parsedDate.toString(), 'Invalid Date')) return false
+  if (parsedDate.toString() === 'Invalid Date') return false
 
-  const isSameDay   = isStrictEquals(parsedDate.getUTCDate(), Number(day))
-  const isSameMonth = isStrictEquals(parsedDate.getUTCMonth() + 1, Number(month))
-  const isSameYear  = isStrictEquals(parsedDate.getUTCFullYear(), Number(fullYear))
+  const isSameDay   = parsedDate.getUTCDate() === Number(day)
+  const isSameMonth = parsedDate.getUTCMonth() + 1 === Number(month)
+  const isSameYear  = parsedDate.getUTCFullYear() === Number(fullYear)
 
   return isSameDay && isSameMonth && isSameYear
 }
