@@ -1,3 +1,4 @@
+
 import {
   regexTest,
   numberOnly,
@@ -9,10 +10,6 @@ import {
   EMPTY_STRING,
   SLASH_STRING,
 } from './consts'
-
-import {
-  isStrictEquals,
-} from './array'
 
 export const CPF_VERIFIERS_INDEXES = [10, 11]
 
@@ -71,4 +68,24 @@ export function isDateValid (date: string): boolean {
   const isSameYear  = parsedDate.getUTCFullYear() === Number(fullYear)
 
   return isSameDay && isSameMonth && isSameYear
+}
+
+export function isExpireDateValid (expireDate: string): boolean {
+  const tokens = splitText(expireDate, SLASH_STRING)
+
+  if (objectSize(tokens) !== 2) return false
+
+  const [monthStr, yearStr] = tokens
+
+  const month = parseInt(monthStr, 10)
+  const shortYear = parseInt(yearStr, 10)
+
+  if (isNaN(month) || isNaN(shortYear) || month < 1 || month > 12) return false
+
+  const currentDate = new Date()
+  const fullYear = 2000 + (shortYear < 100 ? shortYear : 0)
+
+  const expireDateTime = new Date(fullYear, month, 0, 23, 59, 59)
+
+  return expireDateTime > currentDate
 }

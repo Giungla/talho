@@ -47,6 +47,7 @@ export const statesValues = Object.values(statesMap)
 
 export const COOKIE_CONSENT_NAME = 'talho-carnes-consent'
 
+export const EMPTY_OBJ = ({})
 export const EMPTY_STRING = ''
 export const SLASH_STRING = '/'
 export const PIPE_STRING = '|'

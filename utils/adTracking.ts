@@ -27,8 +27,7 @@ import {
 
 export const metaCookiesName = '_fbc|_fbp'
 
-export const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names') ?? 'gclid|gbraid|wbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
-// export const PARAM_NAMES = 'gclid|gbraid|wbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
+export const PARAM_NAMES = 'gclid|gbraid|wbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
 
 export function prefixStorageKey (key: string): string {
   return `talho_${key}`
@@ -60,11 +59,23 @@ export function getTrackingCookies (): [string, string][] {
     )
   }
 
-  const itemName = '_ga'
+  {
+    // Inclui o valor do cookie "_ga" nos headers
+    const itemName = '_ga'
 
-  const clientId = getCookie(itemName)
+    const clientId = getCookie(itemName)
 
-  pushIf(clientId !== false, headers, [ 'x-ga', clientId ])
+    pushIf(clientId !== false, headers, [ 'x-ga', clientId ])
+  }
+
+  {
+    // Inclui
+    const itemName = '_ga_76G3534N9J'
+
+    const sessionId = getCookie(itemName)
+
+    pushIf(sessionId !== false, headers, [ 'x-ga-measurement-id', sessionId ])
+  }
 
   return headers
 }

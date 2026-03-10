@@ -95,3 +95,37 @@ export function maskDate (value: string): string {
       .join(SLASH_STRING)
   })
 }
+
+export function maskCardDate (value: string): string {
+  return value.replace(/^(\d{0,2})(\d{0,2})/, (
+    _: string,
+    g1: Nullable<string>,
+    g2: Nullable<string>,
+  ) => {
+    const response: string[] = []
+
+    for (const group of [g1, g2]) {
+      pushIf(group, response, group)
+    }
+
+    return response.join(SLASH_STRING)
+  })
+}
+
+export function maskCardNumber (value: string): string {
+  return value.replace(/^(\d{0,4})(\d{0,4})(\d{0,4})(\d{0,4})/, (
+    _: string,
+    g1: Nullable<string>,
+    g2: Nullable<string>,
+    g3: Nullable<string>,
+    g4: Nullable<string>,
+  ) => {
+    const response: string[] = []
+
+    for (const group of [g1, g2, g3, g4]) {
+      pushIf(group, response, group)
+    }
+
+    return response.join(' ')
+  })
+}

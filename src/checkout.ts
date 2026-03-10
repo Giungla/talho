@@ -97,6 +97,7 @@ import {
 import {
   isCPFValid,
   isDateValid,
+  isExpireDateValid,
 } from '../utils/validation'
 
 import {
@@ -139,8 +140,10 @@ import {
   maskDate,
   toUpperCase,
   BRLFormatter,
+  maskCardDate,
   maskCPFNumber,
   maskPhoneNumber,
+  maskCardNumber,
 } from '../utils/mask'
 
 import {
@@ -152,6 +155,12 @@ import {
   clearTrackingCookies,
   getMetaTrackingCookies,
 } from '../utils/adTracking'
+
+import {
+  // recoverFields,
+  // storeSingleField,
+  // clearStoredFields,
+} from '../utils/registerUserInfo'
 
 const {
   ref,
@@ -203,60 +212,6 @@ function getAbortController () {
 
 function hasOwn (object: object, key: PropertyKey): boolean {
   return Object.hasOwn(object, key)
-}
-
-function isExpireDateValid (expireDate: string): boolean {
-  const tokens = splitText(expireDate, SLASH_STRING)
-
-  if (objectSize(tokens) !== 2) return false
-
-  const [monthStr, yearStr] = tokens
-
-  const month = parseInt(monthStr, 10)
-  const shortYear = parseInt(yearStr, 10)
-
-  if (isNaN(month) || isNaN(shortYear) || month < 1 || month > 12) return false
-
-  const currentDate = new Date()
-  const fullYear = 2000 + (shortYear < 100 ? shortYear : 0)
-
-  const expireDateTime = new Date(fullYear, month, 0, 23, 59, 59)
-
-  return expireDateTime > currentDate
-}
-
-function maskCardNumber (value: string): string {
-  return value.replace(/^(\d{0,4})(\d{0,4})(\d{0,4})(\d{0,4})/, (
-    _: string,
-    g1: Nullable<string>,
-    g2: Nullable<string>,
-    g3: Nullable<string>,
-    g4: Nullable<string>,
-  ) => {
-    const response: string[] = []
-
-    for (const group of [g1, g2, g3, g4]) {
-      pushIf(group, response, group)
-    }
-
-    return response.join(' ')
-  })
-}
-
-function maskCardDate (value: string): string {
-  return value.replace(/^(\d{0,2})(\d{0,2})/, (
-    _: string,
-    g1: Nullable<string>,
-    g2: Nullable<string>,
-  ) => {
-    const response: string[] = []
-
-    for (const group of [g1, g2]) {
-      pushIf(group, response, group)
-    }
-
-    return response.join(SLASH_STRING)
-  })
 }
 
 function buildFieldValidation (
@@ -435,7 +390,18 @@ const TalhoCheckoutApp = createApp({
   created (): void {
     Promise.allSettled([
       this.getLoggedInUser().then((response: ResponsePattern<UserPartialCheckout>) => {
-        if (!response.succeeded) return
+        if (!response.succeeded) {
+          // const recoveredFields = recoverFields()
+          //
+          // this.customerMail      = recoveredFields?.email ?? EMPTY_STRING
+          // this.customerCPF       = recoveredFields?.cpf ?? EMPTY_STRING
+          // this.customerPhone     = recoveredFields?.phone ?? EMPTY_STRING
+          // this.customerBirthdate = recoveredFields?.birthdate ?? EMPTY_STRING
+
+          return
+        }
+
+        // clearStoredFields()
 
         this.user = response.data
       }),
@@ -665,6 +631,7 @@ const TalhoCheckoutApp = createApp({
         return
       }
 
+      // clearStoredFields()
       clearTrackingCookies()
 
       const path: Record<ISinglePaymentKey, string> = {
@@ -1952,6 +1919,26 @@ const TalhoCheckoutApp = createApp({
               field,
               value: trimmedValue,
             })
+          })
+        )
+      },
+
+      unmounted: cleanupDirective,
+    },
+
+    // v-save-field
+    saveField: {
+      mounted (el: HTMLInputElement, { arg }: DirectiveBinding<string, string, string>): void {
+        eventMap.set(
+          el,
+          attachEvent(el, 'change', (event: Event) => {
+            if (!event.isTrusted || !arg) return
+
+            const target = event.target
+
+            if (!(target instanceof HTMLInputElement)) return
+
+            // storeSingleField(arg, target.value)
           })
         )
       },
