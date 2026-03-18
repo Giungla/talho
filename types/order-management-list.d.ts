@@ -98,7 +98,7 @@ export interface OrderManagementListComputedDefinition {
   /**
    * Retorna apenas os filtros que podem ser selecionados com base nos pedidos recebidos
    */
-  getAppliableFilters: () => OrderFilter[];
+  getAppliableFilters: () => RenderableOrderFilter[];
   /**
    * Indica se a paginação possui página anterior
    */
@@ -182,14 +182,18 @@ export interface OrderManagementItem {
    * Status de entrega do pedido
    */
   status: Nullable<OrderStatusKeys>;
+  /**
+   * Indica se este é o primeiro pedido deste usuário
+   */
+  is_first_order: boolean;
 }
 
-export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'created_at' | 'order_items' | 'total' | 'transaction_id' | 'prepare_status' | 'status'> {
+export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'id' | 'created_at' | 'order_items' | 'total' | 'transaction_id' | 'prepare_status' | 'status'> {
   url: string;
   price: string;
   items_count: number;
   created_date: string;
-  delivery_status?: OrderFilter;
+  delivery_status?: RenderableOrderFilter;
   delivery_date: string;
 }
 

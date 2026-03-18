@@ -24,16 +24,16 @@ if (typeof entry !== 'string') {
   throw new Error(`You must specify a name`);
 }
 
-const filename = `${entry}.${hash}.js`
+const filename = `${entry}.global.js`
 
-fs.readdir('dist', async (err, files) => {
+fs.readdir('dev', async (err, files) => {
   if (err) throw err;
 
   const filteredFiles = files.filter((file) => file.startsWith(entry));
 
   if (filteredFiles.length > 0) {
     for (const file of filteredFiles) {
-      fs.unlink(`dist/${file}`, (err) => {
+      fs.unlink(`dev/${file}`, (err) => {
         if (!err) {
           return console.log(file, 'removed');
         }
@@ -52,27 +52,23 @@ await build({
   entry: [`src/${entry}.ts`],
   format: ['iife'],
   minify: 'terser',
-  outDir: 'dist',
+  outDir: 'dev',
   treeshake: true,
   splitting: false,
   outExtension: () => ({
-    js: `.${hash}.js`,
+    js: `.global.js`,
   }),
-  drop: [
-    'console',
-    'debugger',
-  ],
-  env: {
-    NODE_ENV: 'production',
-  },
   platform: 'browser',
+  env: {
+    NODE_ENV: 'development',
+  },
   terserOptions: {
     compress: {
       booleans: true,            // true → !0, false → !1
       conditionals: true,        // if/else → expressões ternárias quando possível
       dead_code: true,           // remove código não usado
-      drop_console: true,        // remove console.* (produção)
-      drop_debugger: true,       // remove debugger
+      drop_console: false,        // remove console.* (produção)
+      drop_debugger: false,       // remove debugger
       evaluate: true,            // calcula constantes em tempo de build
       keep_infinity: true,       // preserva Infinity (evita 1/0 que pode ser mais lento)
       reduce_vars: true,         // substitui variáveis usadas uma vez
@@ -93,10 +89,12 @@ await build({
     },
     safari10: true,
   },
+  external: [],
+  noExternal: [],
   define: {
     __VUE_OPTIONS_API__: 'true',
-    __VUE_PROD_DEVTOOLS__: 'false',
-    'process.env.NODE_ENV': 'production',
+    __VUE_PROD_DEVTOOLS__: 'true',
+    'process.env.NODE_ENV': "development",
   },
   target: 'es2020',
   sourcemap: false,
@@ -109,5 +107,5 @@ await build({
   },
 })
 
-console.log(`Generated file: dist/${filename}`)
+console.log(`Generated file: dev/${filename}`)
 

@@ -18,7 +18,7 @@ import {
   type OrderManagementFilter,
   type AvailableFilterStatus,
   type OrderManagementDateLimitObject,
-  type OrderManagementDateLimits, OrderFilter,
+  type OrderManagementDateLimits,
 } from '../types/order-management-list'
 
 import {
@@ -28,11 +28,6 @@ import {
   OrderPrepareStatus,
 } from '../types/order'
 
-const {
-  nextTick,
-  createApp,
-} = Vue
-
 import {
   NULL_VALUE,
   isNull,
@@ -41,6 +36,7 @@ import {
   scrollIntoView,
   objectSize,
   splitText,
+  isString,
 } from '../utils/dom'
 
 import {
@@ -78,7 +74,9 @@ import {
 } from '../utils/vue'
 
 import {
-  type Directive,
+  nextTick,
+  createApp,
+  defineComponent,
 } from 'vue'
 
 function isInvalidDate (date: Nullable<string>): date is null {
@@ -109,27 +107,10 @@ function getSpecificLimitDate (timestamp: number): Nullable<string> {
   return splitText(date, 'T').at(0) ?? NULL_VALUE
 }
 
-const OrderManagementApp = createApp({
+const OrderManagementComponent = defineComponent({
   name: 'OrderManagementApp',
 
-  async created (): Promise<void> {
-    this.refreshURLState = bindURL<OrderManagementFilter>(
-      'filter',
-      () => this.filter,
-      (filter: OrderManagementFilter) => this.filter = filter,
-    )
-
-    this.refresh(false)
-      .then(this.resetFilterDates)
-      .then(() => {
-        // reset dates each 30min and refetch orders
-        setTimeout(() => {
-          location.href = location.protocol.concat('//', location.hostname, location.pathname)
-        }, 30 * 60 * 1000)
-      })
-  },
-
-  data () {
+  data (): OrderManagementListData {
     return {
       orders: NULL_VALUE,
       availableFilters: [
@@ -173,6 +154,23 @@ const OrderManagementApp = createApp({
     }
   },
 
+  async created (): Promise<void> {
+    this.refreshURLState = bindURL<OrderManagementFilter>(
+      'filter',
+      () => this.filter,
+      (filter: OrderManagementFilter) => this.filter = filter,
+    )
+
+    this.refresh(false)
+      .then(this.resetFilterDates)
+      .then(() => {
+        // reset dates each 30min and refetch orders
+        setTimeout(() => {
+          location.href = location.protocol.concat('//', location.hostname, location.pathname)
+        }, 30 * 60 * 1000)
+      })
+  },
+
   methods: ({
     async getOrders <T extends IPaginatedSchemaAddon<OrderManagementItem, OrderManagementDateLimitObject>> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Houve uma falha com a busca de pedidos'
@@ -197,7 +195,7 @@ const OrderManagementApp = createApp({
     },
 
     getFilterByToken (token: OrderStatusKeys | OrderPrepareStatusKeys): RenderableOrderFilter | undefined {
-      return this.getAppliableFilters.find<RenderableOrderFilter>((filter: OrderFilter) => filter.name === token)
+      return this.getAppliableFilters.find(filter => filter.name === token)
     },
 
     async refresh (shouldUpdateURL: boolean = true): Promise<void> {
@@ -277,20 +275,22 @@ const OrderManagementApp = createApp({
           ? status
           : prepare_status
 
-        return {
+        const filterToken = filterStatus && this.getFilterByToken(filterStatus)
+
+        return ({
           ...order,
           created_date: timestampDate(created_at),
           items_count: order_items,
           price: BRLFormatter.format(total / 100),
           url: `/adm/ficha-de-pedido?transactionid=${transaction_id}`,
-          ...(filterStatus && {
-            delivery_status: this.getFilterByToken(filterStatus),
+          ...(filterStatus && filterToken && {
+            delivery_status: filterToken,
           }),
           delivery_date: splitText(order.date, '-')
             .reverse()
             .join(SLASH_STRING)
             .concat(` às ${order.hour}hrs`),
-        } satisfies OrderManagementItemParsed
+        } satisfies OrderManagementItemParsed)
       })
     },
 
@@ -341,10 +341,10 @@ const OrderManagementApp = createApp({
             pushIf(!isNull(value), queryParams, [key, value].join('='))
             break
           case 'endDate':
-            pushIf(!isInvalidDate(value), queryParams, ['final_date', value].join('='))
+            pushIf(isString(value) && !isInvalidDate(value), queryParams, ['final_date', value].join('='))
             break
           case 'startDate':
-            pushIf(!isInvalidDate(value), queryParams, ['start_date', value].join('='))
+            pushIf(isString(value) && !isInvalidDate(value), queryParams, ['start_date', value].join('='))
         }
       }
 
@@ -450,18 +450,13 @@ const OrderManagementApp = createApp({
       unmounted: cleanupDirective,
     },
   },
-} satisfies {
-  name: string;
-  created: () => Promise<void>;
-  data: () => OrderManagementListData;
-  methods: OrderManagementListMethods;
-  computed: OrderManagementListComputedDefinition;
-  directives: Record<string, Directive>,
-} & ThisType<OrderManagementListContext>)
+})
 
-const orderManagementList = querySelector('#order-management-list')
+const orderManagementList = querySelector<'div'>('#order-management-list')
 
-OrderManagementApp.mount(orderManagementList as Element)
+if (orderManagementList) {
+  createApp(OrderManagementComponent).mount(orderManagementList)
+}
 
 window.addEventListener('pageshow', (e: PageTransitionEvent) => {
   if (e.persisted) window.location.reload()

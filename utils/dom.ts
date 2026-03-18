@@ -15,6 +15,7 @@ import {
 import {
   EMPTY_STRING,
 } from './consts'
+import {value} from "happy-dom/lib/PropertySymbol";
 
 export const NULL_VALUE: null = null
 export const GENERAL_HIDDEN_CLASS = 'oculto'
@@ -22,6 +23,10 @@ export const GENERAL_HIDDEN_CLASS = 'oculto'
 export const SCROLL_INTO_VIEW_DEFAULT_ARGS: ScrollIntoViewOptions = {
   block: 'center',
   behavior: 'smooth',
+}
+
+export function isString (value: unknown): value is string {
+  return typeof value === 'string'
 }
 
 export function isArray(value: unknown): value is unknown[];
