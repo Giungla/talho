@@ -5,14 +5,20 @@ import type {
 
 import {
   COOKIE_CONSENT_NAME,
-  GENERAL_HIDDEN_CLASS,
-  getCookie,
-  setCookie,
+} from '../utils/consts'
+
+import {
   addClass,
   removeClass,
   attachEvent,
   querySelector,
-} from '../utils'
+  GENERAL_HIDDEN_CLASS,
+} from '../utils/dom'
+
+import {
+  getCookie,
+  setCookie,
+} from '../utils/cookie'
 
 (function() {
   const CLICK_EVENT = 'click'
@@ -21,10 +27,10 @@ import {
   // @ts-ignore
   window.dataLayer = window?.dataLayer || []
 
-  function gtag (){
-    // @ts-ignore
-    dataLayer.push(arguments)
-  }
+  // function gtag (){
+  //   // @ts-ignore
+  //   dataLayer.push(arguments)
+  // }
 
   const consentModule = querySelector('[data-wtf-consent-module]')
 
@@ -38,12 +44,15 @@ import {
 
       checkoutPage()
 
+      updateGtag('denied')
+
       break
     case '1':
+      updateGtag('granted')
       console.warn('[CookieConsent] customer allowed the cookies')
-      applyGTM()
       break
     case false:
+    default:
       startConsentModule()
   }
 
@@ -52,17 +61,26 @@ import {
     event.stopPropagation()
   }
 
+  function updateGtag (consent: "granted" | "denied") {
+    gtag('consent', 'update', {
+      'ad_storage': consent,
+      'analytics_storage': consent,
+      'ad_user_data': consent,
+      'ad_personalization': consent,
+    })
+  }
+
   function startConsentModule () {
     removeClass(consentModule, GENERAL_HIDDEN_CLASS)
 
     attachEvent(querySelector('[data-wtf-consent-module-accept]'), CLICK_EVENT, function (e: MouseEvent) {
       cancelEventPropagation(e)
 
-      applyGTM()
-
       setConsentCookie('1')
 
       addClass(consentModule, GENERAL_HIDDEN_CLASS)
+
+      updateGtag('granted')
     })
 
     attachEvent(querySelector('[data-wtf-consent-module-reject]'), CLICK_EVENT, function (e: MouseEvent) {
@@ -74,6 +92,8 @@ import {
       setConsentCookie('0')
 
       addClass(consentModule, GENERAL_HIDDEN_CLASS)
+
+      updateGtag('denied')
     })
   }
 
@@ -85,8 +105,6 @@ import {
 
   function checkoutPage () {
     if (location.pathname.includes('checkout')) {
-      applyGTM()
-
       return
     }
 
@@ -100,17 +118,6 @@ import {
       secure: true,
       sameSite: 'None',
     })
-  }
-
-  function applyGTM (GTMCode: string = GTM_CODE ?? '') {
-    (function(w,d,s,l,i){ // @ts-ignore
-      w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:''; // @ts-ignore
-      j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl; // @ts-ignore
-      f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer',GTMCode);
   }
 
   attachEvent(querySelector('[data-wtf-consent-open]'), CLICK_EVENT, function (e: MouseEvent) {
