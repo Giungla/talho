@@ -89,7 +89,9 @@ await build({
     },
     safari10: true,
   },
-  external: [],
+  external: [
+    'vue',
+  ],
   noExternal: [],
   define: {
     __VUE_OPTIONS_API__: 'true',
@@ -104,6 +106,7 @@ await build({
     options.alias    = {
       vue: 'Vue',
     }
+    options.platform = 'browser'
   },
 })
 

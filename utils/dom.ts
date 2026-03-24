@@ -220,6 +220,10 @@ export function replaceDuplicatedSpaces (value: string): string {
   return value.replace(/\s{2,}/g, ' ')
 }
 
+export function isInputInstance (value: any): value is HTMLInputElement {
+  return value instanceof HTMLInputElement
+}
+
 export function focusInput (input: ReturnType<typeof querySelector<'input'>>, options?: FocusOptions) {
   if (!input) return
 

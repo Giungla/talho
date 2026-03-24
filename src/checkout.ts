@@ -128,7 +128,7 @@ import {
   isPageLoading,
   normalizeText,
   scrollIntoView,
-  replaceDuplicatedSpaces,
+  replaceDuplicatedSpaces, isInputInstance, focusInput,
 } from '../utils/dom'
 
 import {
@@ -157,15 +157,17 @@ import {
 } from '../utils/adTracking'
 
 import {
-  // recoverFields,
-  // storeSingleField,
-  // clearStoredFields,
+  recoverFields,
+  storeSingleField,
+  clearStoredFields,
 } from '../utils/registerUserInfo'
 
-const {
+import {
   ref,
+  nextTick,
   createApp,
-} = Vue
+  defineComponent,
+} from 'vue'
 
 const ERROR_KEY = 'error'
 
@@ -255,10 +257,10 @@ async function searchAddress <T extends VIACEPFromXano> ({ cep, deliveryMode }: 
   }
 }
 
-const TalhoCheckoutApp = createApp({
+const TalhoCheckoutApp = defineComponent({
   name: 'TalhoCheckoutApp',
 
-  setup () {
+  setup (): TalhoCheckoutAppSetup {
     return ({
       customerCPF: ref<string>(EMPTY_STRING),
       customerMail: ref<string>(EMPTY_STRING),
@@ -331,10 +333,10 @@ const TalhoCheckoutApp = createApp({
       deliveryBillingAddressErrorMessage: ref<Nullable<string>>(NULL_VALUE),
 
       deliveryShippingAddressErrorMessage: ref<Nullable<string>>(NULL_VALUE),
-    } satisfies TalhoCheckoutAppSetup)
+    })
   },
 
-  data () {
+  data (): TalhoCheckoutAppData {
     return ({
       user: NULL_VALUE,
       errorMessage: NULL_VALUE,
@@ -388,20 +390,34 @@ const TalhoCheckoutApp = createApp({
   },
 
   created (): void {
+    const recoveredFields = recoverFields()
+
+    this.shippingCEP          = recoveredFields?.shipping_cep ?? EMPTY_STRING
+    this.shippingAddress      = recoveredFields?.shipping_address ?? EMPTY_STRING
+    this.shippingNumber       = recoveredFields?.shipping_number ?? EMPTY_STRING
+    this.shippingComplement   = recoveredFields?.shipping_complement ?? EMPTY_STRING
+    this.shippingNeighborhood = recoveredFields?.shipping_neighborhood ?? EMPTY_STRING
+    this.shippingCity         = recoveredFields?.shipping_city ?? EMPTY_STRING
+    this.shippingState        = recoveredFields?.shipping_state ?? EMPTY_STRING
+
+    this.billingCEP          = recoveredFields?.billing_cep ?? EMPTY_STRING
+    this.billingAddress      = recoveredFields?.billing_address ?? EMPTY_STRING
+    this.billingNumber       = recoveredFields?.billing_number ?? EMPTY_STRING
+    this.billingComplement   = recoveredFields?.billing_complement ?? EMPTY_STRING
+    this.billingNeighborhood = recoveredFields?.billing_neighborhood ?? EMPTY_STRING
+    this.billingCity         = recoveredFields?.billing_city ?? EMPTY_STRING
+    this.billingState        = recoveredFields?.billing_state ?? EMPTY_STRING
+
     Promise.allSettled([
       this.getLoggedInUser().then((response: ResponsePattern<UserPartialCheckout>) => {
         if (!response.succeeded) {
-          // const recoveredFields = recoverFields()
-          //
-          // this.customerMail      = recoveredFields?.email ?? EMPTY_STRING
-          // this.customerCPF       = recoveredFields?.cpf ?? EMPTY_STRING
-          // this.customerPhone     = recoveredFields?.phone ?? EMPTY_STRING
-          // this.customerBirthdate = recoveredFields?.birthdate ?? EMPTY_STRING
+          this.customerMail      = recoveredFields?.email ?? EMPTY_STRING
+          this.customerCPF       = recoveredFields?.cpf ?? EMPTY_STRING
+          this.customerPhone     = recoveredFields?.phone ?? EMPTY_STRING
+          this.customerBirthdate = recoveredFields?.birthdate ?? EMPTY_STRING
 
           return
         }
-
-        // clearStoredFields()
 
         this.user = response.data
       }),
@@ -416,6 +432,9 @@ const TalhoCheckoutApp = createApp({
   },
 
   methods: {
+    /**
+     * Permite a seleção de um endereço prviamente criado
+     */
     setPreviousAddress (addressId: number, addressType: IOrderAddressType): void {
       const selectedAddress = this.user?.address_list.find(address => address.id === addressId)
 
@@ -451,6 +470,9 @@ const TalhoCheckoutApp = createApp({
       }
     },
 
+    /**
+     * Captura os dados do usuário logado, caso exista
+     */
     async getLoggedInUser <T extends UserPartialCheckout> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha na captura do usuário'
 
@@ -595,16 +617,16 @@ const TalhoCheckoutApp = createApp({
     async handlePayment (e: MouseEvent): Promise<void> {
       e.preventDefault()
 
-      const selectedPayment = this.selectedPayment
+      if (this.hasPendingPayment || this.isDeliveryLoading) return
 
-      if (this.hasPendingPayment || this.isDeliveryLoading || isNull(selectedPayment)) return
+      const selectedPayment = this.selectedPayment
 
       this.triggerValidations()
 
       if (!this.isSubmitted) {
         this.isSubmitted = true
 
-        Vue.nextTick(() => this.handlePayment(e))
+        nextTick(() => this.handlePayment(e))
 
         return
       }
@@ -612,12 +634,22 @@ const TalhoCheckoutApp = createApp({
       const firstInvalidField = this.firstInvalidField
 
       if (firstInvalidField && firstInvalidField.field) {
-        scrollIntoView(firstInvalidField.field, SCROLL_INTO_VIEW_DEFAULT_ARGS)
+        const {
+          field,
+        } = firstInvalidField
 
-        firstInvalidField.field.tagName === 'INPUT' && setTimeout(firstInvalidField.field.focus, 500)
+        scrollIntoView(field, SCROLL_INTO_VIEW_DEFAULT_ARGS)
+
+        if (isInputInstance(field)) {
+          setTimeout(focusInput, 500, field, {
+            preventScroll: false,
+          } satisfies FocusOptions)
+        }
 
         return
       }
+
+      if (isNull(selectedPayment)) return
 
       this.hasPendingPayment = !isPageLoading(true)
 
@@ -631,7 +663,7 @@ const TalhoCheckoutApp = createApp({
         return
       }
 
-      // clearStoredFields()
+      clearStoredFields()
       clearTrackingCookies()
 
       const path: Record<ISinglePaymentKey, string> = {
@@ -831,6 +863,9 @@ const TalhoCheckoutApp = createApp({
       this.couponCode = EMPTY_STRING
     },
 
+    /**
+     * Carrega a lib do PagSeguro para gerar a encriptação dos dados do cartão
+     */
     loadPagSeguro (): void {
       const script = document.createElement('script')
 
@@ -843,6 +878,9 @@ const TalhoCheckoutApp = createApp({
       document.head.appendChild(script)
     },
 
+    /**
+     * Reseta os dados da seção "Cartão de crédito"
+     */
     clearCreditCardData (): void {
       this.customerCreditCardHolder = EMPTY_STRING
       this.customerCreditCardNumber = EMPTY_STRING
@@ -850,6 +888,9 @@ const TalhoCheckoutApp = createApp({
       this.customerCreditCardCVV    = EMPTY_STRING
     },
 
+    /**
+     * Captura e altera o estado com as datas e horários disponíveis para entrega
+     */
     async handleDeliveryOptions (): Promise<void> {
       const response = await this.captureDeliveryOptions()
 
@@ -858,6 +899,9 @@ const TalhoCheckoutApp = createApp({
       this.deliveryOptions = response.data
     },
 
+    /**
+     * Captura as datas e períodos de entrega disponíveis
+     */
     async captureDeliveryOptions <T extends CheckoutDeliveryResponse> (): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao capturar as opções de entrega'
 
@@ -880,6 +924,9 @@ const TalhoCheckoutApp = createApp({
       }
     },
 
+    /**
+     * Configura uma data de envio
+     */
     setDeliveryDate (shiftDays: number): void {
       if (this.deliveryDate === shiftDays || !this.deliveryOptions) return
 
@@ -892,12 +939,18 @@ const TalhoCheckoutApp = createApp({
       this.deliveryPrice = NULL_VALUE
     },
 
+    /**
+     * Configura um horário de entrega
+     */
     setDeliveryHour (_hour: number): void {
       if (this.deliveryHour === _hour || this.getSelectedDateDetails?.periods.periods_count === 0) return
 
       this.deliveryHour = _hour
     },
 
+    /**
+     * Captura os dados de cotação de entrega do pedido
+     */
     async handleDeliveryQuotation (controller: AbortController): Promise<void> {
       this.isDeliveryLoading = true
 
@@ -918,6 +971,9 @@ const TalhoCheckoutApp = createApp({
       this.isDeliveryLoading = false
     },
 
+    /**
+     * Captura uma e retorna uma cotação para entrega na Lalamove
+     */
     async captureDeliveryQuotation <T extends CheckoutDeliveryPriceResponse> (controller: AbortController): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Falha ao gerar uma cotação'
 
@@ -944,6 +1000,9 @@ const TalhoCheckoutApp = createApp({
       }
     },
 
+    /**
+     * Captura e salva no estado os dados de subsídio
+     */
     async handleSubsidy (): Promise<void> {
       const shippingCEP = this.getParsedAddresses.shippingaddress.zipPostalCode
 
@@ -956,6 +1015,9 @@ const TalhoCheckoutApp = createApp({
         : NULL_VALUE
     },
 
+    /**
+     * Verifica se o CEP que será usado para entrega do pedido possui subsídio
+     */
     async verifyForSubsidy <T extends SubsidyResponse> (cep: string): Promise<ResponsePattern<T>> {
       const defaultErrorMessage = 'Houve uma falha na verificação'
 
@@ -978,6 +1040,9 @@ const TalhoCheckoutApp = createApp({
       }
     },
 
+    /**
+     * Gera um novo carrinho abandonado
+     */
     async createAbandonmentCart (payload: CartAbandonmentParams): Promise<ResponsePattern<void>> {
       const defaultErrorMessage = 'Houve uma ao gerar o carrinho'
 
@@ -1005,22 +1070,37 @@ const TalhoCheckoutApp = createApp({
   },
 
   computed: {
+    /**
+     * Verifica se existe um meio de pagamento selecionado
+     */
     hasSelectedPaymentMethod (): boolean {
       return !isNull(this.selectedPayment)
     },
 
+    /**
+     * `true` se o metodo de pagamento selecionado for `creditcard`
+     */
     isCreditCard (): boolean {
       return this.selectedPayment === CREDIT_CARD_PAYMENT
     },
 
+    /**
+     * Captura o subtotal do pedido
+     */
     getOrderSubtotal (): number {
       return this.productlist?.order_price ?? 0
     },
 
+    /**
+     * Retorna o valor de `getOrderSubtotal` formatado em BRL
+     */
     getOrderSubtotalFormatted (): string {
       return BRLFormatter.format(this.getOrderSubtotal)
     },
 
+    /**
+     * Captura o valor total que será cobrado no pedido
+     */
     getOrderPrice (): number {
       const finalPrice = [
         this.getOrderSubtotal,
@@ -1039,10 +1119,16 @@ const TalhoCheckoutApp = createApp({
       )
     },
 
+    /**
+     * Retorna o valor de `getOrderPrice` formatado em BRL
+     */
     getOrderPriceFormatted (): string {
       return BRLFormatter.format(this.getOrderPrice)
     },
 
+    /**
+     * Captura o valor que será cobrado sobre o envio, retornará zero sempre que o valor do subtotal for igual ou maior a 400
+     */
     getShippingPrice (): number {
       if (this.hasFreeShippingByCartPrice) return 0
 
@@ -1051,12 +1137,18 @@ const TalhoCheckoutApp = createApp({
         : (this.deliveryPrice as Omit<PostOrderDeliveryGroup, "has_priority">).value / 100
     },
 
+    /**
+     * Retorna o valor de `getShippingPrice` formatado em BRL ou a mensagem 'Frete grátis' se o valor do carrinho for maior ou igual a 400 BRL
+     */
     getShippingPriceFormatted (): string {
       if (this.hasFreeShippingByCartPrice) return 'Frete grátis'
 
       return BRLFormatter.format(this.getShippingPrice)
     },
 
+    /**
+     * Retorna o desconto fornecido pelo cupom aplicado (retorna 0 ou valor negativo)
+     */
     getCouponDiscountPrice (): number {
       if (this.hasNullCoupon || this.hasInvalidCoupon) return 0
 
@@ -1074,10 +1166,19 @@ const TalhoCheckoutApp = createApp({
       return Math.round(Math.abs(discountPrice) * 100) / 100 * Math.sign(discountPrice)
     },
 
+    /**
+     * Retorna o valor de `getShippingPriceFormatted` formatado em BRL
+     */
     getCouponDiscountPriceFormatted (): string {
       return BRLFormatter.format(this.getCouponDiscountPrice)
     },
 
+    /**
+     * Retorna o preço onde deverá ser aplicado o cupom de desconto
+     * Se o cupom for do tipo `subtotal` retorna o valor de `getOrderSubtotal`
+     * Se o cupom for do tipo `shipping` retorna o valor de `getShippingPrice`
+     * Se o cupom for do tipo `product_id` será retornado o valor do produto em questão
+     */
     getParsedPriceForApplyDiscount (): number {
       if (this.hasNullCoupon || this.hasInvalidCoupon) return 0
 
@@ -1096,6 +1197,9 @@ const TalhoCheckoutApp = createApp({
       }[cupom_type]
     },
 
+    /**
+     * Dados do produto
+     */
     getParsedProducts (): ParsedProductList[] {
       const productlist = this.productlist?.items
 
@@ -1111,6 +1215,9 @@ const TalhoCheckoutApp = createApp({
       }))
     },
 
+    /**
+     * Verifica se os dados básicos do usuário são válidos
+     */
     isPersonalDataValid (): boolean {
       return !this.isSubmitted || [
         this.customerMailValidation.valid,
@@ -1120,6 +1227,9 @@ const TalhoCheckoutApp = createApp({
       ].every(Boolean)
     },
 
+    /**
+     * Verifica se o e-mail informado é válido
+     */
     customerMailValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerMailElement,
@@ -1127,6 +1237,9 @@ const TalhoCheckoutApp = createApp({
       )
     },
 
+    /**
+     * Verifica se a data de nascimento recebida é válida
+     */
     customerBirthdateValidation (): ISingleValidateCheckout {
       const { customerBirthdate } = this
 
@@ -1136,6 +1249,9 @@ const TalhoCheckoutApp = createApp({
       )
     },
 
+    /**
+     * Verifica se o CPF fornecido é válido
+     */
     customerCPFValidation (): ISingleValidateCheckout {
       const { customerCPF } = this
 
@@ -1145,6 +1261,9 @@ const TalhoCheckoutApp = createApp({
       )
     },
 
+    /**
+     * Verifica se o cliente forneceu um telefone válido
+     */
     customerPhoneValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerPhoneElement,
@@ -1152,10 +1271,16 @@ const TalhoCheckoutApp = createApp({
       )
     },
 
+    /**
+     * Verifica se o usuário selecionou um meio de pagamento
+     */
     paymentMethodValidation (): ISingleValidateCheckout {
       return buildFieldValidation(this.paymentMethodMessageElement, !isNull(this.selectedPayment))
     },
 
+    /**
+     * Verifica se o nome impresso no cartão é válido
+     */
     customerCreditCardHolderValidation (): ISingleValidateCheckout {
       return buildFieldValidation(
         this.customerCreditCardHolderElement,
@@ -1938,7 +2063,7 @@ const TalhoCheckoutApp = createApp({
 
             if (!(target instanceof HTMLInputElement)) return
 
-            // storeSingleField(arg, target.value)
+            storeSingleField(arg, target.value)
           })
         )
       },
@@ -1946,18 +2071,9 @@ const TalhoCheckoutApp = createApp({
       unmounted: cleanupDirective,
     },
   },
-} satisfies ({
-  name: string;
-  created: () => void;
-  data: () => TalhoCheckoutAppData;
-  setup: () => TalhoCheckoutAppSetup;
-  methods: TalhoCheckoutAppMethods;
-  computed: TalhoCheckoutAppComputedDefinition;
-  watch: TalhoCheckoutAppWatch;
-  directives: Record<string, ObjectDirective>;
-} & ThisType<TalhoCheckoutContext>))
+})
 
-TalhoCheckoutApp.mount('#fechamentodopedido')
+createApp(TalhoCheckoutApp).mount('#fechamentodopedido')
 
 window.addEventListener('pageshow', (e: PageTransitionEvent) => {
   if (e.persisted) window.location.reload()
