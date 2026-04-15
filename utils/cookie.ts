@@ -16,7 +16,7 @@ import {
 
 export const COOKIE_SEPARATOR = '; '
 
-export function getCookie (name: string): string | false {
+export function getCookie <T extends string> (name: string): T | false {
   const selectedCookie = splitText(replaceDuplicatedSpaces(document.cookie), COOKIE_SEPARATOR)
     .find(cookie => {
       const { name: cookieName } = splitCookie(cookie)
