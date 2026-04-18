@@ -1,4 +1,6 @@
+
 import {
+  hasClass,
   splitText,
   stringify,
   attachEvent,
@@ -43,6 +45,7 @@ function isHTMLAnchorElement (element: Element): element is HTMLAnchorElement {
   return element instanceof HTMLAnchorElement
 }
 
+const doneClass = getAttribute(document.currentScript, 'data-done-classname') ?? 'carregado'
 const loadingClass = getAttribute(document.currentScript, 'data-loading-classname') ?? 'carregando'
 
 for (const trigger of triggers) {
@@ -60,6 +63,10 @@ for (const trigger of triggers) {
     event.preventDefault()
     event.stopPropagation()
 
+    if ([loadingClass, doneClass].some(className => hasClass(trigger, className))) {
+      return console.warn('You should wait for the end of the current operation to add this item again')
+    }
+
     toggleClass(trigger, loadingClass, true)
 
     addProductsToCart(slug)
@@ -67,6 +74,12 @@ for (const trigger of triggers) {
         toggleClass(trigger, loadingClass, false)
 
         if (!response.succeeded) return
+
+        toggleClass(trigger, doneClass, true)
+
+        setTimeout(() => {
+          toggleClass(trigger, doneClass, false)
+        }, 1500)
 
         changeTextContent(
           querySelector('[data-wtf-floating-cart-items-indicator]'),
