@@ -1,49 +1,69 @@
 
-import type {
-  ComputedFinalPrices,
-  CreateCartProduct,
-  FunctionSucceededPattern,
-  Nullable,
-  Prices,
-  ResponsePattern,
-  SingleProductPageProduct,
-  SingleProductPageState,
-  SingleProductPageStateHandler,
-  SingleProductPageStateKeys,
+import {
+  type ComputedFinalPrices,
+  type CreateCartProduct, FunctionErrorPattern,
+  type FunctionSucceededPattern,
+  type Nullable,
+  type Prices,
+  type ResponsePattern, ResponsePatternCallback,
+  type SingleProductPageProduct,
+  type SingleProductPageState,
+  type SingleProductPageStateHandler,
+  type SingleProductPageStateKeys,
 } from '../global'
 
-import type {
-  AddToCartParams,
-  DeliveryQuotationBody,
-  GetProductParams,
-  GetProductResponse,
-  LocationList,
-  LocationResponse,
-  QuotationPayload,
-  QuotationPrice,
+import {
+  type AddToCartParams,
+  type DeliveryQuotationBody,
+  type GetProductParams,
+  type GetProductResponse,
+  type LocationList,
+  type LocationResponse,
+  type QuotationPayload,
+  type QuotationPrice,
 } from '../types/single-page-product'
 
 import {
-  NULL_VALUE,
-  BRLFormatter,
+  SLASH_STRING,
   XANO_BASE_URL,
-  GENERAL_HIDDEN_CLASS,
   STORAGE_KEY_NAME,
-  attachEvent,
-  clamp,
+} from '../utils/consts'
+
+import {
+  NULL_VALUE,
+  GENERAL_HIDDEN_CLASS,
+  isNull,
+  addClass,
   stringify,
+  splitText,
+  objectSize,
+  numberOnly,
+  toggleClass,
+  removeClass,
+  attachEvent,
+  querySelector,
+  isInputInstance,
+  removeAttribute,
+  changeTextContent,
+} from '../utils/dom'
+
+import {
+  BRLFormatter,
+} from '../utils/mask'
+
+import {
   postErrorResponse,
   postSuccessResponse,
   buildRequestOptions,
-  addClass,
-  querySelector,
-  changeTextContent,
-  toggleClass,
-  removeClass,
-  removeAttribute,
-  objectSize,
-  isNull,
-} from '../utils'
+} from '../utils/requestResponse'
+
+import {
+  clamp,
+} from '../utils/math'
+
+import {
+  EnumHttpMethods,
+} from '../types/http'
 
 const SELECTED_CLASS = 'selecionado'
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
@@ -56,8 +76,6 @@ const CLICK_EVENT = 'click'
 const MIN_PRODUCT_QUANTITY = 1
 /** Quantidade máxima de produtos permitados no carrinho */
 const MAX_PRODUCT_QUANTITY = 10
-
-const REQUEST_POST = 'POST'
 
 const COUNTER_REPLACEMENT = '{count}'
 
@@ -73,7 +91,7 @@ const _state: SingleProductPageState = {
   selectedVariation: NULL_VALUE,
 }
 
-const slug = location.pathname.split('/')
+const slug = splitText(location.pathname, SLASH_STRING)
 
 const state = new Proxy<SingleProductPageState>(_state, {
   get (
@@ -214,27 +232,31 @@ function buildPriceResponse <T = number> (
   }
 }
 
-async function getProduct (pathname: GetProductParams['reference_id']): Promise<ResponsePattern<GetProductResponse>> {
+async function getProduct <T extends GetProductResponse> (pathname: GetProductParams['reference_id']): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Houve uma falha ao capturar o produto'
 
   try {
     const response = await fetch(`${CART_BASE_URL}/product/single-product-page`, {
-      ...buildRequestOptions([], REQUEST_POST),
+      ...buildRequestOptions([], EnumHttpMethods.POST),
       body: stringify<GetProductParams>({
         quantity: 1,
         reference_id: pathname,
-      })
+      }),
     })
 
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call<
+        Response, [string], FunctionErrorPattern
+      >(response, error?.message ?? defaultErrorMessage)
     }
 
-    const data: GetProductResponse = await response.json()
+    const data: T = await response.json()
 
-    return postSuccessResponse.call(response, data) as FunctionSucceededPattern<GetProductResponse>
+    return postSuccessResponse.call<
+      Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+    >(response, data)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -290,12 +312,12 @@ async function buyProduct (event: MouseEvent): Promise<void> {
   localStorage.setItem(STORAGE_KEY_NAME, stringify<CreateCartProduct>(response.data))
 }
 
-async function addProductToCart (item: CreateCartProduct): Promise<ResponsePattern<CreateCartProduct>> {
+async function addProductToCart <T extends CreateCartProduct> (item: CreateCartProduct): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Falha ao adicionar o produto'
 
   try {
     const response = await fetch(`${CART_BASE_URL}/cart/handle`, {
-      ...buildRequestOptions([], REQUEST_POST),
+      ...buildRequestOptions([], EnumHttpMethods.POST),
       body: stringify<AddToCartParams>({
         item,
         operation: 'add',
@@ -305,12 +327,16 @@ async function addProductToCart (item: CreateCartProduct): Promise<ResponsePatte
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call<
+        Response, [string], FunctionErrorPattern
+      >(response, error?.message ?? defaultErrorMessage)
     }
 
-    const data: CreateCartProduct = await response.json()
+    const data: T = await response.json()
 
-    return postSuccessResponse.call(response, data) as FunctionSucceededPattern<CreateCartProduct>
+    return postSuccessResponse.call<
+      Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+    >(response, data)
   } catch (e) {
     return postErrorResponse(`[CATCH] ${defaultErrorMessage}`)
   }
@@ -454,12 +480,14 @@ function startShippingForm () {
 
   if (!updatedForm) return
 
-  attachEvent(updatedForm, 'input', (e: InputEvent) => {
+  attachEvent(updatedForm, 'input', e => {
     e.stopPropagation()
 
-    const target = e.target as HTMLInputElement
+    const target = e.target
 
-    const cleanValue = target.value.replace(/\D+/g, '')
+    if (!isInputInstance(target)) return
+
+    const cleanValue = numberOnly(target.value)
 
     if (target.name !== 'cep' || target.value === maskCEP(cleanValue) || !e.isTrusted) return
 
@@ -516,24 +544,28 @@ function drawLocations (locations: LocationList[]): void {
   console.log(objectSize(locations), ' localizações recebidas')
 }
 
-async function deliveryQuotation (payload: DeliveryQuotationBody): Promise<ResponsePattern<LocationResponse | QuotationPrice>> {
+async function deliveryQuotation <T extends LocationResponse | QuotationPrice> (payload: DeliveryQuotationBody): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Houve uma falha ao gerar a cotação'
 
   try {
     const response = await fetch(`${XANO_BASE_URL}/api:i6etHc7G/site/product-delivery`, {
-      ...buildRequestOptions([], REQUEST_POST),
+      ...buildRequestOptions([], EnumHttpMethods.POST),
       body: stringify<DeliveryQuotationBody>(payload),
     })
 
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call<
+        Response, [string], FunctionErrorPattern
+      >(response, error?.message ?? defaultErrorMessage)
     }
 
-    const data: LocationResponse | QuotationPrice = await response.json()
+    const data: T = await response.json()
 
-    return postSuccessResponse.call(response, data) as FunctionSucceededPattern<LocationResponse | QuotationPrice>
+    return postSuccessResponse.call<
+      Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+    >(response, data)
   } catch (error) {
     return postErrorResponse(defaultErrorMessage)
   }
