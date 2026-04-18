@@ -64,6 +64,7 @@ import {
 import {
   EnumHttpMethods,
 } from '../types/http'
+import {getMetaTrackingCookies} from "../utils/adTracking";
 
 const SELECTED_CLASS = 'selecionado'
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
@@ -317,7 +318,9 @@ async function addProductToCart <T extends CreateCartProduct> (item: CreateCartP
 
   try {
     const response = await fetch(`${CART_BASE_URL}/cart/handle`, {
-      ...buildRequestOptions([], EnumHttpMethods.POST),
+      ...buildRequestOptions([
+        ...getMetaTrackingCookies(),
+      ], EnumHttpMethods.POST),
       body: stringify<AddToCartParams>({
         item,
         operation: 'add',
