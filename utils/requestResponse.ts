@@ -139,6 +139,7 @@ export function buildRequestOptions (headers: [string, string][] = [], method: H
   const _headers = new Headers({
     'Accept': applicationJson,
     'Content-Type': applicationJson,
+    'X-Referer': location.toString(),
   })
 
   for (const [header, value] of headers) {
