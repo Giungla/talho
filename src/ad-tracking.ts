@@ -1,20 +1,35 @@
 
 import {
-  PIPE_STRING,
-  PARAM_NAMES,
-  EMPTY_STRING,
-  DEFAULT_SESSION_COOKIE_OPTIONS,
-  includes,
-  splitText,
-  objectSize,
-  setCookie,
-  isStrictEquals,
-  prefixStorageKey,
-} from '../utils'
-
-import {
   CookieSameSite,
 } from '../types/cookie'
+
+import {
+  PIPE_STRING,
+  EMPTY_STRING,
+} from '../utils/consts'
+
+import {
+  PARAM_NAMES,
+  prefixStorageKey,
+} from '../utils/adTracking'
+
+import {
+  DEFAULT_SESSION_COOKIE_OPTIONS,
+} from '../utils/requestResponse'
+
+import {
+  includes,
+  isStrictEquals,
+} from '../utils/array'
+
+import {
+  splitText,
+  objectSize,
+} from '../utils/dom'
+
+import {
+  setCookie,
+} from '../utils/cookie'
 
 (function () {
   // const PARAM_NAMES = document.currentScript?.getAttribute('data-parameter-names')

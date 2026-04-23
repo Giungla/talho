@@ -58,6 +58,8 @@ export function isDateValid (date: string): boolean {
     fullYear,
   ] = splitText(date, SLASH_STRING).map(Number)
 
+  if ([day, month, fullYear].some(isNaN)) return false
+
   // const parsedDate = new Date(`${fullYear}-${month}-${day}T00:00:00`)
   const parsedDate = new Date(Date.UTC(fullYear, month - 1, day))
 
