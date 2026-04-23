@@ -98,6 +98,8 @@
     "tsup-recover-shortener-prod": "node build-commands/build-for-production.js --name=recover-shortener",
     "tsup-recover-shortener-both": "yarn tsup-recover-shortener && yarn tsup-recover-shortener-prod",
     "tsup-add-to-cart-feature": "tsup src/add-to-cart-feature.ts --format iife --minify terser --treeshake --out-dir dev",
-    "tsup-add-to-cart-feature-prod": "node build-commands/build-for-production.js --name=add-to-cart-feature"
+    "tsup-add-to-cart-feature-prod": "node build-commands/build-for-production.js --name=add-to-cart-feature",
+    "tsup-page-view-event": "tsup src/page-view.ts --format iife --minify terser --treeshake --out-dir dev",
+    "tsup-page-view-event-prod": "node build-commands/build-for-production.js --name=page-view"
   }
 }

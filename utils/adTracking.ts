@@ -27,7 +27,7 @@ import {
 
 export const metaCookiesName = '_fbc|_fbp'
 
-export const PARAM_NAMES = 'gclid|gbraid|wbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign'
+export const PARAM_NAMES = 'gclid|gbraid|wbraid|gad_campaignid|gad_source|utm_source|utm_medium|utm_campaign|utm_content|utm_term'
 
 export function prefixStorageKey (key: string): string {
   return `talho_${key}`
@@ -41,7 +41,10 @@ export function getMetaTrackingCookies (): [string, string][] {
 
     return [
       ...acc,
-      [ name.replace('_', EMPTY_STRING), cookie ],
+      [
+        name.replace('_', EMPTY_STRING),
+        cookie,
+      ],
     ]
   }, [] as [string, string][])
 }
@@ -55,8 +58,14 @@ export function getTrackingCookies (): [string, string][] {
     pushIf(
       cookieValue,
       headers,
-      [cookieName, cookieValue],
+      [
+        'x-'.concat(
+          cookieName.replace(/_/g, '-'),
+        ),
+        cookieValue,
+      ],
     )
+    // Adiciona os headers no padrão "utm_source" => "x-utm-source"
   }
 
   {
@@ -69,7 +78,7 @@ export function getTrackingCookies (): [string, string][] {
   }
 
   {
-    // Inclui
+    // Inclui a sessão fornecida pelo Google
     const itemName = '_ga_76G3534N9J'
 
     const sessionId = getCookie(itemName)

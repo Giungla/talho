@@ -43,11 +43,6 @@ import {
 } from '../global'
 
 import {
-  type ObjectDirective,
-  type DirectiveBinding,
-} from 'vue'
-
-import {
   type SearchAddressCheckout,
   type CheckoutDeliveryPriceResponse,
   type CheckoutDeliveryOption,
@@ -86,7 +81,7 @@ import {
 import {
   postErrorResponse,
   postSuccessResponse,
-  buildRequestOptions,
+  buildRequestOptions, TALHO_SESSION_COOKIE_NAME,
 } from '../utils/requestResponse'
 
 import {
@@ -128,7 +123,9 @@ import {
   isPageLoading,
   normalizeText,
   scrollIntoView,
-  replaceDuplicatedSpaces, isInputInstance, focusInput,
+  replaceDuplicatedSpaces,
+  isInputInstance,
+  focusInput,
 } from '../utils/dom'
 
 import {
@@ -163,11 +160,13 @@ import {
 } from '../utils/registerUserInfo'
 
 import {
+  type DirectiveBinding,
   ref,
   nextTick,
   createApp,
   defineComponent,
 } from 'vue'
+import {getCookie} from "../utils/cookie";
 
 const ERROR_KEY = 'error'
 
@@ -261,7 +260,7 @@ const TalhoCheckoutApp = defineComponent({
   name: 'TalhoCheckoutApp',
 
   setup (): TalhoCheckoutAppSetup {
-    return ({
+    return {
       customerCPF: ref<string>(EMPTY_STRING),
       customerMail: ref<string>(EMPTY_STRING),
       customerPhone: ref<string>(EMPTY_STRING),
@@ -333,11 +332,11 @@ const TalhoCheckoutApp = defineComponent({
       deliveryBillingAddressErrorMessage: ref<Nullable<string>>(NULL_VALUE),
 
       deliveryShippingAddressErrorMessage: ref<Nullable<string>>(NULL_VALUE),
-    })
+    }
   },
 
   data (): TalhoCheckoutAppData {
-    return ({
+    return {
       user: NULL_VALUE,
       errorMessage: NULL_VALUE,
       hasPendingPayment: false,
@@ -386,7 +385,7 @@ const TalhoCheckoutApp = defineComponent({
 
       selectedBillingAddressId: NULL_VALUE,
       selectedShippingAddressId: NULL_VALUE,
-    } satisfies TalhoCheckoutAppData)
+    }
   },
 
   created (): void {
@@ -421,7 +420,30 @@ const TalhoCheckoutApp = defineComponent({
 
         this.user = response.data
       }),
-      this.refreshCart().then(() => isPageLoading(false))
+      this.refreshCart().then(() => {
+        isPageLoading(false)
+
+        const { productlist } = this
+
+        const session = getCookie(TALHO_SESSION_COOKIE_NAME)
+
+        if (!productlist || !session || !fbq) return
+
+        const productMap = productlist.items.map(({ quantity, price, sku_id }) => ({
+          quantity,
+          item_price: price,
+          id: sku_id.toString(),
+        }))
+
+        fbq('track', 'InitiateCheckout', {
+          currency: 'BRL',
+          value: decimalRound(productlist.order_price, 2),
+          contents: productMap,
+          content_ids: productMap.map(({ id }) => id),
+        }, {
+          eventID: `initiate_checkout_${session}`,
+        })
+      })
     ])
 
     window.addEventListener('storage', (e) => {
@@ -433,7 +455,7 @@ const TalhoCheckoutApp = defineComponent({
 
   methods: {
     /**
-     * Permite a seleção de um endereço prviamente criado
+     * Permite a seleção de um endereço previamente criado
      */
     setPreviousAddress (addressId: number, addressType: IOrderAddressType): void {
       const selectedAddress = this.user?.address_list.find(address => address.id === addressId)
@@ -1130,11 +1152,16 @@ const TalhoCheckoutApp = defineComponent({
      * Captura o valor que será cobrado sobre o envio, retornará zero sempre que o valor do subtotal for igual ou maior a 400
      */
     getShippingPrice (): number {
-      if (this.hasFreeShippingByCartPrice) return 0
+      const {
+        deliveryPrice,
+        hasFreeShippingByCartPrice,
+      } = this
 
-      return isNull(this.deliveryPrice)
+      if (hasFreeShippingByCartPrice) return 0
+
+      return isNull(deliveryPrice)
         ? 0
-        : (this.deliveryPrice as Omit<PostOrderDeliveryGroup, "has_priority">).value / 100
+        : deliveryPrice.value / 100
     },
 
     /**
