@@ -20,7 +20,11 @@ import {
   getMetaTrackingCookies,
 } from '../utils/adTracking'
 
-async function pageView <T extends boolean> (): Promise<ResponsePattern<T>> {
+import {
+  type PageViewResponse,
+} from '../types/pageView'
+
+async function pageView <T extends PageViewResponse> (): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Não foi possível registrar o evento'
 
   try {
@@ -50,10 +54,10 @@ async function pageView <T extends boolean> (): Promise<ResponsePattern<T>> {
   }
 }
 
-if ('requestIdleCallback' in window) {
-  requestIdleCallback(pageView, {
-    timeout: 5000,
+pageView().then(response => {
+  if (!response.succeeded) return
+
+  fbq?.('track', 'PageView', {}, {
+    eventID: response.data.meta_event_id,
   })
-} else {
-  pageView()
-}
+})
