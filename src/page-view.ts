@@ -24,11 +24,15 @@ import {
   type PageViewResponse,
 } from '../types/pageView'
 
+import {
+  getEndpointType,
+} from '../types/cart'
+
 async function pageView <T extends PageViewResponse> (): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Não foi possível registrar o evento'
 
   try {
-    const response = await fetch(`${XANO_BASE_URL}/api:uMv7xbDN/event/page_view?event_source_url=${encodeURIComponent(location.href)}`, {
+    const response = await fetch(`${XANO_BASE_URL}/api:uMv7xbDN/event/page_view/${getEndpointType()}`, {
       ...buildRequestOptions([
         ...getMetaTrackingCookies(),
       ]),
