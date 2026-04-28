@@ -1795,6 +1795,14 @@ export interface CartResponse {
   items: CartResponseItem[];
 }
 
+export interface AddedVariationResponse extends Pick<CartResponseItem, 'sku_id' | 'quantity'> {
+  reference_id: string;
+}
+
+export interface AddVariationResponse extends CartResponse {
+  added_item: AddedVariationResponse;
+}
+
 export interface FloatingCartState {
   /**
    * Indica se já houve uma busca pelos dados do carrinho
