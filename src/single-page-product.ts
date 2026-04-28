@@ -65,6 +65,7 @@ import {
   EnumHttpMethods,
 } from '../types/http'
 import {getMetaTrackingCookies} from "../utils/adTracking";
+import {addToCartTracking} from "../utils/tracking";
 
 const SELECTED_CLASS = 'selecionado'
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
@@ -289,17 +290,23 @@ async function buyProduct (event: MouseEvent): Promise<void> {
   const {
     quantity,
     product,
-    selectedVariation
+    selectedVariation: sku_id,
   } = state
 
   // if (!selectedVariation || !product || state.stockCount === 0) return
-  if (!selectedVariation || !product) return
+  if (!sku_id || !product) return
 
-  const response = await addProductToCart({
+  const {
+    slug: reference_id,
+  } = product
+
+  const addToCartParams = {
+    sku_id,
     quantity,
-    sku_id: selectedVariation,
-    reference_id: product.slug,
-  })
+    reference_id,
+  }
+
+  const response = await addProductToCart(addToCartParams)
 
   // TODO: Implementar lógica corretamente
   if (!response.succeeded) {
@@ -311,6 +318,21 @@ async function buyProduct (event: MouseEvent): Promise<void> {
   addClass(querySelector('#carrinho-flutuante'), CART_SWITCH_CLASS)
 
   localStorage.setItem(STORAGE_KEY_NAME, stringify<CreateCartProduct>(response.data))
+
+  addToCartTracking(addToCartParams).then((_response) => {
+    if (!_response.succeeded) {
+      return console.log(_response)
+    }
+
+    const {
+      event_id,
+      event_data,
+    } = _response.data
+
+    fbq?.('track', 'AddToCart', event_data, {
+      eventID: event_id,
+    })
+  })
 }
 
 async function addProductToCart <T extends CreateCartProduct> (item: CreateCartProduct): Promise<ResponsePattern<T>> {
