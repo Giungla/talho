@@ -320,9 +320,7 @@ async function buyProduct (event: MouseEvent): Promise<void> {
   localStorage.setItem(STORAGE_KEY_NAME, stringify<CreateCartProduct>(response.data))
 
   addToCartTracking(addToCartParams).then((_response) => {
-    if (!_response.succeeded) {
-      return console.log(_response)
-    }
+    if (!_response.succeeded) return
 
     const {
       event_id,
