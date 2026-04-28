@@ -49,13 +49,13 @@ const finSweetDynItems = querySelector<'div'>('.listadeprodutos_grid_produtos_co
 
 if (finSweetDynItems) {
   let timerId: Nullable<number> = NULL_VALUE
-  let controller: Nullable<VoidFunction> = NULL_VALUE
+  let controller: VoidFunction = (() => {})
 
   const observer = new MutationObserver(function () {
     if (!isNull(timerId)) clearTimeout(timerId)
 
     timerId = setTimeout(() => {
-      controller?.()
+      controller()
 
       controller = attachFeatureEvents(new AbortController()) ?? NULL_VALUE
     }, 700)
@@ -67,11 +67,15 @@ if (finSweetDynItems) {
       'style',
     ],
   })
+
+  controller()
+
+  controller = attachFeatureEvents(new AbortController()) ?? NULL_VALUE
 } else {
   attachFeatureEvents()
 }
 
-function attachFeatureEvents (controller?: AbortController): void | VoidFunction {
+function attachFeatureEvents (controller?: AbortController): VoidFunction {
   const triggers = document.querySelectorAll<HTMLElement>('[data-wtf-buy-bag]')
   // const triggers = document.querySelectorAll('a.w-inline-block[href^="/produtos/"]')
 
