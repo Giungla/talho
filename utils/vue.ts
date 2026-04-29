@@ -1,5 +1,6 @@
 
 import {
+  type Directive,
   type DirectiveBinding,
 } from 'vue'
 
@@ -9,6 +10,7 @@ import {
 
 import {
   attachEvent,
+  isInputInstance,
 } from './dom'
 
 import {
@@ -27,9 +29,12 @@ export const cleanupDirective = (el: HTMLInputElement) => {
   eventMap.delete(el)
 }
 
-export function buildMaskDirective (...mappers: ((value: string) => string)[]) {
+export function buildMaskDirective (...mappers: ((value: string) => string)[]): Record<string, Directive> {
   return {
-    mounted(el: HTMLInputElement, binding: DirectiveBinding<string, string, keyof HTMLElementEventMap>) {
+    // @ts-ignore
+    mounted (el, binding: DirectiveBinding<string, string, keyof HTMLElementEventMap>) {
+      if (!isInputInstance(el)) return
+
       const eventType = binding.arg ?? 'input'
 
       const remover = attachEvent(el, eventType, (event: Event) => {

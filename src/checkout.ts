@@ -22,11 +22,8 @@ import {
   type PostOrder,
   type PostOrderCustomer,
   type ResponsePattern,
-  type TalhoCheckoutAppComputedDefinition,
   type TalhoCheckoutAppData,
-  type TalhoCheckoutAppMethods,
   type TalhoCheckoutAppSetup,
-  type TalhoCheckoutAppWatch,
   type TalhoCheckoutContext,
   type VIACEPFromXano,
   type OnCleanup,
@@ -81,7 +78,7 @@ import {
 import {
   postErrorResponse,
   postSuccessResponse,
-  buildRequestOptions, TALHO_SESSION_COOKIE_NAME,
+  buildRequestOptions,
 } from '../utils/requestResponse'
 
 import {
@@ -166,7 +163,10 @@ import {
   createApp,
   defineComponent,
 } from 'vue'
-import {getCookie} from "../utils/cookie";
+
+import {
+  initiateCheckoutTracking,
+} from '../utils/tracking'
 
 const ERROR_KEY = 'error'
 
@@ -422,28 +422,19 @@ const TalhoCheckoutApp = defineComponent({
       }),
       this.refreshCart().then(() => {
         isPageLoading(false)
+      }),
+      initiateCheckoutTracking().then(response => {
+        if (!response.succeeded) return
 
-        const { productlist } = this
+        const {
+          event_id,
+          event_body,
+        } = response.data.meta
 
-        const session = getCookie(TALHO_SESSION_COOKIE_NAME)
-
-        if (!productlist || !session || !fbq) return
-
-        const productMap = productlist.items.map(({ quantity, price, sku_id }) => ({
-          quantity,
-          item_price: price,
-          id: sku_id.toString(),
-        }))
-
-        fbq('track', 'InitiateCheckout', {
-          currency: 'BRL',
-          value: decimalRound(productlist.order_price, 2),
-          contents: productMap,
-          content_ids: productMap.map(({ id }) => id),
-        }, {
-          eventID: `initiate_checkout_${session}`,
+        fbq?.('track', 'InitiateCheckout', event_body, {
+          eventID: event_id,
         })
-      })
+      }),
     ])
 
     window.addEventListener('storage', (e) => {
@@ -2040,7 +2031,8 @@ const TalhoCheckoutApp = defineComponent({
 
     // v-capture-abandonment
     captureAbandonment: {
-      mounted (el: HTMLInputElement, binding: DirectiveBinding<null, string, AbandonmentFieldsNames>) {
+      // mounted (el: HTMLInputElement, binding: DirectiveBinding<null, string, AbandonmentFieldsNames>) {
+      mounted (el: HTMLInputElement, binding: DirectiveBinding<null, string, string>) {
         eventMap.set(
           el,
           attachEvent(el, 'change', (event: Event) => {
@@ -2080,7 +2072,7 @@ const TalhoCheckoutApp = defineComponent({
 
     // v-save-field
     saveField: {
-      mounted (el: HTMLInputElement, { arg }: DirectiveBinding<string, string, string>): void {
+      mounted (el: HTMLInputElement, { arg }: DirectiveBinding<string>): void {
         eventMap.set(
           el,
           attachEvent(el, 'change', (event: Event) => {
