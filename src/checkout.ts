@@ -677,7 +677,7 @@ const TalhoCheckoutApp = defineComponent({
       }
 
       clearStoredFields()
-      clearTrackingCookies()
+      // clearTrackingCookies()
 
       const path: Record<ISinglePaymentKey, string> = {
         [PIX_PAYMENT]: 'pix',
