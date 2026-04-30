@@ -1,11 +1,13 @@
 
 import {
   type ComputedFinalPrices,
-  type CreateCartProduct, FunctionErrorPattern,
+  type CreateCartProduct,
+  type FunctionErrorPattern,
   type FunctionSucceededPattern,
   type Nullable,
   type Prices,
-  type ResponsePattern, ResponsePatternCallback,
+  type ResponsePattern,
+  type ResponsePatternCallback,
   type SingleProductPageProduct,
   type SingleProductPageState,
   type SingleProductPageStateHandler,
@@ -64,8 +66,15 @@ import {
 import {
   EnumHttpMethods,
 } from '../types/http'
-import {getMetaTrackingCookies} from "../utils/adTracking";
-import {addToCartTracking} from "../utils/tracking";
+
+import {
+  getMetaTrackingCookies,
+} from '../utils/adTracking'
+
+import {
+  addToCartTracking,
+  viewContentTracking,
+} from '../utils/tracking'
 
 const SELECTED_CLASS = 'selecionado'
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
@@ -94,6 +103,8 @@ const _state: SingleProductPageState = {
 }
 
 const slug = splitText(location.pathname, SLASH_STRING)
+
+const viewContentEventType = 'product' as const
 
 const state = new Proxy<SingleProductPageState>(_state, {
   get (
@@ -173,6 +184,32 @@ const state = new Proxy<SingleProductPageState>(_state, {
       case 'selectedVariation':
         renderProductVariations()
         Reflect.set(state, 'quantity' satisfies SingleProductPageStateKeys, 1)
+
+        if (state.product) {
+          const {
+            slug: reference_id,
+          } = state.product
+
+          viewContentTracking({
+            type: viewContentEventType,
+            payload: {
+              reference_id,
+              sku_id: value as number,
+            },
+          }).then(response => {
+            if (!response.succeeded) return
+
+            const {
+              event_id,
+              event_body,
+            } = response.data.meta
+
+            fbq('track', 'ViewContent', event_body, {
+              eventID: event_id,
+            })
+          })
+        }
+
         break
       case 'stockCount':
         // renderStockElements()
@@ -182,8 +219,15 @@ const state = new Proxy<SingleProductPageState>(_state, {
         {
           const product = value as Nullable<SingleProductPageProduct>
 
-          Reflect.set(state, 'stockCount' satisfies SingleProductPageStateKeys, product?.stock_quantity ?? 0) // TODO: product.stock_quantity
-          Reflect.set(state, 'selectedVariation' satisfies SingleProductPageStateKeys, product?.variations[0].id ?? NULL_VALUE)
+          if (!product) break
+
+          const {
+            variations,
+            stock_quantity,
+          } = product
+
+          Reflect.set(state, 'stockCount' satisfies SingleProductPageStateKeys, stock_quantity ?? 0) // TODO: product.stock_quantity
+          Reflect.set(state, 'selectedVariation' satisfies SingleProductPageStateKeys, variations[0].id)
         }
     }
 
