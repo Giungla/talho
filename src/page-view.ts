@@ -1,7 +1,10 @@
 
 import {
   pageViewTracking,
+  loadFacebookEvents,
 } from '../utils/tracking'
+
+loadFacebookEvents()
 
 pageViewTracking().then(response => {
   if (!response.succeeded) return

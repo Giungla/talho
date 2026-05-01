@@ -23,9 +23,11 @@ import {
   type FunctionErrorPattern,
   type ResponsePatternCallback,
   type FunctionSucceededPattern,
+  type ICookieOptions,
 } from '../global'
 
 import {
+  EMPTY_STRING,
   XANO_BASE_URL,
 } from './consts'
 
@@ -41,8 +43,85 @@ import {
   EnumHttpMethods,
 } from '../types/http'
 
+import {
+  getCookie,
+  setCookie,
+} from './cookie'
+
+import {
+  timestampDays,
+} from './dates'
+
 const keepalive = true
 const priority: RequestPriority = 'high'
+
+const parentScriptReference = document.currentScript
+
+function generateFbpRandomPart (): string {
+  if ('crypto' in window && crypto.getRandomValues) {
+    const array = new Uint32Array(1)
+
+    return crypto.getRandomValues(array)[0].toString()
+  }
+
+  return Math.floor(Math.random() * 4294967295).toString()
+}
+
+export function loadFacebookEvents () {
+  const handleMetaCookies = (loaded: boolean) => {
+    if (loaded) return
+
+    const fbpName = '_fbp'
+    const fbcName = '_fbc'
+
+    setTimeout(() => {
+      const now = Date.now()
+
+      const currentFbp = getCookie(fbpName)
+
+      const cookieOptions = {
+        maxAge: 7776E3,
+        expires: new Date(Date.now() + timestampDays(90)),
+        domain: location.hostname.replace('www.', EMPTY_STRING),
+      } satisfies ICookieOptions
+
+      // Aqui o fbp será reescrito com nova validade usando o valor existente ou um novo valor seguindo os padrões da Meta
+      setCookie(fbpName, currentFbp || `fb.2.${now}.${generateFbpRandomPart()}`, cookieOptions)
+
+      const searchParams = new URLSearchParams(location.search)
+
+      const fbclid = searchParams.get('fbclid')
+
+      if (fbclid && fbclid.length) {
+        setCookie(fbcName, `fb.2.${now}.${fbclid}`, cookieOptions)
+
+        return
+      }
+
+      const currentFbc = getCookie(fbcName)
+
+      if (currentFbc) {
+        setCookie(fbcName, currentFbc, cookieOptions)
+      }
+    }, 2000)
+  }
+
+  const script = document.createElement('script')
+
+  script.defer = true
+  script.src = 'https://connect.facebook.net/en_US/fbevents.js'
+
+  script.onload  = () => handleMetaCookies(true)
+  script.onerror = () => handleMetaCookies(false)
+
+  if (parentScriptReference instanceof HTMLScriptElement) {
+    parentScriptReference.insertAdjacentElement('afterend', script)
+
+    return
+  }
+
+  document.head.appendChild(script)
+}
 
 export async function pageViewTracking <T extends PageViewResponse> (): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Não foi possível registrar o evento'
