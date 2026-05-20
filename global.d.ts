@@ -1781,6 +1781,38 @@ export type CartOperation =
   | 'increase'
   | 'decrease';
 
+export interface Promotion {
+  promotions: {
+    /**
+     * Detalhes da promoção de brinde
+     */
+    product: {
+      /**
+       * Indica se a promoção para brinde foi habilitada
+       */
+      enabled: boolean;
+      /**
+       * Indica o slug do produto cuja compra é obrigatória para elegibilidade nessa promoção
+       */
+      // required_product: string;
+    }
+
+    /**
+     * Detalhes da promoção por preço
+     */
+    price: {
+      /**
+       * Indica se a promoção por preço foi habilitada
+       */
+      enabled: boolean;
+      /**
+       * Indica quanto o usuário precisa adicionar em seu carrinho para ser elegível à oferta
+       */
+      missing_price: number;
+    }
+  }
+}
+
 export interface CartResponseItem {
   name: string;
   price: number;
@@ -1790,7 +1822,7 @@ export interface CartResponseItem {
   sku_id: number;
 }
 
-export interface CartResponse {
+export interface CartResponse extends Promotion {
   order_price: number;
   items: CartResponseItem[];
 }

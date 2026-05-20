@@ -146,7 +146,6 @@ import {
 
 import {
   getTrackingCookies,
-  clearTrackingCookies,
   getMetaTrackingCookies,
 } from '../utils/adTracking'
 
@@ -250,7 +249,9 @@ async function searchAddress <T extends VIACEPFromXano> ({ cep, deliveryMode }: 
 
     const address: T = await response.json()
 
-    return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, address)
+    return postSuccessResponse.call<
+      Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+    >(response, address)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -391,29 +392,31 @@ const TalhoCheckoutApp = defineComponent({
   created (): void {
     const recoveredFields = recoverFields()
 
-    this.shippingCEP          = recoveredFields?.shipping_cep ?? EMPTY_STRING
-    this.shippingAddress      = recoveredFields?.shipping_address ?? EMPTY_STRING
-    this.shippingNumber       = recoveredFields?.shipping_number ?? EMPTY_STRING
-    this.shippingComplement   = recoveredFields?.shipping_complement ?? EMPTY_STRING
-    this.shippingNeighborhood = recoveredFields?.shipping_neighborhood ?? EMPTY_STRING
-    this.shippingCity         = recoveredFields?.shipping_city ?? EMPTY_STRING
-    this.shippingState        = recoveredFields?.shipping_state ?? EMPTY_STRING
+    const getSpecificField = (fieldName: string) => recoveredFields?.[fieldName] ?? EMPTY_STRING
 
-    this.billingCEP          = recoveredFields?.billing_cep ?? EMPTY_STRING
-    this.billingAddress      = recoveredFields?.billing_address ?? EMPTY_STRING
-    this.billingNumber       = recoveredFields?.billing_number ?? EMPTY_STRING
-    this.billingComplement   = recoveredFields?.billing_complement ?? EMPTY_STRING
-    this.billingNeighborhood = recoveredFields?.billing_neighborhood ?? EMPTY_STRING
-    this.billingCity         = recoveredFields?.billing_city ?? EMPTY_STRING
-    this.billingState        = recoveredFields?.billing_state ?? EMPTY_STRING
+    this.shippingCEP          = getSpecificField('shipping_cep')
+    this.shippingAddress      = getSpecificField('shipping_address')
+    this.shippingNumber       = getSpecificField('shipping_number')
+    this.shippingComplement   = getSpecificField('shipping_complement')
+    this.shippingNeighborhood = getSpecificField('shipping_neighborhood')
+    this.shippingCity         = getSpecificField('shipping_city')
+    this.shippingState        = getSpecificField('shipping_state')
+
+    this.billingCEP          = getSpecificField('billing_cep')
+    this.billingAddress      = getSpecificField('billing_address')
+    this.billingNumber       = getSpecificField('billing_number')
+    this.billingComplement   = getSpecificField('billing_complement')
+    this.billingNeighborhood = getSpecificField('billing_neighborhood')
+    this.billingCity         = getSpecificField('billing_city')
+    this.billingState        = getSpecificField('billing_state')
 
     Promise.allSettled([
       this.getLoggedInUser().then((response: ResponsePattern<UserPartialCheckout>) => {
         if (!response.succeeded) {
-          this.customerMail      = recoveredFields?.email ?? EMPTY_STRING
-          this.customerCPF       = recoveredFields?.cpf ?? EMPTY_STRING
-          this.customerPhone     = recoveredFields?.phone ?? EMPTY_STRING
-          this.customerBirthdate = recoveredFields?.birthdate ?? EMPTY_STRING
+          this.customerMail      = getSpecificField('email')
+          this.customerCPF       = getSpecificField('cpf')
+          this.customerPhone     = getSpecificField('phone')
+          this.customerBirthdate = getSpecificField('birthdate')
 
           return
         }
@@ -524,7 +527,9 @@ const TalhoCheckoutApp = defineComponent({
 
         const data: T = await response.json()
 
-        return postSuccessResponse.call<Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>>(response, data)
+        return postSuccessResponse.call<
+          Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+        >(response, data)
       } catch (e) {
         return postErrorResponse(defaultErrorMessage)
       }
@@ -1083,6 +1088,37 @@ const TalhoCheckoutApp = defineComponent({
   },
 
   computed: {
+    /**
+     * Indica se existe uma promoção por preço ativa
+     */
+    hasEnabledPricePromotion (): boolean {
+      const {
+        productlist,
+      } = this
+
+      if (!productlist) {
+        return false
+      }
+
+      const {
+        enabled,
+        missing_price,
+      } = productlist.promotions.price
+
+      return enabled && missing_price === 0
+    },
+
+    /**
+     * Indica se existe uma promoção para brinde ativa
+     */
+    hasEnabledGiftPromotion (): boolean {
+      const {
+        productlist,
+      } = this
+
+      return productlist?.promotions.product.enabled ?? false
+    },
+
     /**
      * Verifica se existe um meio de pagamento selecionado
      */

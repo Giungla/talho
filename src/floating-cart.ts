@@ -1,35 +1,50 @@
 
-import type {
-  CartOperation,
-  CartResponse,
-  CartResponseItem,
-  CreateCartProduct,
-  FloatingCartState,
-  GroupFloatingCartState,
-  ResponsePattern,
-  TypeMap,
-  TypeofResult,
-} from '../global';
+import {
+  FunctionErrorPattern,
+  FunctionSucceededPattern,
+  ResponsePatternCallback,
+  type CartOperation,
+  type CartResponse,
+  type CartResponseItem,
+  type CreateCartProduct,
+  type FloatingCartState,
+  type GroupFloatingCartState,
+  type ResponsePattern,
+  type TypeMap,
+  type TypeofResult,
+} from '../global'
+
+import {
+  XANO_BASE_URL,
+  STORAGE_KEY_NAME,
+  FREE_SHIPPING_MIN_CART_PRICE,
+} from '../utils/consts'
 
 import {
   NULL_VALUE,
-  BRLFormatter,
-  XANO_BASE_URL,
-  STORAGE_KEY_NAME,
   GENERAL_HIDDEN_CLASS,
-  FREE_SHIPPING_MIN_CART_PRICE,
-  safeParseJson,
-  querySelector,
-  attachEvent,
-  toggleClass,
-  objectSize,
-  hasClass,
   isArray,
-  postErrorResponse,
+  addClass,
+  hasClass,
+  stringify,
+  objectSize,
+  toggleClass,
+  attachEvent,
+  querySelector,
+  safeParseJson,
   changeTextContent,
+} from '../utils/dom'
+
+import {
+  BRLFormatter,
+} from '../utils/mask'
+
+import {
+  postErrorResponse,
+  buildRequestOptions,
   postSuccessResponse,
-  buildRequestOptions, stringify, addClass,
-} from '../utils'
+} from '../utils/requestResponse'
+import { decimalRound } from './math'
 
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
@@ -49,14 +64,16 @@ const state = new Proxy(_state, {
     target: FloatingCartState,
     key: K,
   ) {
+    const orderPrice = target.cart?.order_price ?? 0
+
     switch (key) {
       case 'hasFreeShipping':
         //TODO: Improve
-        return (target.cart?.order_price ?? 0) > FREE_SHIPPING_MIN_CART_PRICE
-      case 'missingForFreeShipping':
-        return Math.max(0, FREE_SHIPPING_MIN_CART_PRICE - (target.cart?.order_price ?? 0))
+        return orderPrice > FREE_SHIPPING_MIN_CART_PRICE
       case 'getOrderPrice':
-        return BRLFormatter.format(target.cart?.order_price ?? 0)
+        return BRLFormatter.format(orderPrice)
+      case 'missingForFreeShipping':
+        return Math.max(0, FREE_SHIPPING_MIN_CART_PRICE - orderPrice)
       default:
         return Reflect.get(target, key)
     }
@@ -81,6 +98,10 @@ const state = new Proxy(_state, {
         renderCart()
 
         handlePromoMessages()
+
+        handleGift()
+
+        handleChocolateyPromo()
 
         localStorage.setItem(STORAGE_KEY_NAME, JSON.stringify(value))
 
@@ -107,10 +128,6 @@ function hasOwn <
 > (o: T, v: K, type?: Type): o is T & Record<K, Type extends keyof TypeMap ? TypeMap[Type] : unknown> {
   return Object.prototype.hasOwnProperty.call(o, v) && (!type || typeof (o as any)[v] === type)
 }
-
-// function isArray <T extends any> (value: any): value is T[] {
-//   return Array.isArray(value)
-// }
 
 function hasValidCart (cart: object): cart is CartResponse {
   if (!hasOwn(cart, 'order_price', 'number') || !hasOwn(cart, 'items')) return false
@@ -156,7 +173,7 @@ async function refreshCartItems (): Promise<void> {
   state.cart = response.data
 }
 
-async function getCartProducts (): Promise<ResponsePattern<CartResponse>> {
+async function getCartProducts <T extends CartResponse> (): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Houve uma falha ao buscar o seu carrinho'
 
   try {
@@ -167,18 +184,22 @@ async function getCartProducts (): Promise<ResponsePattern<CartResponse>> {
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call<
+        Response, [string], FunctionErrorPattern
+      >(response, error?.message ?? defaultErrorMessage)
     }
 
-    const data: CartResponse = await response.json()
+    const data: T = await response.json()
 
-    return postSuccessResponse.call(response, data)
+    return postSuccessResponse.call<
+      Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+    >(response, data)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
 }
 
-async function updateCartProducts (item: CreateCartProduct, operation: CartOperation): Promise<ResponsePattern<CartResponse>> {
+async function updateCartProducts <T extends CartResponse> (item: CreateCartProduct, operation: CartOperation): Promise<ResponsePattern<T>> {
   const defaultErrorMessage = 'Houve uma falha ao buscar o seu carrinho'
 
   try {
@@ -187,18 +208,22 @@ async function updateCartProducts (item: CreateCartProduct, operation: CartOpera
       body: stringify({
         item,
         operation,
-      })
+      }),
     })
 
     if (!response.ok) {
       const error = await response.json()
 
-      return postErrorResponse.call(response, error?.message ?? defaultErrorMessage)
+      return postErrorResponse.call<
+        Response, [string], FunctionErrorPattern
+      >(response, error?.message ?? defaultErrorMessage)
     }
 
-    const data: CartResponse = await response.json()
+    const data: T = await response.json()
 
-    return postSuccessResponse.call(response, data)
+    return postSuccessResponse.call<
+      Response, [T, ResponsePatternCallback?], FunctionSucceededPattern<T>
+    >(response, data)
   } catch (e) {
     return postErrorResponse(defaultErrorMessage)
   }
@@ -298,6 +323,64 @@ function handlePromoMessages () {
   }
 
   return changeTextContent(querySelector('[data-wtf-promo-validada-txt-sem-imagem]', promoValidElement), `Você ganhou frete grátis`)
+}
+
+function handleChocolateyPromo (): void {
+  const {
+    cart,
+  } = state
+
+  if (!cart) return
+
+  const {
+    enabled,
+    missing_price,
+  } = cart.promotions.price
+
+  const subtotalContainer = querySelector<'div'>('[data-wtf-floating-cart-promo-subtotal]')
+
+  if (!subtotalContainer) return
+
+  const validContainer = querySelector<'div'>('[data-wtf-promo-valid]', subtotalContainer)
+  const invalidContainer = querySelector<'div'>('[data-wtf-promo-invalid]', subtotalContainer)
+
+  if (!validContainer || !invalidContainer) return
+
+  const isLowerPriceReached = missing_price === 0
+
+  toggleClass(subtotalContainer, GENERAL_HIDDEN_CLASS, !enabled)
+  toggleClass(validContainer, GENERAL_HIDDEN_CLASS, !enabled || !isLowerPriceReached)
+  toggleClass(invalidContainer, GENERAL_HIDDEN_CLASS, !enabled || isLowerPriceReached)
+
+  changeTextContent(
+    querySelector('div', invalidContainer),
+    `Adiciona mais ${BRLFormatter.format(missing_price)} para ganhar um brinde`,
+  )
+}
+
+function handleGift(): void {
+  const {
+    cart,
+  } = state
+
+  if (!cart) return
+
+  const {
+    enabled,
+  } = cart.promotions.product
+
+  const giftContainer = querySelector<'div'>('[data-wtf-floating-cart-promo-prod]')
+
+  if (!giftContainer) return
+
+  const validContainer = querySelector<'div'>('[data-wtf-promo-valid]', giftContainer)
+  const invalidContainer = querySelector<'div'>('[data-wtf-promo-invalid]', giftContainer)
+
+  if (!validContainer || !invalidContainer) return
+
+  toggleClass(giftContainer, GENERAL_HIDDEN_CLASS, !enabled)
+  toggleClass(validContainer, GENERAL_HIDDEN_CLASS, !enabled)
+  toggleClass(invalidContainer, GENERAL_HIDDEN_CLASS, enabled)
 }
 
 async function execCartAction (
