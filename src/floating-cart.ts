@@ -44,7 +44,6 @@ import {
   buildRequestOptions,
   postSuccessResponse,
 } from '../utils/requestResponse'
-import { decimalRound } from './math'
 
 const CART_SWITCH_CLASS = 'carrinhoflutuante--visible'
 
@@ -367,6 +366,7 @@ function handleGift(): void {
 
   const {
     enabled,
+    in_period,
   } = cart.promotions.product
 
   const giftContainer = querySelector<'div'>('[data-wtf-floating-cart-promo-prod]')
@@ -378,9 +378,9 @@ function handleGift(): void {
 
   if (!validContainer || !invalidContainer) return
 
-  toggleClass(giftContainer, GENERAL_HIDDEN_CLASS, !enabled)
-  toggleClass(validContainer, GENERAL_HIDDEN_CLASS, !enabled)
-  toggleClass(invalidContainer, GENERAL_HIDDEN_CLASS, enabled)
+  toggleClass(giftContainer, GENERAL_HIDDEN_CLASS, !in_period)
+  toggleClass(validContainer, GENERAL_HIDDEN_CLASS, !in_period || (in_period && !enabled))
+  toggleClass(invalidContainer, GENERAL_HIDDEN_CLASS, !in_period || (in_period && enabled))
 }
 
 async function execCartAction (

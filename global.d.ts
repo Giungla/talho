@@ -1795,6 +1795,10 @@ export interface Promotion {
        * Indica o slug do produto cuja compra é obrigatória para elegibilidade nessa promoção
        */
       // required_product: string;
+      /**
+       * Indica se estamos dentro do período de funcionamento da promoção
+       */
+      in_period: boolean;
     }
 
     /**
