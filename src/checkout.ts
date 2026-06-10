@@ -1116,7 +1116,14 @@ const TalhoCheckoutApp = defineComponent({
         productlist,
       } = this
 
-      return productlist?.promotions.product.enabled ?? false
+      if (!productlist) return false
+
+      const {
+        enabled,
+        in_period,
+      } = productlist.promotions.product
+
+      return enabled && in_period
     },
 
     /**
