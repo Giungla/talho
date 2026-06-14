@@ -353,7 +353,7 @@ function handleChocolateyPromo (): void {
 
   changeTextContent(
     querySelector('div', invalidContainer),
-    `Adiciona mais ${BRLFormatter.format(missing_price)} para ganhar um brinde`,
+    `Ontem teve goleada em campo. Hoje, você ganha chocolate nas compras online!`,
   )
 }
 
