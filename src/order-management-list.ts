@@ -270,7 +270,7 @@ const OrderManagementComponent = defineComponent({
       if (!this.hasOrders) return []
 
       // @ts-ignore
-      return this.orders?.items.map(({ total, transaction_id, created_at, order_items, prepare_status, status, ...order }) => {
+      return this.orders?.items.map(({ total, transaction_id, created_at, order_items, prepare_status, status, discount_code, ...order }) => {
         const filterStatus = includes([OrderStatus.COMPLETED, OrderStatus.CANCELED], status as string)
           ? status
           : prepare_status
@@ -281,6 +281,7 @@ const OrderManagementComponent = defineComponent({
           ...order,
           created_date: timestampDate(created_at),
           items_count: order_items,
+          has_coupon_usage: !isNull(discount_code),
           price: BRLFormatter.format(total / 100),
           url: `/adm/ficha-de-pedido?transactionid=${transaction_id}`,
           ...(filterStatus && filterToken && {
@@ -290,7 +291,7 @@ const OrderManagementComponent = defineComponent({
             .reverse()
             .join(SLASH_STRING)
             .concat(` às ${order.hour}hrs`),
-        } satisfies OrderManagementItemParsed)
+        })
       })
     },
 

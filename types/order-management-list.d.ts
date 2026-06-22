@@ -186,6 +186,10 @@ export interface OrderManagementItem {
    * Indica se este é o primeiro pedido deste usuário
    */
   is_first_order: boolean;
+  /**
+   * Indica se o pedido utilizou um cupom de desconto
+   */
+  discount_code: Nullable<number>;
 }
 
 export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'id' | 'created_at' | 'order_items' | 'total' | 'transaction_id' | 'prepare_status' | 'status'> {
@@ -195,6 +199,10 @@ export interface OrderManagementItemParsed extends Omit<OrderManagementItem, 'id
   created_date: string;
   delivery_status?: RenderableOrderFilter;
   delivery_date: string;
+  /**
+   * Indica se o pedido usou um cupom de desconto
+   */
+  has_coupon_usage: boolean;
 }
 
 export interface OrderFilter {
