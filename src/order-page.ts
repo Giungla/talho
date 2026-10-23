@@ -158,10 +158,10 @@ const TalhoOrderPage = createApp({
       } = this
 
       if (!order || !order.pago) {
-        return 'Que legal! Seu pedido foi pago e confirmado com sucesso.'
+        return 'Pedido realizado! Seu pagamento está em aberto, aguardando aprovação.'
       }
 
-      return 'Pedido realizado! Seu pagamento está em aberto, aguardando aprovação.'
+      return 'Que legal! Seu pedido foi pago e confirmado com sucesso.'
     },
 
     isPIXPayment (): boolean {
