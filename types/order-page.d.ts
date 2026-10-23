@@ -6,6 +6,25 @@ import {
   ComputedReturnValues
 } from '../global'
 
+interface Coupon {
+  /**
+   * Código usado para aplicar o cupom
+   */
+  code: string;
+  /**
+   * Desconto fornecido pelo cupom
+   */
+  value: number;
+  /**
+   * Indica se é percentual (se `false`, `value` representa um valor absoluto)
+   */
+  is_percentage: boolean;
+  /**
+   * Indica o tipo do cupom
+   */
+  cupom_type: 'subtotal' | 'shipping' | 'product_id'
+}
+
 export interface TalhoOrderPageData {
   order: Nullable<OrderData>;
 }
@@ -23,6 +42,10 @@ export interface TalhoOrderPageMethods {
 
 // como os dados computados serão declarados
 export interface TalhoOrderPageComputedDefinition {
+  /**
+   * Retorna uma mensagem indicativa do status de pagamento do pedido
+   */
+  paymentMessage: () => string;
   /**
    * Indica se o método de pagamento selecionado neste pedido foi PIX
    */

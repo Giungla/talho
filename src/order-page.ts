@@ -149,6 +149,21 @@ const TalhoOrderPage = createApp({
   },
 
   computed: {
+    /**
+     * Retorna uma mensagem indicativa do status de pagamento do pedido
+     */
+    paymentMessage (): string {
+      const {
+        order,
+      } = this
+
+      if (!order || !order.pago) {
+        return 'Que legal! Seu pedido foi pago e confirmado com sucesso.'
+      }
+
+      return 'Pedido realizado! Seu pagamento está em aberto, aguardando aprovação.'
+    },
+
     isPIXPayment (): boolean {
       return this.order?.payment_method === 'pix'
     },
