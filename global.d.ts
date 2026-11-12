@@ -1378,14 +1378,31 @@ export interface IOrderDetailsAddress {
   state: string;
 }
 
-export interface ISingleOrderCoupon {
+type SingleCouponSubtotal = {
+  cupom_type: 'subtotal';
+}
+
+type SingleCouponShipping = {
+  cupom_type: 'shipping';
+}
+
+type SingleCouponProductId = {
+  cupom_type: 'product_id';
+  /**
+   * Slug do produto elegível ao desconto
+   */
+  product_id: string;
+}
+
+type ISingleCouponType = SingleCouponSubtotal | SingleCouponShipping | SingleCouponProductId;
+
+export type ISingleOrderCoupon = {
   code: string;
   name: string;
   value: number;
   is_percentage: boolean;
-  cupom_type: ICouponType;
   min_purchase: number;
-}
+} & ISingleCouponType
 
 export interface ISingleOrderCouponError {
   /**

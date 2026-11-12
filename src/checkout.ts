@@ -37,6 +37,8 @@ import {
   type ResponsePatternCallback,
   type FunctionErrorPattern,
   type QuotationPayloadReturns,
+  type ICouponType,
+  type CartResponseItem,
 } from '../global'
 
 import {
@@ -169,8 +171,8 @@ import {
 
 const ERROR_KEY = 'error'
 
-const SHIPPING_NAME_TOKEN = 'shipping'
-const BILLING_NAME_TOKEN = 'billing'
+const SHIPPING_NAME_TOKEN = 'shipping' as const
+const BILLING_NAME_TOKEN = 'billing' as const
 
 const CEP_LENGTH = 8
 
@@ -606,6 +608,9 @@ const TalhoCheckoutApp = defineComponent({
       this.selectedInstallment = clamp(MIN_AVAILABLE_INSTALLMENT_COUNT, MAX_AVAILABLE_INSTALLMENT_COUNT, installmentsCount)
     },
 
+    /**
+     * Permite realizar a seleção de um meio de pagamento
+     */
     setSelectedPaymentMethod (method: ISinglePaymentKey): void {
       if (this.selectedPayment === method) return
 
@@ -613,7 +618,9 @@ const TalhoCheckoutApp = defineComponent({
         this.handleDeliveryOptions()
       }
 
-      if (method !== CREDIT_CARD_PAYMENT) {
+      const isCardPayment = method === CREDIT_CARD_PAYMENT
+
+      if (!isCardPayment) {
         this.clearCreditCardData()
       } else if (!this.isPagSeguroLoaded) {
         this.loadPagSeguro()
@@ -622,6 +629,15 @@ const TalhoCheckoutApp = defineComponent({
       this.deliveryPlace = NULL_VALUE
 
       this.selectedPayment = method
+
+      // TODO: Implementar scroll automático para próxima seção após a seleção do meio de pagamento
+      // nextTick(() => {
+      //   if (isCardPayment) {
+      //     return
+      //   }
+      //
+      //   // scrollIntoView()
+      // })
     },
 
     setVisitedField (fieldName: string): number {
@@ -765,6 +781,9 @@ const TalhoCheckoutApp = defineComponent({
       this.shippingState = uf
     },
 
+    /**
+     * Permite a seleção do conjunto de endereços que serão usados para entrega e cobrança
+     */
     setDeliveryPlace (deliveryPlace: IAddressType): void {
       if (this.deliveryPlace === deliveryPlace) return
 
@@ -1241,21 +1260,53 @@ const TalhoCheckoutApp = defineComponent({
      * Se o cupom for do tipo `product_id` será retornado o valor do produto em questão
      */
     getParsedPriceForApplyDiscount (): number {
-      if (this.hasNullCoupon || this.hasInvalidCoupon) return 0
+      const {
+        hasNullCoupon,
+        hasInvalidCoupon,
+      } = this
 
-      const { cupom_type } = this.coupon as ISingleOrderCoupon
+      if (hasNullCoupon || hasInvalidCoupon) return 0
+
+      const coupon = this.coupon as ISingleOrderCoupon
+
+      if (!coupon || ERROR_KEY in coupon) {
+        return 0
+      }
 
       const { getShippingPrice } = this
 
-      if (cupom_type === SHIPPING_NAME_TOKEN && this.hasSubsidy) {
-        return Math.max(getShippingPrice + this.subsidyDiscountPrice, 0)
+      // if (coupon.cupom_type === SHIPPING_NAME_TOKEN && this.hasSubsidy) {
+      //   return Math.max(getShippingPrice + this.subsidyDiscountPrice, 0)
+      // }
+
+      if (coupon.cupom_type === 'product_id') {
+        const {
+          productlist,
+        } = this
+
+        if (!productlist) return 0
+
+        const targetProduct = productlist.items.reduce<Nullable<CartResponseItem>>((response, product) => {
+          if (product.slug !== coupon.product_id) return response
+
+          if (isNull(response)) return product
+
+          return response.price > product.price
+            ? response
+            : product
+        }, NULL_VALUE)
+
+        return targetProduct?.price ?? 0
       }
 
-      return {
-        product_id: 0,
-        shipping: getShippingPrice,
+      const prices = {
         subtotal: this.getOrderSubtotal,
-      }[cupom_type]
+        shipping: this.hasSubsidy
+          ? Math.max(getShippingPrice + this.subsidyDiscountPrice, 0)
+          : getShippingPrice,
+      } satisfies Record<Exclude<ICouponType, 'product_id'>, number>
+
+      return prices?.[coupon.cupom_type] ?? 0
     },
 
     /**
